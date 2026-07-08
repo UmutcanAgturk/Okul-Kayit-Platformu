@@ -1,0 +1,373 @@
+// Seviye 360 — Çekirdek Veri Modeli
+//
+// Multi-tenant izolasyon stratejisi: Her satır-bazlı (row-level) tenant'a
+// bağlı tablo bir `tenantId` taşır. PostgreSQL üzerinde bu şema, her tabloda
+// `ENABLE ROW LEVEL SECURITY` + `tenant_isolation` politikasıyla (bkz.
+// prisma/rls/README.md) korunur; uygulama katmanı her istek başında
+// `SET LOCAL app.tenant_id = '<tenantId>'` çalıştırır.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// TENANT / HİYERARŞİ (Genel Merkez -> Şube -> Bölüm)
+// ---------------------------------------------------------------------------
+
+enum TenantType {
+  GENEL_MERKEZ
+  SUBE
+  BOLUM
+}
+
+model Tenant {
+  id        String     @id @default(cuid())
+  name      String // örn. "Özel Mezitli Seviye Anadolu Lisesi"
+  code      String     @unique // örn. "MEZITLI-01"
+  type      TenantType
+  city      String?
+  district  String?
+
+  parentId  String?
+  parent    Tenant?    @relation("TenantHierarchy", fields: [parentId], references: [id])
+  children  Tenant[]   @relation("TenantHierarchy")
+
+  isActive  Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  users              User[]
+  classrooms         Classroom[]
+  exams              Exam[]
+  examResults        ExamResult[]
+  studySessions      StudySession[]
+  paymentInstallments PaymentInstallment[]
+
+  @@index([parentId])
+}
+
+// ---------------------------------------------------------------------------
+// KULLANICI / ROLLER
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  SUPERADMIN
+  BRANCH_ADMIN
+  GUIDANCE_COORDINATOR
+  ACCOUNTING
+  TEACHER
+  STUDENT
+  PARENT
+}
+
+model User {
+  id           String   @id @default(cuid())
+  tenantId     String?  // SUPERADMIN için null olabilir (Genel Merkez kullanıcısı)
+  tenant       Tenant?  @relation(fields: [tenantId], references: [id])
+
+  email        String   @unique
+  phone        String?  @unique
+  passwordHash String
+  role         UserRole
+  firstName    String
+  lastName     String
+  isActive     Boolean  @default(true)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  teacherProfile TeacherProfile?
+  studentProfile StudentProfile?
+  parentProfile  ParentProfile?
+
+  @@index([tenantId, role])
+}
+
+model TeacherProfile {
+  id        String  @id @default(cuid())
+  userId    String  @unique
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  branch    String // örn. "Matematik", "Fizik" (zümre)
+  title     String? // örn. "Zümre Başkanı"
+
+  availabilitySlots   TeacherAvailabilitySlot[]
+  studySessions       StudySession[]
+
+  @@index([branch])
+}
+
+model StudentProfile {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  classroomId  String?
+  classroom    Classroom? @relation(fields: [classroomId], references: [id])
+
+  targetGoal   String? // örn. "Tıp Fakültesi"
+  studentNo    String   @unique
+
+  guardians       StudentGuardian[]
+  examResults     ExamResult[]
+  achievementRows StudentAchievementResult[]
+  studySessions   StudySession[]
+  installments    PaymentInstallment[]
+
+  @@index([classroomId])
+}
+
+model ParentProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  students StudentGuardian[]
+}
+
+// Bir öğrencinin birden fazla velisi, bir velinin birden fazla öğrencisi olabilir.
+model StudentGuardian {
+  studentId  String
+  student    StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  parentId   String
+  parent     ParentProfile  @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  relation   String // örn. "Anne", "Baba", "Vasi"
+  isBillingResponsible Boolean @default(false)
+
+  @@id([studentId, parentId])
+}
+
+model Classroom {
+  id        String  @id @default(cuid())
+  tenantId  String
+  tenant    Tenant  @relation(fields: [tenantId], references: [id])
+
+  name      String // örn. "9-A"
+  gradeLevel Int
+
+  students  StudentProfile[]
+
+  @@unique([tenantId, name])
+}
+
+// ---------------------------------------------------------------------------
+// MÜFREDAT AĞACI (Kazanımlar)
+// ---------------------------------------------------------------------------
+
+enum CurriculumNodeType {
+  SUBJECT       // Ders (örn. Matematik)
+  UNIT          // Ünite
+  TOPIC         // Konu
+  ACHIEVEMENT   // Kazanım (örn. "MAT.9.1.2.3")
+}
+
+model CurriculumNode {
+  id         String              @id @default(cuid())
+  type       CurriculumNodeType
+  code       String              @unique // MEB kazanım kodu
+  label      String
+  gradeLevel Int
+
+  parentId   String?
+  parent     CurriculumNode?     @relation("CurriculumHierarchy", fields: [parentId], references: [id])
+  children   CurriculumNode[]    @relation("CurriculumHierarchy")
+
+  examQuestions             ExamQuestion[]
+  studentAchievementResults StudentAchievementResult[]
+  studySessions             StudySession[]
+
+  @@index([parentId])
+  @@index([type, gradeLevel])
+}
+
+// ---------------------------------------------------------------------------
+// SINAV / SONUÇ
+// ---------------------------------------------------------------------------
+
+enum ExamScope {
+  BRANCH  // Tek şubeye özel
+  NETWORK // Genel Merkez tarafından tüm şubelere push edilen "Seviye 360 Deneme Sınavı"
+}
+
+enum ExamType {
+  DENEME
+  YAZILI
+  VIP_OLCME
+}
+
+model Exam {
+  id            String    @id @default(cuid())
+  tenantId      String // Network sınavlarında bu, sınavı yayınlayan Genel Merkez tenant'ıdır
+  tenant        Tenant    @relation(fields: [tenantId], references: [id])
+
+  name          String
+  type          ExamType
+  scope         ExamScope
+  bookletTypes  String[]  @default(["A", "B", "C", "D"])
+  examDate      DateTime
+
+  createdAt     DateTime  @default(now())
+
+  questions     ExamQuestion[]
+  results       ExamResult[]
+
+  @@index([tenantId, examDate])
+}
+
+model ExamQuestion {
+  id              String          @id @default(cuid())
+  examId          String
+  exam            Exam            @relation(fields: [examId], references: [id], onDelete: Cascade)
+
+  orderIndex      Int
+  achievementId   String
+  achievement     CurriculumNode  @relation(fields: [achievementId], references: [id])
+
+  // IRT (Madde Tepki Kuramı) parametreleri
+  irtDifficulty     Float? // b parametresi
+  irtDiscrimination Float? // a parametresi
+
+  @@unique([examId, orderIndex])
+  @@index([achievementId])
+}
+
+model ExamResult {
+  id            String    @id @default(cuid())
+  examId        String
+  exam          Exam      @relation(fields: [examId], references: [id])
+  tenantId      String
+  tenant        Tenant    @relation(fields: [tenantId], references: [id])
+  studentId     String
+  student       StudentProfile @relation(fields: [studentId], references: [id])
+
+  seatingRoomId String?
+  seatNo        String?
+  bookletType   String?
+
+  correctCount  Int
+  wrongCount    Int
+  emptyCount    Int
+  rawScore      Float
+  netScore      Float
+  percentile    Float?
+
+  achievementResults StudentAchievementResult[]
+
+  createdAt     DateTime  @default(now())
+
+  @@unique([examId, studentId])
+  @@index([tenantId, examId])
+}
+
+// Öğrencinin sınavdaki her kazanım için başarı durumu — "AI Sınıf Röntgeni" ısı
+// haritasının veri kaynağıdır.
+model StudentAchievementResult {
+  id             String          @id @default(cuid())
+  examResultId   String
+  examResult     ExamResult      @relation(fields: [examResultId], references: [id], onDelete: Cascade)
+  studentId      String
+  student        StudentProfile  @relation(fields: [studentId], references: [id])
+  achievementId  String
+  achievement    CurriculumNode  @relation(fields: [achievementId], references: [id])
+
+  questionCount  Int
+  correctCount   Int
+  correctRatio   Float // 0 - 1, masteryLevel bu değerden türetilir
+
+  @@unique([examResultId, achievementId])
+  @@index([studentId, achievementId])
+}
+
+// ---------------------------------------------------------------------------
+// OTOMATİK ETÜT (VIP Eğitim / StudySession)
+// ---------------------------------------------------------------------------
+
+enum StudySessionStatus {
+  AI_SUGGESTED
+  TEACHER_APPROVED
+  TEACHER_REJECTED
+  COMPLETED
+  CANCELLED
+}
+
+enum StudySessionSource {
+  AI_AUTO_ASSIGNED
+  MANUAL
+}
+
+model TeacherAvailabilitySlot {
+  id         String          @id @default(cuid())
+  teacherId  String
+  teacher    TeacherProfile  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  dayOfWeek  Int // 0=Pazartesi ... 6=Pazar
+  startTime  String // "14:00"
+  endTime    String // "14:40"
+  isBooked   Boolean @default(false)
+
+  @@index([teacherId, dayOfWeek, isBooked])
+}
+
+model StudySession {
+  id             String              @id @default(cuid())
+  tenantId       String
+  tenant         Tenant              @relation(fields: [tenantId], references: [id])
+
+  studentId      String
+  student        StudentProfile      @relation(fields: [studentId], references: [id])
+  teacherId      String
+  teacher        TeacherProfile      @relation(fields: [teacherId], references: [id])
+  achievementId  String
+  achievement    CurriculumNode      @relation(fields: [achievementId], references: [id])
+
+  status         StudySessionStatus  @default(AI_SUGGESTED)
+  source         StudySessionSource  @default(AI_AUTO_ASSIGNED)
+
+  scheduledStart DateTime
+  scheduledEnd   DateTime
+
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@index([tenantId, teacherId, scheduledStart])
+  @@index([studentId, status])
+}
+
+// ---------------------------------------------------------------------------
+// ÖDEME / TAKSİT
+// ---------------------------------------------------------------------------
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+model PaymentInstallment {
+  id                  String        @id @default(cuid())
+  tenantId            String
+  tenant              Tenant        @relation(fields: [tenantId], references: [id])
+  studentId           String
+  student             StudentProfile @relation(fields: [studentId], references: [id])
+
+  installmentNo       Int
+  amount              Decimal       @db.Decimal(10, 2)
+  dueDate             DateTime
+  paidAt              DateTime?
+  status              PaymentStatus @default(PENDING)
+
+  paymentProvider     String        @default("ParamPOS")
+  providerTransactionId String?
+
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  @@index([tenantId, status, dueDate])
+  @@index([studentId, installmentNo])
+}
