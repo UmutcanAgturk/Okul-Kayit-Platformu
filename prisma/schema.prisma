@@ -43,10 +43,13 @@ model Tenant {
 
   users              User[]
   classrooms         Classroom[]
+  enrollments        Enrollment[]
   exams              Exam[]
   examResults        ExamResult[]
   studySessions      StudySession[]
   paymentInstallments PaymentInstallment[]
+  paymentMethods     PaymentMethod[]
+  ledgerEntries      AccountingLedgerEntry[]
 
   @@index([parentId])
 }
@@ -118,6 +121,8 @@ model StudentProfile {
   achievementRows StudentAchievementResult[]
   studySessions   StudySession[]
   installments    PaymentInstallment[]
+  paymentMethods  PaymentMethod[]
+  enrollment      Enrollment?
 
   @@index([classroomId])
 }
@@ -150,9 +155,59 @@ model Classroom {
   name      String // örn. "9-A"
   gradeLevel Int
 
-  students  StudentProfile[]
+  students    StudentProfile[]
+  enrollments Enrollment[]
 
   @@unique([tenantId, name])
+}
+
+// ---------------------------------------------------------------------------
+// KAYIT (Ön Kayıt -> Normal Kayıt)
+// ---------------------------------------------------------------------------
+//
+// CRM Kanban'daki "Kayıt Oldu" statüsüne düşen bir aday, burada bir Enrollment
+// kaydı olarak somutlaşır. ON_KAYIT aşamasında henüz bir User/StudentProfile
+// yoktur (yalnızca aday bilgisi + kapora); NORMAL_KAYIT_TAMAMLANDI aşamasına
+// geçtiğinde `studentId` doldurulur ve gerçek StudentProfile oluşturulmuş olur.
+
+enum EnrollmentType {
+  ON_KAYIT      // Kapora ile yer ayırtma
+  NORMAL_KAYIT  // Sözleşme + tam kayıt
+}
+
+enum EnrollmentStage {
+  ON_KAYIT_ALINDI
+  SOZLESME_BEKLENIYOR
+  ODEME_PLANI_OLUSTURULDU
+  KAYIT_TAMAMLANDI
+  IPTAL_EDILDI
+}
+
+model Enrollment {
+  id                String            @id @default(cuid())
+  tenantId          String
+  tenant            Tenant            @relation(fields: [tenantId], references: [id])
+
+  type              EnrollmentType    @default(ON_KAYIT)
+  stage             EnrollmentStage   @default(ON_KAYIT_ALINDI)
+
+  candidateFullName String
+  candidateGradeLevel Int
+  guardianFullName  String
+  guardianPhone     String
+  targetClassroomId String?
+  targetClassroom   Classroom?        @relation(fields: [targetClassroomId], references: [id])
+
+  depositAmount     Decimal?          @db.Decimal(10, 2) // Ön kayıt kaporası
+  contractSignedAt  DateTime?
+
+  studentId         String?           @unique // Normal kayıt tamamlanınca StudentProfile'a bağlanır
+  student           StudentProfile?   @relation(fields: [studentId], references: [id])
+
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([tenantId, stage])
 }
 
 // ---------------------------------------------------------------------------
@@ -370,4 +425,66 @@ model PaymentInstallment {
 
   @@index([tenantId, status, dueDate])
   @@index([studentId, installmentNo])
+}
+
+enum PaymentMethodType {
+  KREDI_KARTI
+  BANKA_HAVALESI
+  NAKIT
+}
+
+// Velinin kayıtlı ödeme yöntemi (Dijital Cüzdan ekranındaki kayıtlı kart /
+// havale bilgisi / nakit tercihi). Kart bilgisinin kendisi ParamPOS'ta saklanır;
+// burada yalnızca maskelenmiş görüntü ve tokenize referans tutulur.
+model PaymentMethod {
+  id                  String            @id @default(cuid())
+  tenantId            String
+  tenant              Tenant            @relation(fields: [tenantId], references: [id])
+  studentId           String
+  student             StudentProfile    @relation(fields: [studentId], references: [id])
+
+  type                PaymentMethodType
+  provider            String            @default("ParamPOS")
+  maskedCardNumber    String?           // örn. "•••• •••• •••• 4831"
+  providerCardToken   String?           // ParamPOS tokenize kart referansı
+  isDefault           Boolean           @default(false)
+
+  createdAt           DateTime          @default(now())
+
+  @@index([tenantId, studentId])
+}
+
+// ---------------------------------------------------------------------------
+// MUHASEBE (Yalnızca Şube Yöneticisi ve Muhasebe rolüne açık)
+// ---------------------------------------------------------------------------
+//
+// Bu tablo, RLS tenant izolasyonuna ek olarak rol bazlı bir politika taşır:
+// yalnızca `role IN ('SUPERADMIN','BRANCH_ADMIN','ACCOUNTING')` olan
+// kullanıcılar okuyabilir/yazabilir (bkz. prisma/rls/README.md). Diğer roller
+// (TEACHER, STUDENT, PARENT, GUIDANCE_COORDINATOR) için bu tablo tamamen
+// görünmezdir — uygulama katmanında da ayrıca route/menu seviyesinde gizlenir.
+
+enum AccountingEntryType {
+  GELIR
+  GIDER
+}
+
+model AccountingLedgerEntry {
+  id            String              @id @default(cuid())
+  tenantId      String
+  tenant        Tenant              @relation(fields: [tenantId], references: [id])
+
+  type          AccountingEntryType
+  category      String              // örn. "Taksit Tahsilatı", "Kira", "Personel Maaşı"
+  amount        Decimal             @db.Decimal(10, 2)
+  entryDate     DateTime
+  note          String?
+
+  createdByUserId String            // BRANCH_ADMIN veya ACCOUNTING rolündeki User.id
+  relatedInstallmentId String?      // varsa ilgili PaymentInstallment.id
+
+  createdAt     DateTime            @default(now())
+
+  @@index([tenantId, entryDate])
+  @@index([tenantId, type])
 }
