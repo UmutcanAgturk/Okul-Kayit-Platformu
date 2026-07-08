@@ -1,0 +1,7 @@
+{
+  "name": "@seviye360/algorithms",
+  "version": "0.1.0",
+  "private": true,
+  "main": "seating/index.ts",
+  "types": "seating/index.ts"
+}
