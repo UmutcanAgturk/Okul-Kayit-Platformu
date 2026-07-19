@@ -1,0 +1,11 @@
+{
+  "name": "seviye360-demo-tests",
+  "private": true,
+  "description": "Seviye 360 demo artifact icin Playwright regresyon paketi",
+  "scripts": {
+    "test": "./run_regression.sh"
+  },
+  "devDependencies": {
+    "playwright": "1.61.1"
+  }
+}
