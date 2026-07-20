@@ -21,8 +21,15 @@ open seviye360-app.html   # macOS
 xdg-open seviye360-app.html   # Linux
 ```
 
-Veri `localStorage`'da tutulur; "Demo Verisi Yükle" butonu örnek bir şube/öğretmen/öğrenci
-seti oluşturur.
+Veri `localStorage`'da tutulur. Genel Merkez girişinden (`genel.merkez` / `seviye360`)
+sonra sağ üstte iki demo veri preset'i bulunur:
+
+- **Küçük Kurum Demosu** — tek şubeyi (12 öğrenci) gerçekçi veriyle doldurur.
+- **Büyük Zincir Demosu** — 6 kurumun tamamını (öğrenci, öğretmen, yoklama, sınav,
+  muhasebe) doldurur; çok-şubeli satış senaryoları için.
+
+Bir satış görüşmesinde hangi preset'i ne zaman kullanacağınız ve rehberli turu nasıl
+anlatacağınız için **`DEMO-SUNUM-SCRIPT.md`**'ye bakın.
 
 ## Testler
 
@@ -39,4 +46,11 @@ npm install
 
 `seviye360-app.html` üzerinde yapılacak **her değişiklikten sonra** bu script
 çalıştırılmalı — `t155_full_sync_verification.js` (tüm platform/rol senkron
-doğrulaması) paketin daimi bir parçasıdır, ayrıca hatırlanıp koşulması gerekmez.
+doğrulaması) ve `t157_seed_presets.js` (Küçük Kurum/Büyük Zincir preset doğrulaması)
+paketin daimi bir parçasıdır, ayrıca hatırlanıp koşulması gerekmez.
+
+## Diğer dokümanlar
+
+- **`PRISMA-UZLASMA.md`** — bu demo'nun veri modeli ile `prisma/schema.prisma`'daki
+  gerçek backend şeması arasındaki fark/uzlaştırma raporu.
+- **`DEMO-SUNUM-SCRIPT.md`** — rehberli turu bir satış sunumuna çeviren konuşma notları.

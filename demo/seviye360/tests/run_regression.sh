@@ -16,6 +16,7 @@ TESTS=(
   t149_a11y.js
   t150_tour.js
   t155_full_sync_verification.js
+  t157_seed_presets.js
 )
 
 pass=0

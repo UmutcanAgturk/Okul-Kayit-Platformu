@@ -1466,7 +1466,8 @@
         <span id="portal-switcher"></span>
         <span id="role-switcher"></span>
         <span id="db-badge" style="font-size:11.5px;color:var(--strong);font-weight:600;white-space:nowrap"></span>
-        <button id="db-seed-btn" title="İlk kurumu gerçekçi demo verisiyle doldur" style="border:1px solid var(--border-strong);background:var(--surface);color:var(--brand);border-radius:7px;padding:4px 9px;font-size:11.5px;cursor:pointer">Demo Verisi Yükle</button>
+        <button id="db-seed-btn" title="İlk kurumu (tek şube) gerçekçi demo verisiyle doldur" style="border:1px solid var(--border-strong);background:var(--surface);color:var(--brand);border-radius:7px;padding:4px 9px;font-size:11.5px;cursor:pointer">Küçük Kurum Demosu</button>
+        <button id="db-seed-chain-btn" title="Tüm kurumları (6 şube) gerçekçi demo verisiyle doldur" style="border:1px solid var(--border-strong);background:var(--surface);color:var(--brand);border-radius:7px;padding:4px 9px;font-size:11.5px;cursor:pointer">Büyük Zincir Demosu</button>
         <button id="db-reset-btn" title="Kaydedilen demo verisini sıfırla" style="border:1px solid var(--border-strong);background:var(--surface);color:var(--ink-faint);border-radius:7px;padding:4px 9px;font-size:11.5px;cursor:pointer">Verileri Sıfırla</button>
         <button id="tour-start-btn" title="Platformda rehberli bir tur başlat" style="display:none;align-items:center;gap:6px;border:1px solid var(--border-strong);background:var(--surface);color:var(--brand);border-radius:7px;padding:4px 9px;font-size:11.5px;cursor:pointer">Rehberli Tur</button>
         <button id="logout-btn" title="Oturumu kapat" style="border:1px solid var(--border-strong);background:var(--surface);color:var(--critical);border-radius:7px;padding:4px 9px;font-size:11.5px;cursor:pointer">Çıkış Yap</button>
@@ -1923,14 +1924,17 @@ function resetDb() {
 }
 
 /* ============================== ZENGİN DEMO VERİSİ ==============================
- * Tek tıkla, İLK kurumu (BRANCHES[0]) sınıf/öğretmen/öğrenci/sınav geçmişi/yoklama/
- * disiplin/kulüp/servis/quiz/veli görüşmesi verisiyle doldurur — böylece platform
- * ilk açıldığında tüm modüller boş değil, gerçekçi ve birbirine bağlı görünür.
- * Var olan CREATE fonksiyonlarını (createDisciplineRecord, createClub, createBusRoute,
- * createPtaRequest, runOptikScanForStudent…) kullanır, yeni bir veri modeli eklemez. */
-function seedRichDemoData() {
-  const b = BRANCHES[0];
-  if (b.demoSeeded) { showToast("Zaten yüklü", "Bu kurum için demo verisi zaten oluşturulmuş.", "x"); return; }
+ * Tek tıkla, verilen kurumu (varsayılan: BRANCHES[0]) sınıf/öğretmen/öğrenci/sınav
+ * geçmişi/yoklama/disiplin/kulüp/servis/quiz/veli görüşmesi verisiyle doldurur —
+ * böylece platform ilk açıldığında tüm modüller boş değil, gerçekçi ve birbirine
+ * bağlı görünür. Var olan CREATE fonksiyonlarını (createDisciplineRecord, createClub,
+ * createBusRoute, createPtaRequest, runOptikScanForStudent…) kullanır, yeni bir veri
+ * modeli eklemez. "Büyük Zincir" preset'i bu fonksiyonu her kurum için ayrı ayrı
+ * çağırarak çok şubeli bir sunum senaryosu üretir (bkz. seedAllBranchesDemoData). */
+function seedRichDemoData(branch, opts) {
+  const b = branch || BRANCHES[0];
+  const silent = !!(opts && opts.silent);
+  if (b.demoSeeded) { if (!silent) showToast("Zaten yüklü", "Bu kurum için demo verisi zaten oluşturulmuş.", "x"); return; }
 
   const classroomDefs = [
     { code: "9-A", gradeLevel: "9. Sınıf" },
@@ -2065,9 +2069,36 @@ function seedRichDemoData() {
     QUIZ_ATTEMPTS.unshift({ id: quizSeq, studentId: students[idx].id, subject, achievementId: null, correctCount: 2 + (i % 4), totalCount: 5, createdAt: todayStr() });
   });
 
+  // Muhasebe defteri — yalnızca bu kurum için henüz elle girilmiş bir defter yoksa
+  // (bkz. BRANCHES[0]'ın sabit örnek defteri) oluşturulur. Rakamlar tamamen bu
+  // fonksiyonun az önce ürettiği gerçek verilerden türetilir: tahsilat tutarı,
+  // öğrencilerin ödediği taksitlerin toplamıdır; personel gideri, kadronun gerçek
+  // maaş toplamıdır — hiçbir sayı ayrıca uydurulmaz.
+  if (!b.ledger.length) {
+    const collected = students.reduce((sum, s) => sum + s.paidInstallments * s.installmentAmount, 0);
+    const staffPayroll = b.staff.reduce((sum, s) => sum + (s.salary || 0), 0);
+    b.ledger.push(
+      { type: "GELIR", category: "Taksit Tahsilatı", amount: collected, date: "2026-07-01" },
+      { type: "GIDER", category: "Personel Maaşı", amount: staffPayroll, date: "2026-07-05" },
+      { type: "GIDER", category: "Kira", amount: Math.round(b.capacity * 25), date: "2026-07-05" },
+    );
+  }
+
   b.demoSeeded = true;
   persistState();
-  showToast("Demo verisi yüklendi", `${students.length} öğrenci, 2 sınav, yoklama, kulüp, servis ve daha fazlası ${b.name} için oluşturuldu.`, "check");
+  if (!silent) showToast("Demo verisi yüklendi", `${students.length} öğrenci, 2 sınav, yoklama, kulüp, servis ve daha fazlası ${b.name} için oluşturuldu.`, "check");
+  renderAll();
+}
+
+// "Büyük Zincir" satış senaryosu — seedRichDemoData'yı TÜM kurumlar için ayrı ayrı
+// çalıştırır (her kurum kendi öğretmen/öğrenci/sınav/yoklama geçmişine sahip olur).
+// Kullanıcı adları uniqueStaffUsername/uniqueGuardianUsername ile zaten kurumlar
+// arasında global olarak benzersizleştirildiği için yeni bir çakışma-önleme
+// mantığına gerek yok — var olan tek-kurum seed'ini olduğu gibi tekrar kullanır.
+function seedAllBranchesDemoData() {
+  if (BRANCHES.every(b => b.demoSeeded)) { showToast("Zaten yüklü", "Tüm kurumlar için demo verisi zaten oluşturulmuş.", "x"); return; }
+  BRANCHES.forEach(b => seedRichDemoData(b, { silent: true }));
+  showToast("Büyük zincir demo verisi yüklendi", `${BRANCHES.length} kurumun tamamı öğrenci/öğretmen/sınav/yoklama verisiyle dolduruldu.`, "check");
   renderAll();
 }
 
@@ -13669,7 +13700,8 @@ updateDbBadge();
 document.querySelectorAll("[data-platform-btn]").forEach(btn => btn.addEventListener("click", () => setPlatformMode(btn.dataset.platformBtn)));
 document.addEventListener("click", (e) => { if (e.target.closest(".theme-toggle-btn")) toggleTheme(); });
 document.getElementById("db-reset-btn").addEventListener("click", resetDb);
-document.getElementById("db-seed-btn").addEventListener("click", seedRichDemoData);
+document.getElementById("db-seed-btn").addEventListener("click", () => seedRichDemoData());
+document.getElementById("db-seed-chain-btn").addEventListener("click", seedAllBranchesDemoData);
 document.getElementById("logout-btn").addEventListener("click", logout);
 document.getElementById("student-drawer-close").addEventListener("click", closeStudentDetail);
 document.getElementById("student-scrim").addEventListener("click", closeStudentDetail);
