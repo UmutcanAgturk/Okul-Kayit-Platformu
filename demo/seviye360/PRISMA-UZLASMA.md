@@ -94,6 +94,16 @@ taksit-başına-satır modeli doğru ve production-ready; demo'nun sayaç yakla�
 backend'e geçişte demo'nun bu kısmı **birebir taşınmamalı**, Prisma'nın modeli esas
 alınmalı.
 
+> **Güncelleme:** Bu madde artık yalnızca bir öneri değil — gerçek bir PostgreSQL
+> veritabanına karşı uçtan uca inşa edildi. Bkz. kök `README.md`'deki "Yerel
+> Geliştirme (Veritabanı)" bölümü: gerçek bir `prisma migrate dev` migration'ı
+> (`prisma/migrations/20260721152831_init`), bir tahsilat API'si
+> (`apps/web/app/api/branch/payment-installments/[installmentId]/collect`) ve
+> bunu 13 senaryoyla doğrulayan bir entegrasyon testi
+> (`apps/web/scripts/test-payment-installments.mjs`). Bu, depodaki gerçek bir
+> veritabanına bağlanan **ilk** özellik — `apps/web`'deki diğer tüm route'lar
+> (AI Sınıf Röntgeni dahil) hâlâ mock veri döndürüyor.
+
 ## 7. Muhasebe
 
 | | Prisma | Demo |

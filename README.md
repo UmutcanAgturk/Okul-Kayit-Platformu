@@ -42,3 +42,38 @@ seviye-360/
 2. Prisma şeması: `Tenant`, `User`, `CurriculumTree`, `Exam` / `ExamResult`, `StudySession`, `PaymentInstallment`.
 3. Sınav salonu oturma düzeni (Seating) algoritması.
 4. AI Otomatik Etüt Atama servisi (NestJS + Kafka/RabbitMQ event listener).
+5. **Taksit Tahsilatı API'si** (`apps/web/app/api/branch/payment-installments/[installmentId]/collect`) —
+   gerçek bir PostgreSQL veritabanına karşı çalışan ilk uçtan uca özellik: bir
+   `PaymentInstallment` satırını `PAID` işaretler ve karşılığında bağlantılı
+   (`relatedInstallmentId`) bir `AccountingLedgerEntry` oluşturur. Bkz. aşağıdaki
+   "Yerel Geliştirme" bölümü.
+
+## Yerel Geliştirme (Veritabanı)
+
+Bu depodaki diğer tüm ekranlar/route'lar (`apps/web/app/api/teacher/...` dahil)
+şu ana kadar bilinçli olarak **mock veri** kullanıyordu (bkz. route dosyalarındaki
+"Mockup endpoint" notu). Taksit Tahsilatı API'si ise gerçek bir Postgres'e karşı
+çalışan **ilk** özellik. Yerelde çalıştırmak için:
+
+```bash
+# 1) PostgreSQL'i başlat (Debian/Ubuntu örneği; kendi ortamınıza göre uyarlayın)
+pg_ctlcluster 16 main start
+sudo -u postgres psql -c "CREATE USER seviye360 WITH PASSWORD 'seviye360dev' CREATEDB;"
+sudo -u postgres psql -c "CREATE DATABASE seviye360 OWNER seviye360;"
+
+# 2) apps/web/.env dosyasına DATABASE_URL ekleyin
+echo 'DATABASE_URL="postgresql://seviye360:seviye360dev@localhost:5432/seviye360?schema=public"' > apps/web/.env
+
+# 3) Bağımlılıkları kurun, migration'ı uygulayın, demo veri yükleyin
+cd apps/web
+npm install
+npx prisma migrate dev   # prisma/migrations altındaki mevcut migration'ı uygular
+npx tsx ../../prisma/seed.ts   # 1 kurum, 1 öğrenci, 9 taksit (ilk 2'si ödenmiş) oluşturur
+
+# 4) Next.js sunucusunu başlatın
+npm run dev
+
+# 5) (ayrı bir terminalde) uçtan uca entegrasyon testini çalıştırın
+DATABASE_URL="postgresql://seviye360:seviye360dev@localhost:5432/seviye360?schema=public" \
+  node scripts/test-payment-installments.mjs
+```
