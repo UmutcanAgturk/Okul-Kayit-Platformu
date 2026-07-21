@@ -115,6 +115,13 @@ alınmalı.
 gerçek backend'e geçerken bu, Prisma'nın önerdiği **veritabanı seviyesi RLS** ile
 değiştirilmeli — istemci tarafı gizleme tek başına bir güvenlik sınırı değildir.
 
+> **Güncelleme:** RLS artık gerçek bir Postgres'e uygulandı ve test edildi —
+> bkz. `prisma/rls/README.md`'deki "Uygulanma Durumu" bölümü. Orada da not
+> edildiği gibi, bugünkü taksit tahsilatı API'si henüz RLS'e tabi olmayan
+> (`BYPASSRLS`) bir rolle bağlandığı için politikaların kendisi doğrulanmış
+> olsa da API'nin bağlantı katmanı henüz bunlardan gerçekten faydalanmıyor —
+> bu ayrı, sonraki bir adım.
+
 ## 8. Etüt (StudySession / VIP Eğitim)
 
 | | Prisma | Demo |

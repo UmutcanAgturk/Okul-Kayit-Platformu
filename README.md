@@ -47,6 +47,11 @@ seviye-360/
    `PaymentInstallment` satırını `PAID` işaretler ve karşılığında bağlantılı
    (`relatedInstallmentId`) bir `AccountingLedgerEntry` oluşturur. Bkz. aşağıdaki
    "Yerel Geliştirme" bölümü.
+6. **Row-Level Security** (`prisma/migrations/20260721154601_add_rls_policies`) —
+   `prisma/rls/README.md`'de tarif edilen tenant izolasyonu ve Muhasebe rol
+   kısıtlaması artık gerçek bir Postgres'e uygulanmış ve test edilmiş durumda
+   (bkz. `apps/web/scripts/test-rls-isolation.mjs`). Bilinen bir sonraki adım
+   için `prisma/rls/README.md`'deki "Uygulanma Durumu" notuna bakın.
 
 ## Yerel Geliştirme (Veritabanı)
 
@@ -58,22 +63,27 @@ Bu depodaki diğer tüm ekranlar/route'lar (`apps/web/app/api/teacher/...` dahil
 ```bash
 # 1) PostgreSQL'i başlat (Debian/Ubuntu örneği; kendi ortamınıza göre uyarlayın)
 pg_ctlcluster 16 main start
-sudo -u postgres psql -c "CREATE USER seviye360 WITH PASSWORD 'seviye360dev' CREATEDB;"
+sudo -u postgres psql -c "CREATE USER seviye360 WITH PASSWORD 'seviye360dev' CREATEDB CREATEROLE BYPASSRLS;"
 sudo -u postgres psql -c "CREATE DATABASE seviye360 OWNER seviye360;"
+# CREATEROLE + BYPASSRLS, bu rolün migration sırasında app_role/superadmin_role'ü
+# oluşturabilmesi için gerekli (bkz. prisma/rls/README.md) — yalnızca yerel
+# geliştirme/migration rolü için kabul edilebilir, üretimde ayrı rollere bölünmeli.
 
-# 2) apps/web/.env dosyasına DATABASE_URL ekleyin
-echo 'DATABASE_URL="postgresql://seviye360:seviye360dev@localhost:5432/seviye360?schema=public"' > apps/web/.env
+# 2) Kökte ve apps/web'de DATABASE_URL içeren birer .env dosyası oluşturun
+echo 'DATABASE_URL="postgresql://seviye360:seviye360dev@localhost:5432/seviye360?schema=public"' > .env
+cp .env apps/web/.env
 
-# 3) Bağımlılıkları kurun, migration'ı uygulayın, demo veri yükleyin
+# 3) Kök bağımlılıkları kurun (yalnızca prisma CLI + seed script'i için)
+npm install
+npx prisma migrate dev   # prisma/migrations altındaki tüm migration'ları (şema + RLS) uygular
+npm run seed             # 2 kurum (Mezitli/Mersin, Çankaya/Ankara), her birine öğrenci; Mezitli'de 9 taksit (ilk 2'si ödenmiş)
+
+# 4) apps/web bağımlılıklarını kurup Next.js sunucusunu başlatın
 cd apps/web
 npm install
-npx prisma migrate dev   # prisma/migrations altındaki mevcut migration'ı uygular
-npx tsx ../../prisma/seed.ts   # 1 kurum, 1 öğrenci, 9 taksit (ilk 2'si ödenmiş) oluşturur
-
-# 4) Next.js sunucusunu başlatın
 npm run dev
 
-# 5) (ayrı bir terminalde) uçtan uca entegrasyon testini çalıştırın
-DATABASE_URL="postgresql://seviye360:seviye360dev@localhost:5432/seviye360?schema=public" \
-  node scripts/test-payment-installments.mjs
+# 5) (ayrı bir terminalde) entegrasyon testlerini çalıştırın
+node scripts/test-payment-installments.mjs   # taksit tahsilatı API'si
+node scripts/test-rls-isolation.mjs          # RLS: tenant izolasyonu + Muhasebe rol kısıtlaması
 ```

@@ -118,10 +118,88 @@ async function main() {
     }
   }
 
+  // İkinci bir şube (farklı şehir/tenant) — tek başına taksit testi için
+  // gerekli değildi, ama Row-Level Security'nin gerçekten tenant'lar arası
+  // izolasyon sağladığını kanıtlamak için ikinci bir tenant'a ait veri şart
+  // (bkz. prisma/rls, scripts/test-rls-isolation.mjs).
+  const cankaya = await prisma.tenant.upsert({
+    where: { code: "CANKAYA-01" },
+    update: {},
+    create: {
+      name: "Özel Çankaya Seviye Kurs Merkezi",
+      code: "CANKAYA-01",
+      type: TenantType.SUBE,
+      city: "Ankara",
+      district: "Çankaya",
+      parentId: genelMerkez.id,
+    },
+  });
+
+  const cankayaAdminUser = await prisma.user.upsert({
+    where: { email: "onur.kaya@seviye360.com" },
+    update: {},
+    create: {
+      tenantId: cankaya.id,
+      email: "onur.kaya@seviye360.com",
+      passwordHash: "dev-only-not-a-real-hash",
+      role: UserRole.BRANCH_ADMIN,
+      firstName: "Onur",
+      lastName: "Kaya",
+    },
+  });
+
+  const cankayaStudentUser = await prisma.user.upsert({
+    where: { email: "mehmet.kaya@ogrenci.seviye360.com" },
+    update: {},
+    create: {
+      tenantId: cankaya.id,
+      email: "mehmet.kaya@ogrenci.seviye360.com",
+      passwordHash: "dev-only-not-a-real-hash",
+      role: UserRole.STUDENT,
+      firstName: "Mehmet",
+      lastName: "Kaya",
+    },
+  });
+
+  const cankayaClassroom = await prisma.classroom.upsert({
+    where: { tenantId_name: { tenantId: cankaya.id, name: "10-A" } },
+    update: {},
+    create: { tenantId: cankaya.id, name: "10-A", gradeLevel: GradeLevel.SINIF_10 },
+  });
+
+  const cankayaStudent = await prisma.studentProfile.upsert({
+    where: { studentNo: "201002" },
+    update: {},
+    create: {
+      tenantId: cankaya.id,
+      userId: cankayaStudentUser.id,
+      gradeLevel: GradeLevel.SINIF_10,
+      classroomId: cankayaClassroom.id,
+      studentNo: "201002",
+    },
+  });
+
+  const cankayaLedgerCount = await prisma.accountingLedgerEntry.count({ where: { tenantId: cankaya.id } });
+  if (cankayaLedgerCount === 0) {
+    await prisma.accountingLedgerEntry.create({
+      data: {
+        tenantId: cankaya.id,
+        type: "GELIR",
+        category: "Taksit Tahsilatı",
+        amount: 15000,
+        entryDate: new Date(),
+        createdByUserId: cankayaAdminUser.id,
+      },
+    });
+  }
+
   console.log("Seed tamamlandı:");
-  console.log("  Şube (Tenant):", mezitli.id, mezitli.name);
-  console.log("  Öğrenci (StudentProfile):", student.id, "-", studentUser.firstName, studentUser.lastName);
-  console.log("  Şube Yöneticisi (User):", branchAdminUser.id, "-", branchAdminUser.email);
+  console.log("  Şube 1 (Tenant):", mezitli.id, mezitli.name);
+  console.log("  Öğrenci 1 (StudentProfile):", student.id, "-", studentUser.firstName, studentUser.lastName);
+  console.log("  Şube Yöneticisi 1 (User):", branchAdminUser.id, "-", branchAdminUser.email);
+  console.log("  Şube 2 (Tenant):", cankaya.id, cankaya.name);
+  console.log("  Öğrenci 2 (StudentProfile):", cankayaStudent.id, "-", cankayaStudentUser.firstName, cankayaStudentUser.lastName);
+  console.log("  Şube Yöneticisi 2 (User):", cankayaAdminUser.id, "-", cankayaAdminUser.email);
 }
 
 main()

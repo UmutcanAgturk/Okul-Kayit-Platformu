@@ -32,3 +32,24 @@ CREATE POLICY tenant_and_role_isolation ON "AccountingLedgerEntry"
 ```
 
 Bu sayede `TEACHER`, `STUDENT`, `PARENT` ve `GUIDANCE_COORDINATOR` rolündeki bir kullanıcı, aynı tenant'a ait olsa bile Muhasebe kayıtlarını hiçbir zaman sorgulayamaz — veritabanı seviyesinde garanti edilir, sadece UI'da gizlenmiş olmaz.
+
+## Uygulanma Durumu
+
+Bu politikalar artık yalnızca bir tasarım değil — `prisma/migrations/20260721154601_add_rls_policies`
+ile gerçek bir PostgreSQL'e uygulandı ve `apps/web/scripts/test-rls-isolation.mjs`
+ile 8 senaryoda doğrulandı (tenant değiştirince görünen veri değişiyor, `app.tenant_id`
+set edilmemişse hiçbir satır görünmüyor, yanlış tenant'a INSERT engelleniyor,
+`TEACHER` Muhasebe'yi göremiyor ama `BRANCH_ADMIN` görüyor, `superadmin_role`
+her şeyi bypass ediyor).
+
+**Bilinen boşluk:** `apps/web`'in taksit tahsilatı API'si (bkz.
+`demo/seviye360/PRISMA-UZLASMA.md`) şu an DB'ye migration/geliştirme rolü olan
+`seviye360` ile bağlanıyor — bu rol, `superadmin_role`'ü oluşturabilmek için
+migration sırasında `BYPASSRLS` verildiğinden, **RLS'i tamamen atlıyor**. Yani
+API bugün çalışıyor ama bunu RLS'in izin vermesinden değil, bağlandığı rolün
+RLS'den muaf olmasından dolayı yapıyor. Üretime geçmeden önce şunlar ayrılmalı:
+migration'ları çalıştıran rol (BYPASSRLS gerekebilir) ile uygulamanın istek
+başına bağlandığı rol (`app_role`/`superadmin_role`, her istekte
+`SET LOCAL app.tenant_id`/`app.role` ile) birbirinden kesin çizgilerle
+ayrılmalı. Bu, RLS politikalarının kendisinin değil, **uygulamanın bağlantı
+katmanının** henüz yapılmamış bir sonraki adımıdır.
