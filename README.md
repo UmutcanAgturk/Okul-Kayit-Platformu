@@ -61,6 +61,17 @@ seviye-360/
    taksit tahsilatındaki deseni (gerçek DB + RLS + oturum tabanlı kimlik)
    tekrarlayan, bir öğretmenin yapay zekanın önerdiği (`AI_SUGGESTED`) bir etüt
    seansını onaylayıp/reddedebildiği ikinci uçtan uca özellik.
+9. **Oturum iptali (session revocation)** (`prisma/migrations/20260722130645_add_user_sessions`,
+   `apps/web/app/api/auth/logout-all`) — imzalı bir JWT'nin 7 günlük geçerlilik
+   süresi artık tek başına yeterli değil; her giriş bir `UserSession` satırı
+   oluşturur ve bu satır iptal edilirse (logout) veya süresi dolarsa erişim
+   hemen kesilir. `/api/auth/logout-all`, çalınmış bir token'a karşı "acil
+   durum" düğmesidir — bir hesabın TÜM cihazlardaki oturumlarını tek seferde
+   iptal eder.
+10. **Üçüncü gerçek modül: AI Sınıf Röntgeni** (`apps/web/app/api/teacher/exams/[examId]/class-xray`) —
+    artık sabit mock veri yerine gerçek `Exam`/`ExamResult`/`StudentAchievementResult`
+    tablolarından, aynı gerçek DB + RLS + oturum deseniyle üretilen bir
+    kazanım ısı haritası.
 
 ## Yerel Geliştirme (Veritabanı)
 
@@ -104,12 +115,25 @@ npm run dev
 
 # 6) (ayrı bir terminalde) entegrasyon testlerini çalıştırın
 node scripts/test-auth.mjs                   # /api/auth/login ve /logout
+node scripts/test-session-revocation.mjs     # oturum iptali: çoklu cihaz, logout-all, süre dolması
 node scripts/test-payment-installments.mjs   # taksit tahsilatı API'si (login + tenant izolasyonu + yetki kontrolü)
 node scripts/test-study-sessions.mjs         # etüt onay/red API'si (login + tenant izolasyonu + yetki kontrolü)
+node scripts/test-class-xray.mjs             # AI Sınıf Röntgeni API'si (login + tenant izolasyonu + yetki kontrolü)
 node scripts/test-rls-isolation.mjs          # RLS: tenant izolasyonu + Muhasebe rol kısıtlaması (ham DB seviyesinde)
 ```
+
+> Not: `prisma/schema.prisma` her değiştiğinde (yeni model/migration), hem
+> kökte hem `apps/web` içinde AYRI birer `node_modules/@prisma/client` kopyası
+> bulunduğundan (iki bağımsız npm projesi), `npx prisma generate` yalnızca
+> kökteki kopyayı günceller. `apps/web`'in çalışan Next.js sunucusu güncel
+> modelleri görsün diye, üretilen `.prisma/client` ve `@prisma/client`
+> dosyalarını `apps/web/node_modules/` altına da kopyalamanız ve `npm run dev`
+> sunucusunu yeniden başlatmanız gerekir.
 
 Tüm seed kullanıcılarının şifresi aynıdır (`prisma/seed.ts`'deki `SEED_DEV_PASSWORD`,
 şu an `seviye360dev-pw`) — örn. `merve.aslan@seviye360.com` (Mezitli şube
 yöneticisi), `onur.kaya@seviye360.com` (Çankaya şube yöneticisi),
-`ayse.demir@seviye360.com` (öğretmen), `elif.yilmaz@ogrenci.seviye360.com` (öğrenci).
+`ayse.demir@seviye360.com` (öğretmen), `elif.yilmaz@ogrenci.seviye360.com` (öğrenci,
+9-A). AI Sınıf Röntgeni'ni test edebilmek için 9-A'da 3 öğrenci daha var:
+`ahmet.yilmaz@ogrenci.seviye360.com`, `zeynep.kaya@ogrenci.seviye360.com`,
+`mehmet.demir@ogrenci.seviye360.com` (hepsi aynı şifreyle).

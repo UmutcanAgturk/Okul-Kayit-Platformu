@@ -7,10 +7,11 @@ modelini karşılaştırır. Amaç: demo'da kanıtlanmış iş akışlarından h
 model kasıtlı olarak farklı tasarım kararları içerdiğini netleştirmek — böylece gerçek
 backend'e geçişte hangi alanların taşınacağına bilinçli karar verilebilir.
 
-**Kapsam notu:** `apps/web` şu an yalnızca demo'daki ~30 modülden **birini** (Öğretmen
-Portalı → AI Sınıf Röntgeni) gerçek Next.js bileşenleri + bir API route ile
-implemente ediyor. Aşağıdaki karşılaştırma bu nedenle çoğunlukla **şema ↔ demo veri
-şekli** düzeyinde; gerçek UI/route karşılaştırması yalnızca Sınıf Röntgeni için mümkün.
+**Kapsam notu:** `apps/web` şu an demo'daki ~30 modülden **üçünü** (taksit tahsilatı,
+Etüt onay/red, AI Sınıf Röntgeni) gerçek bir PostgreSQL'e + RLS'ye + oturum tabanlı
+kimliğe karşı çalışan gerçek API route'larıyla implemente ediyor. Aşağıdaki
+karşılaştırma bu nedenle çoğunlukla **şema ↔ demo veri şekli** düzeyinde; gerçek
+UI/route karşılaştırması yalnızca bu üç modül için mümkün.
 
 ---
 
@@ -80,6 +81,17 @@ tamamen silinmiş olan salon/kitapçık oturma özelliğinin alanlarını taşı
 "gelecekte geri gelebilir" notuyla bırakılmalı — şu haliyle şema, artık geçerli
 olmayan bir ürün kararını yansıtıyor.
 
+> **Güncelleme — AI Sınıf Röntgeni artık gerçek veriye bağlı:** Bu bölümün en üstünde
+> anlatılan `Exam`/`ExamQuestion`/`ExamResult`/`StudentAchievementResult` zinciri artık
+> yalnızca bir şema değil — `apps/web/app/api/teacher/exams/[examId]/class-xray`,
+> sabit mock veri üretmek yerine bu tablolardan gerçek bir kazanım ısı haritası
+> hesaplıyor (taksit tahsilatı ve Etüt onay/red'deki aynı gerçek DB + RLS + oturum
+> tabanlı kimlik deseniyle). `apps/web/scripts/test-class-xray.mjs` bunu 16 senaryoyla
+> doğruluyor; bir Playwright taramasıyla da gerçek tarayıcıda ısı haritasının seed
+> verisiyle (ör. Elif Yılmaz'ın net 12.5, "Hareket ve Kuvvet" kazanımının sınıf
+> ortalaması %40 ile "ortak kritik eksik" olarak işaretlenmesi) birebir eşleştiği
+> doğrulandı.
+
 ## 6. Ödeme / Taksit / Ödeme Yöntemi
 
 | | Prisma | Demo |
@@ -99,10 +111,10 @@ alınmalı.
 > Geliştirme (Veritabanı)" bölümü: gerçek bir `prisma migrate dev` migration'ı
 > (`prisma/migrations/20260721152831_init`), bir tahsilat API'si
 > (`apps/web/app/api/branch/payment-installments/[installmentId]/collect`) ve
-> bunu 13 senaryoyla doğrulayan bir entegrasyon testi
+> bunu 21 senaryoyla doğrulayan bir entegrasyon testi
 > (`apps/web/scripts/test-payment-installments.mjs`). Bu, depodaki gerçek bir
-> veritabanına bağlanan **ilk** özellik — `apps/web`'deki diğer tüm route'lar
-> (AI Sınıf Röntgeni dahil) hâlâ mock veri döndürüyor.
+> veritabanına bağlanan **ilk** özellik oldu; ikinci ve üçüncü özellikler
+> (Etüt onay/red, AI Sınıf Röntgeni) aşağıda bölüm 5 ve 8'de anlatılıyor.
 
 ## 7. Muhasebe
 
@@ -121,7 +133,12 @@ değiştirilmeli — istemci tarafı gizleme tek başına bir güvenlik sınır�
 > tam RLS'e tabi `app_role`/`superadmin_role` ile çalışıyor; tenant/rol bağlamı
 > istemcinin beyanından değil, `/api/auth/login` ile alınan gerçek bir oturum
 > çerezinden türetiliyor. Önceden ayrıca not edilen "gerçek kimlik doğrulama
-> yok" boşluğu da kapandı — bkz. `prisma/rls/README.md`'deki güncelleme.
+> yok" boşluğu da kapandı — bkz. `prisma/rls/README.md`'deki güncelleme. Bu
+> oturumlar artık tek başına bir JWT'nin geçerlilik süresine güvenmiyor: her
+> giriş bir `UserSession` satırı oluşturuyor ve bu satır `/api/auth/logout`
+> (tek cihaz) veya `/api/auth/logout-all` (tüm cihazlar) ile iptal
+> edilebiliyor — `apps/web/scripts/test-session-revocation.mjs` ile 18
+> senaryoda doğrulandı.
 
 ## 8. Etüt (StudySession / VIP Eğitim)
 

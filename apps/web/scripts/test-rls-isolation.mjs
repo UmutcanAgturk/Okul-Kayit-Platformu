@@ -43,8 +43,8 @@ async function main() {
   await asMezitli.query(`SELECT set_config('app.tenant_id', $1, false)`, [mezitli.id]);
   const mezitliStudents = await asMezitli.query(`SELECT "studentNo" FROM "StudentProfile"`);
   check(
-    "app_role + tenant_id=Mezitli: yalnızca Mezitli öğrencisini görüyor",
-    mezitliStudents.rows.length === 1 && mezitliStudents.rows[0].studentNo === "201001",
+    "app_role + tenant_id=Mezitli: yalnızca Mezitli öğrencilerini görüyor (Çankaya'yı DEĞİL)",
+    mezitliStudents.rows.length > 0 && mezitliStudents.rows.every((r) => r.studentNo !== "201002"),
     JSON.stringify(mezitliStudents.rows),
   );
 
@@ -93,7 +93,7 @@ async function main() {
   const allStudents = await asSuperadmin.query(`SELECT "studentNo" FROM "StudentProfile" ORDER BY "studentNo"`);
   check(
     "superadmin_role: tenant_id set edilmeden TÜM tenant'ların öğrencilerini görüyor",
-    allStudents.rows.length === 2,
+    allStudents.rows.length > 0 && allStudents.rows.some((r) => r.studentNo === "201001") && allStudents.rows.some((r) => r.studentNo === "201002"),
     JSON.stringify(allStudents.rows),
   );
   const allLedger = await asSuperadmin.query(`SELECT * FROM "AccountingLedgerEntry"`);

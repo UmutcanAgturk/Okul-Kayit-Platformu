@@ -30,7 +30,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: "E-posta veya şifre hatalı" }, { status: 401 });
   }
 
-  const token = createSessionToken(user.id);
+  const session = await prisma.userSession.create({
+    data: { userId: user.id, expiresAt: new Date(Date.now() + SESSION_TTL_SECONDS * 1000) },
+  });
+  const token = createSessionToken(user.id, session.id);
   const response = NextResponse.json({
     user: { id: user.id, email: user.email, role: user.role, firstName: user.firstName, lastName: user.lastName },
   });

@@ -17,15 +17,15 @@ export function verifyPassword(plain: string, hash: string): Promise<boolean> {
   return bcrypt.compare(plain, hash);
 }
 
-export function createSessionToken(userId: string): string {
-  return jwt.sign({ sub: userId }, JWT_SECRET, { expiresIn: SESSION_TTL_SECONDS });
+export function createSessionToken(userId: string, sessionId: string): string {
+  return jwt.sign({ sub: userId, sid: sessionId }, JWT_SECRET, { expiresIn: SESSION_TTL_SECONDS });
 }
 
-export function verifySessionToken(token: string): { userId: string } | null {
+export function verifySessionToken(token: string): { userId: string; sessionId: string } | null {
   try {
     const payload = jwt.verify(token, JWT_SECRET) as jwt.JwtPayload;
-    if (typeof payload.sub !== "string") return null;
-    return { userId: payload.sub };
+    if (typeof payload.sub !== "string" || typeof payload.sid !== "string") return null;
+    return { userId: payload.sub, sessionId: payload.sid };
   } catch {
     return null;
   }

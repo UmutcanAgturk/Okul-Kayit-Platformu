@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { UserRole } from "@prisma/client";
+import { getSessionActor } from "@/lib/session";
+import { withTenantContext } from "@/lib/db-context";
 import type {
   AchievementColumn,
   ClassXRayResponse,
@@ -7,39 +10,14 @@ import type {
 } from "@/types/xray";
 
 /**
- * Mockup endpoint — FAZ 1 demo verisi.
- * Prodüksiyonda bu route, Assessment mikroservisinin
- * `GET /internal/exams/:examId/class-xray` uç noktasına proxy yapar
- * (bkz. IRT tabanlı kazanım analiz motoru).
+ * AI Sınıf Röntgeni — üçüncü gerçek modül. Taksit tahsilatı ve Etüt onay/red
+ * API'lerindeki deseni (gerçek Postgres + RLS + oturum tabanlı kimlik)
+ * tekrarlar: artık sabit mock veri üretmiyor, `Exam` / `ExamQuestion` /
+ * `ExamResult` / `StudentAchievementResult` tablolarından gerçek bir kazanım
+ * ısı haritası hesaplıyor. Prodüksiyonda bu route muhtemelen Assessment
+ * mikroservisinin (IRT motoru) önünde ince bir proxy/agregasyon katmanı
+ * olurdu; burada doğrudan Prisma ile hesaplanıyor.
  */
-
-const ACHIEVEMENTS: AchievementColumn[] = [
-  { achievementId: "a1", code: "MAT.9.1.2.3", label: "Rasyonel Sayılar", subject: "Matematik" },
-  { achievementId: "a2", code: "MAT.9.2.1.1", label: "Denklem Kurma", subject: "Matematik" },
-  { achievementId: "a3", code: "FIZ.9.3.1.4", label: "Hareket ve Kuvvet", subject: "Fizik" },
-  { achievementId: "a4", code: "KIM.9.1.4.2", label: "Atom Modelleri", subject: "Kimya" },
-  { achievementId: "a5", code: "TUR.9.4.2.1", label: "Paragrafta Anlam", subject: "Türkçe" },
-  { achievementId: "a6", code: "TAR.9.2.3.1", label: "Osmanlı Kuruluş Dönemi", subject: "Tarih" },
-];
-
-const STUDENT_NAMES = [
-  "Ahmet Yılmaz",
-  "Zeynep Kaya",
-  "Mehmet Demir",
-  "Elif Şahin",
-  "Emre Çelik",
-  "Ayşe Aydın",
-  "Burak Arslan",
-  "Deniz Koç",
-];
-
-function seededRandom(seed: number) {
-  let value = seed;
-  return () => {
-    value = (value * 9301 + 49297) % 233280;
-    return value / 233280;
-  };
-}
 
 function ratioToMastery(ratio: number): MasteryLevel {
   if (ratio < 0.4) return "CRITICAL";
@@ -47,75 +25,147 @@ function ratioToMastery(ratio: number): MasteryLevel {
   return "STRONG";
 }
 
-function buildMockClassXRay(examId: string, classroomId: string): ClassXRayResponse {
-  const random = seededRandom(examId.length * 31 + classroomId.length * 7 + 1);
-
-  const students: StudentRow[] = STUDENT_NAMES.map((fullName, studentIdx) => {
-    const cells = ACHIEVEMENTS.map((achievement) => {
-      const ratio = Math.min(1, Math.max(0, random() * 1.1 - studentIdx * 0.02));
-      return {
-        achievementId: achievement.achievementId,
-        studentId: `s-${studentIdx + 1}`,
-        masteryLevel: ratioToMastery(ratio),
-        correctRatio: Number(ratio.toFixed(2)),
-        questionCount: 5,
-      };
-    });
-
-    const overallNet = Number(
-      (cells.reduce((sum, c) => sum + c.correctRatio, 0) / cells.length * 20).toFixed(1),
-    );
-
-    return { studentId: `s-${studentIdx + 1}`, fullName, overallNet, cells };
-  });
-
-  const achievementAverages = ACHIEVEMENTS.map((achievement) => {
-    const values = students.flatMap((s) =>
-      s.cells.filter((c) => c.achievementId === achievement.achievementId).map((c) => c.correctRatio),
-    );
-    const avg = values.reduce((a, b) => a + b, 0) / values.length;
-    return { achievement, avg };
-  });
-
-  const weakest = achievementAverages.reduce((a, b) => (a.avg < b.avg ? a : b));
-  const strongest = achievementAverages.reduce((a, b) => (a.avg > b.avg ? a : b));
-
-  return {
-    examId,
-    examName: "Seviye 360 - 9. Sınıf Genel Deneme #4",
-    classroomId,
-    classroomName: "9-A",
-    generatedAt: new Date().toISOString(),
-    achievementColumns: ACHIEVEMENTS,
-    students,
-    classSummary: {
-      averageNet: Number(
-        (students.reduce((sum, s) => sum + s.overallNet, 0) / students.length).toFixed(1),
-      ),
-      weakestAchievement: {
-        achievementId: weakest.achievement.achievementId,
-        label: weakest.achievement.label,
-        classAverageRatio: Number(weakest.avg.toFixed(2)),
-      },
-      strongestAchievement: {
-        achievementId: strongest.achievement.achievementId,
-        label: strongest.achievement.label,
-        classAverageRatio: Number(strongest.avg.toFixed(2)),
-      },
-    },
-  };
+// CurriculumNode'da ayrı bir "subject" alanı yok — MEB kazanım kodu
+// (örn. "MAT.9.1.2.3") kuralı gereği ders, kodun ilk parçasından türetilir.
+const SUBJECT_LABELS: Record<string, string> = {
+  MAT: "Matematik",
+  FIZ: "Fizik",
+  KIM: "Kimya",
+  BIY: "Biyoloji",
+  TUR: "Türkçe",
+  TAR: "Tarih",
+  ING: "İngilizce",
+};
+function subjectFromCode(code: string): string {
+  const prefix = code.split(".")[0];
+  return SUBJECT_LABELS[prefix] ?? prefix;
 }
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { examId: string } },
 ) {
-  const classroomId = request.nextUrl.searchParams.get("classroomId") ?? "unknown";
-
-  if (!params.examId) {
-    return NextResponse.json({ message: "examId zorunludur" }, { status: 400 });
+  const actor = await getSessionActor(request);
+  if (!actor) {
+    return NextResponse.json({ message: "Oturum bulunamadı" }, { status: 401 });
+  }
+  if (actor.role !== UserRole.TEACHER) {
+    return NextResponse.json({ message: "Bu kaynağa erişim yetkiniz yok" }, { status: 403 });
   }
 
-  const data = buildMockClassXRay(params.examId, classroomId);
+  const classroomId = request.nextUrl.searchParams.get("classroomId");
+  if (!params.examId || !classroomId) {
+    return NextResponse.json({ message: "examId ve classroomId zorunludur" }, { status: 400 });
+  }
+
+  const data = await withTenantContext(
+    { tenantId: actor.tenantId, role: actor.role },
+    async (tx): Promise<ClassXRayResponse | null> => {
+      const classroom = await tx.classroom.findUnique({ where: { id: classroomId } });
+      if (!classroom) return null;
+
+      const exam = await tx.exam.findUnique({ where: { id: params.examId } });
+      if (!exam) return null;
+
+      const examQuestions = await tx.examQuestion.findMany({
+        where: { examId: exam.id },
+        orderBy: { orderIndex: "asc" },
+        include: { achievement: true },
+      });
+      const seenAchievementIds = new Set<string>();
+      const achievementColumns: AchievementColumn[] = [];
+      for (const question of examQuestions) {
+        if (seenAchievementIds.has(question.achievementId)) continue;
+        seenAchievementIds.add(question.achievementId);
+        achievementColumns.push({
+          achievementId: question.achievement.id,
+          code: question.achievement.code,
+          label: question.achievement.label,
+          subject: subjectFromCode(question.achievement.code),
+        });
+      }
+
+      const studentProfiles = await tx.studentProfile.findMany({
+        where: { classroomId },
+        include: {
+          user: true,
+          examResults: {
+            where: { examId: exam.id },
+            include: { achievementResults: true },
+          },
+        },
+      });
+
+      const students: StudentRow[] = studentProfiles.map((profile) => {
+        const examResult = profile.examResults[0];
+        const cells = (examResult?.achievementResults ?? []).map((result) => ({
+          achievementId: result.achievementId,
+          studentId: profile.id,
+          masteryLevel: ratioToMastery(result.correctRatio),
+          correctRatio: result.correctRatio,
+          questionCount: result.questionCount,
+        }));
+        return {
+          studentId: profile.id,
+          fullName: `${profile.user.firstName} ${profile.user.lastName}`,
+          overallNet: examResult?.netScore ?? 0,
+          cells,
+        };
+      });
+
+      const studentsWithResults = students.filter((s) => s.cells.length > 0);
+      const averageNet =
+        studentsWithResults.length > 0
+          ? Number(
+              (studentsWithResults.reduce((sum, s) => sum + s.overallNet, 0) / studentsWithResults.length).toFixed(1),
+            )
+          : 0;
+
+      const achievementAverages = achievementColumns.map((achievement) => {
+        const ratios = studentsWithResults.flatMap((s) =>
+          s.cells.filter((c) => c.achievementId === achievement.achievementId).map((c) => c.correctRatio),
+        );
+        const avg = ratios.length > 0 ? ratios.reduce((a, b) => a + b, 0) / ratios.length : 0;
+        return { achievement, avg };
+      });
+
+      const weakest = achievementAverages.reduce(
+        (a, b) => (b.avg < a.avg ? b : a),
+        achievementAverages[0],
+      );
+      const strongest = achievementAverages.reduce(
+        (a, b) => (b.avg > a.avg ? b : a),
+        achievementAverages[0],
+      );
+
+      return {
+        examId: exam.id,
+        examName: exam.name,
+        classroomId: classroom.id,
+        classroomName: classroom.name,
+        generatedAt: new Date().toISOString(),
+        achievementColumns,
+        students,
+        classSummary: {
+          averageNet,
+          weakestAchievement: {
+            achievementId: weakest?.achievement.achievementId ?? "",
+            label: weakest?.achievement.label ?? "",
+            classAverageRatio: Number((weakest?.avg ?? 0).toFixed(2)),
+          },
+          strongestAchievement: {
+            achievementId: strongest?.achievement.achievementId ?? "",
+            label: strongest?.achievement.label ?? "",
+            classAverageRatio: Number((strongest?.avg ?? 0).toFixed(2)),
+          },
+        },
+      };
+    },
+  );
+
+  if (!data) {
+    return NextResponse.json({ message: "Sınav veya sınıf bulunamadı" }, { status: 404 });
+  }
+
   return NextResponse.json(data);
 }

@@ -74,6 +74,19 @@ varlığı sızdırılmıyor, sahte çerez reddi, logout sonrası çerez geçers
 
 RLS artık hem "yanlış tenant'ın verisini görme" hem de "başkasının kimliğine
 bürünme" sınıflarındaki açıkları kapatıyor. Kalan gerçekçi sonraki adımlar
-(kapsam dışı, ileride ele alınabilir): oturum yenileme/iptal listesi (revoke),
-hız sınırlama (rate limiting), ve `JWT_SECRET`'ın üretimde bir secret
-yöneticisinden gelmesi.
+(kapsam dışı, ileride ele alınabilir): hız sınırlama (rate limiting), ve
+`JWT_SECRET`'ın üretimde bir secret yöneticisinden gelmesi.
+
+**Güncelleme — oturum iptali (session revocation) artık var:** Yukarıdaki
+listede az önce "kalan" sayılan oturum iptali de kapatıldı. İmzalı bir JWT'nin
+kendisi 7 gün geçerli olsa bile, artık tek başına yeterli değil — `UserSession`
+tablosunda (bkz. `prisma/migrations/20260722130645_add_user_sessions`) token'ın
+`sid` alanına karşılık gelen bir satır bulunmalı, bu satır iptal edilmemiş
+(`revokedAt IS NULL`) ve süresi dolmamış olmalı (`getSessionActor`, bkz.
+`lib/session.ts`). `/api/auth/logout` yalnızca çağıran cihazın oturumunu
+iptal eder; `/api/auth/logout-all` ise aynı kullanıcının TÜM cihazlardaki
+oturumlarını tek seferde iptal eder — çalınmış bir token'ı, süresi dolmadan da
+geçersiz kılmanın tek yolu budur. `apps/web/scripts/test-session-revocation.mjs`
+bunu 18 senaryoyla doğruluyor (çoklu cihaz, tek cihaz logout diğerini
+etkilemiyor, logout-all tüm cihazları iptal ediyor, süresi geçmiş bir oturum
+iptal edilmemiş olsa bile reddediliyor).

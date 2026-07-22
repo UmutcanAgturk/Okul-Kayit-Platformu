@@ -117,8 +117,25 @@ model User {
   teacherProfile TeacherProfile?
   studentProfile StudentProfile?
   parentProfile  ParentProfile?
+  sessions       UserSession[]
 
   @@index([tenantId, role])
+}
+
+// Her başarılı login bir satır oluşturur (JWT'nin `jti` alanı bu satırın id'sidir).
+// Token'ın kendisi imzalı olsa da hangi oturumların hâlâ geçerli olduğuna dair
+// tek gerçek kaynak burasıdır — bu sayede çalınmış/eski bir token, süresi
+// dolmadan da (logout veya logout-all ile) iptal edilebilir.
+model UserSession {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  revokedAt DateTime?
+
+  @@index([userId])
 }
 
 model TeacherProfile {
