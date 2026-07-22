@@ -625,6 +625,7 @@
 
   .toast-stack { position: fixed; top: 18px; right: 18px; z-index: 999; display: flex; flex-direction: column; gap: 10px; width: 340px; max-width: calc(100vw - 36px); pointer-events: none; }
   .toast-card { pointer-events: auto; background: var(--surface); border: 1px solid var(--border-strong); border-left: 4px solid var(--brand); border-radius: var(--radius); box-shadow: var(--shadow-lg); padding: 12px 14px; animation: toast-in .22s var(--ease); }
+  .toast-card.warn { border-left-color: var(--critical); }
   .toast-card.leaving { animation: toast-out .18s ease-in forwards; }
   @keyframes toast-in { from { transform: translateX(24px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
   @keyframes toast-out { from { transform: translateX(0); opacity: 1; } to { transform: translateX(24px); opacity: 0; } }
@@ -1101,6 +1102,7 @@
 #mobile-shell .snackbar.show { transform: translateY(0); opacity: 1; }
 
 #mobile-shell .snackbar svg { width: 16px; height: 16px; color: var(--success); flex: none; }
+#mobile-shell .snackbar-error svg { color: var(--critical); }
 
 #mobile-shell /* ---------------- Mesajlaşma ---------------- */
 .thread-list-row { display: flex; gap: 12px; padding: 12px 4px; border-bottom: 1px solid var(--border); cursor: pointer; width: 100%; text-align: left; background: none; border-left: none; border-right: none; border-top: none; font-family: inherit; color: inherit; }
@@ -3631,7 +3633,7 @@ function showToast(title, body, iconName) {
   const stack = document.getElementById("toast-stack");
   if (!stack) return;
   const card = document.createElement("div");
-  card.className = "toast-card";
+  card.className = "toast-card" + (iconName === "x" ? " warn" : "");
   card.innerHTML = `
     <div class="toast-head">
       <p class="toast-title">${ic(iconName || "check")} ${title}</p>
@@ -3960,7 +3962,7 @@ function mountIletisimTemplates() {
     const category = document.getElementById("il-tpl-category").value.trim() || "Genel";
     const title = document.getElementById("il-tpl-title").value.trim();
     const body = document.getElementById("il-tpl-body").value.trim();
-    if (!title || !body) return;
+    if (!title || !body) { showToast("Eksik bilgi", "Lütfen başlık ve içerik alanlarını doldurun.", "x"); return; }
     templateSeq++;
     MESSAGE_TEMPLATES.push({ id: "t" + templateSeq, kind, category, title, body, custom: true });
     persistState();
@@ -3988,7 +3990,7 @@ function mountIletisimTemplates() {
       const category = document.querySelector(`[data-il-tpl-edit-category="${id}"]`).value.trim() || "Genel";
       const title = document.querySelector(`[data-il-tpl-edit-title="${id}"]`).value.trim();
       const body = document.querySelector(`[data-il-tpl-edit-body="${id}"]`).value.trim();
-      if (!title || !body) return;
+      if (!title || !body) { showToast("Eksik bilgi", "Lütfen başlık ve içerik alanlarını doldurun.", "x"); return; }
       Object.assign(t, { kind, category, title, body });
       iletisimTemplateEditingId = null;
       persistState();
@@ -4788,7 +4790,10 @@ SCREENS["hq:exam"] = {
       const feePerStudent = Number(document.getElementById("ex-fee").value) || 0;
       const branchIds = branchCbs().filter(cb => cb.checked).map(cb => Number(cb.value));
       const gradeLevels = gradeCbs().filter(cb => cb.checked).map(cb => cb.value);
-      if (!name || !date || !branchIds.length || !gradeLevels.length) return;
+      if (!name || !date || !branchIds.length || !gradeLevels.length) {
+        showToast("Eksik bilgi", "Lütfen sınav adı, tarih girin ve en az bir kurum ile sınıf düzeyi seçin.", "x");
+        return;
+      }
       examSeq++;
       const branchDispatch = {};
       branchIds.forEach(bid => { branchDispatch[bid] = "Hazırlanıyor"; });
@@ -8276,7 +8281,7 @@ SCREENS["branch:onkayit"] = {
     document.getElementById("ok-submit").addEventListener("click", () => {
       const ad = document.getElementById("ok-ad").value.trim();
       const soyad = document.getElementById("ok-soyad").value.trim();
-      if (!ad || !soyad) return;
+      if (!ad || !soyad) { showToast("Eksik bilgi", "Lütfen öğrenci adı ve soyadını girin.", "x"); return; }
       CURRENT_BRANCH.onKayit.unshift({
         id: CURRENT_BRANCH.onKayitSeq++,
         ad, soyad, name: `${ad} ${soyad}`,
@@ -9581,7 +9586,7 @@ function mountKazanimTekli() {
       const labelInp = document.querySelector(`[data-kazanim-label="${subject}"]`);
       const code = codeInp.value.trim();
       const label = labelInp.value.trim();
-      if (!code || !label) return;
+      if (!code || !label) { showToast("Eksik bilgi", "Lütfen kazanım kodu ve açıklamasını girin.", "x"); return; }
       achievementSeq++;
       ACHIEVEMENTS.push({ id: "a" + achievementSeq, code, label, subject, gradeLevel: null });
       persistState();
@@ -12241,7 +12246,7 @@ function mountMuhasebeBody() {
         const student = STUDENT_DIRECTORY.find(s => s.id === id);
         const input = document.querySelector(`[data-tahsilat-amount="${id}"]`);
         const amount = Number(input.value);
-        if (!student || !amount) return;
+        if (!student || !amount) { showToast("Eksik bilgi", "Lütfen geçerli bir tahsilat tutarı girin.", "x"); return; }
         const targetBranch = BRANCHES.find(b => b.id === student.branchId) || CURRENT_BRANCH;
         targetBranch.ledger.unshift({ type: "GELIR", category: "Taksit Tahsilatı", amount, date: new Date().toISOString().slice(0, 10) });
         if (student.installmentAmount > 0 && student.paidInstallments < student.installmentCount) {
@@ -12262,10 +12267,10 @@ function mountMuhasebeBody() {
     const amount = Number(document.getElementById("ledger-amount").value);
     const type = document.getElementById("ledger-type").value;
     const date = document.getElementById("ledger-date").value || new Date().toISOString().slice(0, 10);
-    if (!category || !amount) return;
+    if (!category || !amount) { showToast("Eksik bilgi", "Lütfen kategori ve tutar alanlarını doldurun.", "x"); return; }
     const branchSel = document.getElementById("ledger-branch");
     const targetBranch = branchSel ? BRANCHES.find(b => b.id === Number(branchSel.value)) : muhasebeScopeBranches()[0];
-    if (!targetBranch) return;
+    if (!targetBranch) { showToast("Eksik bilgi", "Lütfen bir kurum seçin.", "x"); return; }
     targetBranch.ledger.unshift({ type, category, amount, date });
     persistState();
     refreshMuhasebeBody();
@@ -14006,12 +14011,12 @@ function closeSheet() {
   document.getElementById("m-sheet-scrim").classList.remove("open");
   document.getElementById("m-bottom-sheet").classList.remove("open");
 }
-function showSnackbar(text) {
+function showSnackbar(text, kind) {
   const host = document.getElementById("m-snackbar-host");
   if (!host) return;
   const el = document.createElement("div");
-  el.className = "snackbar";
-  el.innerHTML = `${ic("checkCircle")}<span>${text}</span>`;
+  el.className = "snackbar" + (kind === "error" ? " snackbar-error" : "");
+  el.innerHTML = `${ic(kind === "error" ? "xCircle" : "checkCircle")}<span>${text}</span>`;
   host.appendChild(el);
   requestAnimationFrame(() => el.classList.add("show"));
   setTimeout(() => { el.classList.remove("show"); setTimeout(() => el.remove(), 260); }, 2600);
@@ -14215,7 +14220,7 @@ function wireMessageDetail(detail) {
   const input = document.getElementById("m-reply-input");
   btn.addEventListener("click", () => {
     const val = input.value.trim();
-    if (!val) return;
+    if (!val) { showSnackbar("Lütfen bir mesaj yazın.", "error"); return; }
     const { key } = mobileInboxListAndKey();
     const role = mobileRole();
     const myName = roleDisplayName();
@@ -14989,7 +14994,7 @@ MODULE_SCREENS_M["iletisim"] = { html: () => {
     document.getElementById("m-il-save").addEventListener("click", () => {
       const title = document.getElementById("m-il-title").value.trim();
       const body = document.getElementById("m-il-body").value.trim();
-      if (!title || !body) { showSnackbar("Başlık ve mesaj zorunludur."); return; }
+      if (!title || !body) { showSnackbar("Başlık ve mesaj zorunludur.", "error"); return; }
       createMessage({
         senderPortal: role === "sube" ? "branch" : "hq", senderBranchId: CURRENT_BRANCH ? CURRENT_BRANCH.id : null,
         senderName: roleDisplayName(), title, body,
