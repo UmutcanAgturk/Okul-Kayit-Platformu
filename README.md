@@ -52,15 +52,23 @@ seviye-360/
    izolasyonu ve Muhasebe rol kısıtlaması yalnızca uygulanıp test edilmekle
    kalmadı, taksit tahsilatı API'sinin kendisi de artık `BYPASSRLS`'li migration
    rolüyle değil, tam RLS'e tabi `app_role`/`superadmin_role` ile çalışıyor.
-   Kalan tek boşluk (gerçek kimlik doğrulama yokluğu) `prisma/rls/README.md`'de
-   ayrıca not edilmiştir.
+7. **Gerçek kimlik doğrulama** (`apps/web/app/api/auth/login`, `lib/auth.ts`,
+   `lib/session.ts`) — bcrypt şifre hash'i + imzalı JWT oturum çerezi. Bu,
+   `prisma/rls/README.md`'de işaretlenen son açık güvenlik boşluğunu kapatır:
+   artık `collectedByUserId` gibi istemcinin serbestçe beyan ettiği bir alan
+   yok — kimlik yalnızca `/api/auth/login`'de doğrulanan bir oturumdan gelir.
+8. **İkinci gerçek modül: Etüt (StudySession) onay/red** (`apps/web/app/api/teacher/study-sessions`) —
+   taksit tahsilatındaki deseni (gerçek DB + RLS + oturum tabanlı kimlik)
+   tekrarlayan, bir öğretmenin yapay zekanın önerdiği (`AI_SUGGESTED`) bir etüt
+   seansını onaylayıp/reddedebildiği ikinci uçtan uca özellik.
 
 ## Yerel Geliştirme (Veritabanı)
 
-Bu depodaki diğer tüm ekranlar/route'lar (`apps/web/app/api/teacher/...` dahil)
+Bu depodaki diğer tüm ekranlar/route'lar (`apps/web/app/api/teacher/exams/...` dahil)
 şu ana kadar bilinçli olarak **mock veri** kullanıyordu (bkz. route dosyalarındaki
-"Mockup endpoint" notu). Taksit Tahsilatı API'si ise gerçek bir Postgres'e karşı
-çalışan **ilk** özellik. Yerelde çalıştırmak için:
+"Mockup endpoint" notu). Taksit Tahsilatı ve Etüt Onay/Red API'leri ise gerçek
+bir Postgres'e karşı, gerçek kimlik doğrulamayla çalışan özellikler. Yerelde
+çalıştırmak için:
 
 ```bash
 # 1) PostgreSQL'i başlat (Debian/Ubuntu örneği; kendi ortamınıza göre uyarlayın)
@@ -78,13 +86,15 @@ echo 'DATABASE_URL="postgresql://seviye360:seviye360dev@localhost:5432/seviye360
 #    rolleri de bu migration içinde oluşturulur), demo veri yükleyin
 npm install
 npx prisma migrate dev   # prisma/migrations altındaki tüm migration'ları (şema + RLS + roller) uygular
-npm run seed             # 2 kurum (Mezitli/Mersin, Çankaya/Ankara), her birine öğrenci; Mezitli'de 9 taksit (ilk 2'si ödenmiş)
+npm run seed             # 2 kurum, öğrenci/öğretmen/veli/etüt seansı — hepsi aynı SEED_DEV_PASSWORD ile giriş yapabilir
 
 # 4) apps/web'de AYRI bir .env oluşturun — burası owner değil, RLS'e tabi
-#    app_role/superadmin_role ile çalışır (bkz. lib/db-context.ts)
+#    app_role/superadmin_role ile çalışır (bkz. lib/db-context.ts); JWT_SECRET
+#    oturum çerezlerini imzalamak için kullanılır (bkz. lib/auth.ts)
 cat > apps/web/.env << 'ENVEOF'
 DATABASE_URL="postgresql://app_role:app_role_dev_only@localhost:5432/seviye360?schema=public"
 SUPERADMIN_DATABASE_URL="postgresql://superadmin_role:superadmin_dev_only@localhost:5432/seviye360?schema=public"
+JWT_SECRET="yerel-gelistirme-icin-rastgele-bir-deger"
 ENVEOF
 
 # 5) apps/web bağımlılıklarını kurup Next.js sunucusunu başlatın
@@ -93,6 +103,13 @@ npm install
 npm run dev
 
 # 6) (ayrı bir terminalde) entegrasyon testlerini çalıştırın
-node scripts/test-payment-installments.mjs   # taksit tahsilatı API'si (tenant izolasyonu + yetki kontrolü dahil)
+node scripts/test-auth.mjs                   # /api/auth/login ve /logout
+node scripts/test-payment-installments.mjs   # taksit tahsilatı API'si (login + tenant izolasyonu + yetki kontrolü)
+node scripts/test-study-sessions.mjs         # etüt onay/red API'si (login + tenant izolasyonu + yetki kontrolü)
 node scripts/test-rls-isolation.mjs          # RLS: tenant izolasyonu + Muhasebe rol kısıtlaması (ham DB seviyesinde)
 ```
+
+Tüm seed kullanıcılarının şifresi aynıdır (`prisma/seed.ts`'deki `SEED_DEV_PASSWORD`,
+şu an `seviye360dev-pw`) — örn. `merve.aslan@seviye360.com` (Mezitli şube
+yöneticisi), `onur.kaya@seviye360.com` (Çankaya şube yöneticisi),
+`ayse.demir@seviye360.com` (öğretmen), `elif.yilmaz@ogrenci.seviye360.com` (öğrenci).

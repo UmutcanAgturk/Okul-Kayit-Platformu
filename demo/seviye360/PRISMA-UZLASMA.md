@@ -119,10 +119,9 @@ değiştirilmeli — istemci tarafı gizleme tek başına bir güvenlik sınır�
 > taksit tahsilatı API'sine gerçekten bağlandı — bkz. `prisma/rls/README.md`'deki
 > "Uygulanma Durumu" bölümü. API artık `BYPASSRLS`'li migration rolüyle değil,
 > tam RLS'e tabi `app_role`/`superadmin_role` ile çalışıyor; tenant/rol bağlamı
-> istemcinin beyanından değil, veritabanındaki `User` kaydından türetiliyor.
-> Kalan tek boşluk — ki bu RLS'in değil, henüz var olmayan bir kimlik doğrulama
-> sisteminin işi — `prisma/rls/README.md`'de "Kalan, hâlâ açık boşluk" olarak
-> ayrıca not edilmiştir.
+> istemcinin beyanından değil, `/api/auth/login` ile alınan gerçek bir oturum
+> çerezinden türetiliyor. Önceden ayrıca not edilen "gerçek kimlik doğrulama
+> yok" boşluğu da kapandı — bkz. `prisma/rls/README.md`'deki güncelleme.
 
 ## 8. Etüt (StudySession / VIP Eğitim)
 
@@ -133,6 +132,14 @@ değiştirilmeli — istemci tarafı gizleme tek başına bir güvenlik sınır�
 
 **Sonuç:** Bu modülde ek bir uzlaştırmaya gerek yok — ikisi de aynı kavramsal modele
 dayanıyor.
+
+> **Güncelleme:** Bu modül de artık gerçek bir uçtan uca özellik —
+> `apps/web/app/api/teacher/study-sessions/[sessionId]/respond`, taksit
+> tahsilatındaki aynı deseni (gerçek Postgres + RLS + oturum tabanlı kimlik)
+> tekrarlayarak bir öğretmenin `AI_SUGGESTED` bir seansı onaylayıp/
+> reddedebilmesini sağlıyor; yalnızca kendisine atanmış seanslara ve yalnızca
+> TEACHER rolüne izin veriliyor. `apps/web/scripts/test-study-sessions.mjs`
+> ile 12 senaryoda doğrulandı.
 
 ---
 

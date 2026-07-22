@@ -48,9 +48,6 @@ sahip, `BYPASSRLS`'li) rolüyle DEĞİL, `app_role` (`apps/web/.env`'deki
 `DATABASE_URL`) ile bağlanıyor — bu rol RLS'e tam olarak tabidir. Bkz.
 `apps/web/lib/db-context.ts`:
 
-- `resolveActingUser(userId)` — isteği yapan kullanıcının tenant/rolünü
-  **istemcinin beyanından değil**, `User` tablosundaki gerçek kayıttan okur
-  (`User` tablosunda RLS yok, herkesçe okunabilir referans verisidir).
 - `withTenantContext(actor, fn)` — `SUPERADMIN` için ayrı bir bağlantı
   (`apps/web/lib/prisma-superadmin.ts`, `superadmin_role`/`BYPASSRLS`,
   `SUPERADMIN_DATABASE_URL`) kullanır; diğer roller için TEK bir Postgres
@@ -64,11 +61,19 @@ doğruluyor: Çankaya (başka tenant) yöneticisi Mezitli'nin taksitini ne
 görebiliyor ne de tahsil edebiliyor (ikisi de 404 — tenant varlığı sızdırılmıyor),
 ve `STUDENT` rolü tahsilat işlemine hiç yetkili değil (403).
 
-**Kalan, hâlâ açık boşluk — gerçek kimlik doğrulama:** `resolveActingUser`
-yalnızca "bu `userId`'nin tenant/rolü nedir?" sorusunu cevaplar; "isteği yapan
-kişi gerçekten bu `userId`'nin sahibi mi?" sorusunu cevaplamaz — çünkü depoda
-henüz şifre kontrolü/oturum/JWT yok, `collectedByUserId`/`requestedByUserId`
-şu an istemcinin serbestçe beyan ettiği bir alan. RLS artık "yanlış tenant'ın
-verisini görme" sınıfındaki açığı tamamen kapatıyor; ama "başkasının kimliğine
-bürünme" sınıfındaki açık gerçek bir auth sistemi (login + oturum) kurulmadan
-kapanmaz. Bu, bu depodaki bir sonraki güvenlik önceliği olmalı.
+**Güncelleme — gerçek kimlik doğrulama artık var, bu boşluk da kapandı:**
+`apps/web/app/api/auth/login` artık `User.passwordHash`'e karşı bcrypt ile
+doğrulama yapıp imzalı bir JWT oturum çerezi (`lib/auth.ts`) veriyor.
+`apps/web/lib/session.ts`'deki `getSessionActor(request)`, bu çerezi
+doğrulayıp kullanıcıyı DB'den taze okuyarak "isteği yapan kişi gerçekten bu
+kullanıcı mı?" sorusunu artık kanıtlıyor — eski `collectedByUserId`/
+`requestedByUserId` gibi istemcinin serbestçe beyan ettiği alanlar tamamen
+kaldırıldı. `apps/web/scripts/test-auth.mjs` bunu 11 senaryoyla doğruluyor
+(doğru/yanlış şifre, var olmayan e-posta ile aynı hata mesajı — kullanıcı
+varlığı sızdırılmıyor, sahte çerez reddi, logout sonrası çerez geçersizliği).
+
+RLS artık hem "yanlış tenant'ın verisini görme" hem de "başkasının kimliğine
+bürünme" sınıflarındaki açıkları kapatıyor. Kalan gerçekçi sonraki adımlar
+(kapsam dışı, ileride ele alınabilir): oturum yenileme/iptal listesi (revoke),
+hız sınırlama (rate limiting), ve `JWT_SECRET`'ın üretimde bir secret
+yöneticisinden gelmesi.

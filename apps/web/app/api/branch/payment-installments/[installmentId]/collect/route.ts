@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PaymentStatus, UserRole } from "@prisma/client";
-import { resolveActingUser, withTenantContext } from "@/lib/db-context";
+import { withTenantContext } from "@/lib/db-context";
+import { getSessionActor } from "@/lib/session";
 
 /**
  * Bir taksiti tahsil edilmiş olarak işaretler ve karşılığında bir Muhasebe
@@ -9,11 +10,14 @@ import { resolveActingUser, withTenantContext } from "@/lib/db-context";
  * veritabanına karşı çalışan karşılığı (bkz. demo/seviye360/PRISMA-UZLASMA.md,
  * madde 1).
  *
- * Güvenlik: sorgular `withTenantContext` üzerinden, isteyen kullanıcının
- * VERİTABANINDAKİ gerçek tenant/rol kaydıyla (istemcinin beyan ettiği bir
- * değerle DEĞİL) RLS bağlamı kurularak çalışır — başka bir tenant'ın taksitini
- * hedeflemeye çalışan bir istek, uygulama kodundaki bir hataya rağmen bile
- * veritabanı seviyesinde durdurulur (bkz. prisma/rls).
+ * Güvenlik: kimlik artık istemcinin beyan ettiği bir alandan (eski
+ * `collectedByUserId` body alanı) DEĞİL, /api/auth/login ile alınan imzalı
+ * oturum çerezinden geliyor (bkz. lib/session.ts) — isteği yapan kişinin
+ * gerçekten iddia ettiği kullanıcı olduğu artık kanıtlanıyor. Sorgular ayrıca
+ * `withTenantContext` üzerinden, bu doğrulanmış kullanıcının VERİTABANINDAKİ
+ * gerçek tenant/rol kaydıyla RLS bağlamı kurularak çalışır — başka bir
+ * tenant'ın taksitini hedeflemeye çalışan bir istek, uygulama kodundaki bir
+ * hataya rağmen bile veritabanı seviyesinde durdurulur (bkz. prisma/rls).
  *
  * Race condition koruması: `updateMany` ile koşullu güncelleme (yalnızca hâlâ
  * PENDING ise) atomik olarak yapılır — iki eşzamanlı istek aynı taksiti iki kez
@@ -25,16 +29,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { installmentId: string } },
 ) {
-  const body = await request.json().catch(() => ({}));
-  const collectedByUserId = typeof body.collectedByUserId === "string" ? body.collectedByUserId : null;
-
-  if (!collectedByUserId) {
-    return NextResponse.json({ message: "collectedByUserId zorunludur" }, { status: 400 });
-  }
-
-  const actor = await resolveActingUser(collectedByUserId);
+  const actor = await getSessionActor(request);
   if (!actor) {
-    return NextResponse.json({ message: "Geçersiz collectedByUserId" }, { status: 401 });
+    return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
   if (!ROLES_ALLOWED_TO_COLLECT.includes(actor.role)) {
     return NextResponse.json({ message: "Bu rol tahsilat işleyemez" }, { status: 403 });
@@ -73,7 +70,7 @@ export async function POST(
         category: "Taksit Tahsilatı",
         amount: installment.amount,
         entryDate: new Date(),
-        createdByUserId: collectedByUserId,
+        createdByUserId: actor.id,
         relatedInstallmentId: installment.id,
       },
     });

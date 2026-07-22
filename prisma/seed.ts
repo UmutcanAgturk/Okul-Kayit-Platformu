@@ -4,10 +4,17 @@
 // seed ile aynı (9 taksit, taksit başına ₺10.000, ilk 2'si ödenmiş) — böylece
 // iki modelin aynı senaryoyu temsil ettiği doğrulanabilir.
 import { PrismaClient, TenantType, UserRole, GradeLevel, PaymentStatus } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
+// Tüm seed kullanıcıları için ortak, gerçek bir bcrypt hash'i — /api/auth/login
+// akışını uçtan uca test edebilmek için (bkz. apps/web/scripts/test-auth.mjs).
+// Yalnızca yerel geliştirme amaçlıdır.
+export const SEED_DEV_PASSWORD = "seviye360dev-pw";
+
 async function main() {
+  const passwordHash = await bcrypt.hash(SEED_DEV_PASSWORD, 10);
   const genelMerkez = await prisma.tenant.upsert({
     where: { code: "GENEL-MERKEZ" },
     update: {},
@@ -39,7 +46,7 @@ async function main() {
     create: {
       tenantId: mezitli.id,
       email: "merve.aslan@seviye360.com",
-      passwordHash: "dev-only-not-a-real-hash",
+      passwordHash,
       role: UserRole.BRANCH_ADMIN,
       firstName: "Merve",
       lastName: "Aslan",
@@ -52,7 +59,7 @@ async function main() {
     create: {
       tenantId: mezitli.id,
       email: "elif.yilmaz@ogrenci.seviye360.com",
-      passwordHash: "dev-only-not-a-real-hash",
+      passwordHash,
       role: UserRole.STUDENT,
       firstName: "Elif",
       lastName: "Yılmaz",
@@ -77,7 +84,7 @@ async function main() {
     create: {
       tenantId: mezitli.id,
       email: "hakan.yilmaz@veli.seviye360.com",
-      passwordHash: "dev-only-not-a-real-hash",
+      passwordHash,
       role: UserRole.PARENT,
       firstName: "Hakan",
       lastName: "Yılmaz",
@@ -141,7 +148,7 @@ async function main() {
     create: {
       tenantId: cankaya.id,
       email: "onur.kaya@seviye360.com",
-      passwordHash: "dev-only-not-a-real-hash",
+      passwordHash,
       role: UserRole.BRANCH_ADMIN,
       firstName: "Onur",
       lastName: "Kaya",
@@ -154,7 +161,7 @@ async function main() {
     create: {
       tenantId: cankaya.id,
       email: "mehmet.kaya@ogrenci.seviye360.com",
-      passwordHash: "dev-only-not-a-real-hash",
+      passwordHash,
       role: UserRole.STUDENT,
       firstName: "Mehmet",
       lastName: "Kaya",
@@ -193,6 +200,49 @@ async function main() {
     });
   }
 
+  // Öğretmen kullanıcısı + AI_SUGGESTED bir etüt seansı — Etüt onay/red API'sini
+  // (bkz. apps/web/app/api/teacher/study-sessions) test edebilmek için.
+  const teacherUser = await prisma.user.upsert({
+    where: { email: "ayse.demir@seviye360.com" },
+    update: {},
+    create: {
+      tenantId: mezitli.id,
+      email: "ayse.demir@seviye360.com",
+      passwordHash,
+      role: UserRole.TEACHER,
+      firstName: "Ayşe",
+      lastName: "Demir",
+    },
+  });
+
+  const teacherProfile = await prisma.teacherProfile.upsert({
+    where: { userId: teacherUser.id },
+    update: {},
+    create: { userId: teacherUser.id, branch: "Matematik" },
+  });
+
+  const achievement = await prisma.curriculumNode.upsert({
+    where: { code: "MAT.9.1.2.3" },
+    update: {},
+    create: { type: "ACHIEVEMENT", code: "MAT.9.1.2.3", label: "Rasyonel Sayılar", gradeLevel: 9 },
+  });
+
+  const existingSession = await prisma.studySession.findFirst({
+    where: { studentId: student.id, teacherId: teacherProfile.id, achievementId: achievement.id },
+  });
+  const studySession = existingSession ?? await prisma.studySession.create({
+    data: {
+      tenantId: mezitli.id,
+      studentId: student.id,
+      teacherId: teacherProfile.id,
+      achievementId: achievement.id,
+      status: "AI_SUGGESTED",
+      source: "AI_AUTO_ASSIGNED",
+      scheduledStart: new Date(Date.UTC(2026, 7, 25, 14, 0)),
+      scheduledEnd: new Date(Date.UTC(2026, 7, 25, 14, 40)),
+    },
+  });
+
   console.log("Seed tamamlandı:");
   console.log("  Şube 1 (Tenant):", mezitli.id, mezitli.name);
   console.log("  Öğrenci 1 (StudentProfile):", student.id, "-", studentUser.firstName, studentUser.lastName);
@@ -200,6 +250,9 @@ async function main() {
   console.log("  Şube 2 (Tenant):", cankaya.id, cankaya.name);
   console.log("  Öğrenci 2 (StudentProfile):", cankayaStudent.id, "-", cankayaStudentUser.firstName, cankayaStudentUser.lastName);
   console.log("  Şube Yöneticisi 2 (User):", cankayaAdminUser.id, "-", cankayaAdminUser.email);
+  console.log("  Öğretmen (User):", teacherUser.id, "-", teacherUser.email);
+  console.log("  Etüt Seansı (StudySession, AI_SUGGESTED):", studySession.id);
+  console.log("  Tüm seed kullanıcıları için şifre:", SEED_DEV_PASSWORD);
 }
 
 main()
