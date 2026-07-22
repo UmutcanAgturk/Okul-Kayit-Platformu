@@ -115,12 +115,14 @@ alınmalı.
 gerçek backend'e geçerken bu, Prisma'nın önerdiği **veritabanı seviyesi RLS** ile
 değiştirilmeli — istemci tarafı gizleme tek başına bir güvenlik sınırı değildir.
 
-> **Güncelleme:** RLS artık gerçek bir Postgres'e uygulandı ve test edildi —
-> bkz. `prisma/rls/README.md`'deki "Uygulanma Durumu" bölümü. Orada da not
-> edildiği gibi, bugünkü taksit tahsilatı API'si henüz RLS'e tabi olmayan
-> (`BYPASSRLS`) bir rolle bağlandığı için politikaların kendisi doğrulanmış
-> olsa da API'nin bağlantı katmanı henüz bunlardan gerçekten faydalanmıyor —
-> bu ayrı, sonraki bir adım.
+> **Güncelleme:** RLS artık gerçek bir Postgres'e uygulandı, test edildi VE
+> taksit tahsilatı API'sine gerçekten bağlandı — bkz. `prisma/rls/README.md`'deki
+> "Uygulanma Durumu" bölümü. API artık `BYPASSRLS`'li migration rolüyle değil,
+> tam RLS'e tabi `app_role`/`superadmin_role` ile çalışıyor; tenant/rol bağlamı
+> istemcinin beyanından değil, veritabanındaki `User` kaydından türetiliyor.
+> Kalan tek boşluk — ki bu RLS'in değil, henüz var olmayan bir kimlik doğrulama
+> sisteminin işi — `prisma/rls/README.md`'de "Kalan, hâlâ açık boşluk" olarak
+> ayrıca not edilmiştir.
 
 ## 8. Etüt (StudySession / VIP Eğitim)
 

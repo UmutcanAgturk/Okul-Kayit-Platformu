@@ -13,7 +13,13 @@
 //   4. Eksik gövde -> 400, var olmayan taksit -> 404.
 import { PrismaClient } from "@prisma/client";
 
-const prisma = new PrismaClient();
+// Bu script API'yi HTTP üzerinden çağırır (o yol artık app_role + RLS bağlamı
+// kullanıyor, bkz. lib/db-context.ts) — ama test fixture'larını bulmak ve
+// veritabanı durumunu bağımsız doğrulamak için OWNER bağlantısı (RLS'den
+// muaf) kullanır; bu, test-rls-isolation.mjs'deki aynı prensiple tutarlıdır.
+const prisma = new PrismaClient({
+  datasources: { db: { url: "postgresql://seviye360:seviye360dev@localhost:5432/seviye360?schema=public" } },
+});
 const BASE = "http://localhost:3000";
 const results = [];
 const check = (label, ok, detail) => {
@@ -29,7 +35,7 @@ async function main() {
   }
 
   // ===== 1) Başlangıç durumu =====
-  const listRes = await fetch(`${BASE}/api/students/${student.id}/installments`);
+  const listRes = await fetch(`${BASE}/api/students/${student.id}/installments?requestedByUserId=${admin.id}`);
   const listBody = await listRes.json();
   const paidCount = listBody.installments.filter((i) => i.status === "PAID").length;
   const pendingCount = listBody.installments.filter((i) => i.status === "PENDING").length;
@@ -83,6 +89,41 @@ async function main() {
     body: JSON.stringify({ collectedByUserId: admin.id }),
   });
   check("POST collect (var olmayan taksit): 404 döndü", notFoundRes.status === 404, notFoundRes.status);
+
+  // ===== 5) Tenant izolasyonu API SEVİYESİNDE de geçerli mi? =====
+  // Çankaya (başka tenant) şube müdürü, Mezitli'nin bir taksitini görmeye/tahsil
+  // etmeye çalışırsa RLS onu API'ye ulaşmadan önce zaten görünmez kılmalı —
+  // "yasak" değil "bulunamadı" dönmeli (tenant varlığını sızdırmamak için).
+  const cankayaAdmin = await prisma.user.findUnique({ where: { email: "onur.kaya@seviye360.com" } });
+  const stillPending = await prisma.paymentInstallment.findFirst({ where: { studentId: student.id, status: "PENDING" } });
+  if (cankayaAdmin && stillPending) {
+    const crossTenantGet = await fetch(`${BASE}/api/students/${student.id}/installments?requestedByUserId=${cankayaAdmin.id}`);
+    check("Tenant izolasyonu: Çankaya yöneticisi Mezitli öğrencisinin taksitlerini GÖREMİYOR (404)", crossTenantGet.status === 404, crossTenantGet.status);
+
+    const crossTenantCollect = await fetch(`${BASE}/api/branch/payment-installments/${stillPending.id}/collect`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ collectedByUserId: cankayaAdmin.id }),
+    });
+    check("Tenant izolasyonu: Çankaya yöneticisi Mezitli'nin taksitini TAHSİL EDEMİYOR (404)", crossTenantCollect.status === 404, crossTenantCollect.status);
+
+    const stillPendingAfter = await prisma.paymentInstallment.findUnique({ where: { id: stillPending.id } });
+    check("DB: cross-tenant deneme sonrası taksit hâlâ PENDING (değişmemiş)", stillPendingAfter.status === "PENDING", stillPendingAfter.status);
+  } else {
+    check("Tenant izolasyonu testi atlandı (Çankaya admin veya PENDING taksit yok)", false, "kurulum eksik");
+  }
+
+  // ===== 6) Yetkisiz rol: STUDENT tahsilat işleyemez (403) =====
+  const studentUser = await prisma.user.findUnique({ where: { email: "elif.yilmaz@ogrenci.seviye360.com" } });
+  const anotherPending = await prisma.paymentInstallment.findFirst({ where: { studentId: student.id, status: "PENDING" } });
+  if (studentUser && anotherPending) {
+    const asStudentRes = await fetch(`${BASE}/api/branch/payment-installments/${anotherPending.id}/collect`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ collectedByUserId: studentUser.id }),
+    });
+    check("Yetki: STUDENT rolü tahsilat işleyemiyor (403)", asStudentRes.status === 403, asStudentRes.status);
+  }
 
   console.log("\n=== ÖZET ===");
   const fails = results.filter((r) => !r.ok);

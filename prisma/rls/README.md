@@ -42,14 +42,33 @@ set edilmemişse hiçbir satır görünmüyor, yanlış tenant'a INSERT engellen
 `TEACHER` Muhasebe'yi göremiyor ama `BRANCH_ADMIN` görüyor, `superadmin_role`
 her şeyi bypass ediyor).
 
-**Bilinen boşluk:** `apps/web`'in taksit tahsilatı API'si (bkz.
-`demo/seviye360/PRISMA-UZLASMA.md`) şu an DB'ye migration/geliştirme rolü olan
-`seviye360` ile bağlanıyor — bu rol, `superadmin_role`'ü oluşturabilmek için
-migration sırasında `BYPASSRLS` verildiğinden, **RLS'i tamamen atlıyor**. Yani
-API bugün çalışıyor ama bunu RLS'in izin vermesinden değil, bağlandığı rolün
-RLS'den muaf olmasından dolayı yapıyor. Üretime geçmeden önce şunlar ayrılmalı:
-migration'ları çalıştıran rol (BYPASSRLS gerekebilir) ile uygulamanın istek
-başına bağlandığı rol (`app_role`/`superadmin_role`, her istekte
-`SET LOCAL app.tenant_id`/`app.role` ile) birbirinden kesin çizgilerle
-ayrılmalı. Bu, RLS politikalarının kendisinin değil, **uygulamanın bağlantı
-katmanının** henüz yapılmamış bir sonraki adımıdır.
+**Güncelleme — migration rolü / uygulama rolü artık ayrıldı:** Yukarıda
+tarif edilen boşluk kapatıldı. `apps/web` artık DB'ye `seviye360` (migration/
+sahip, `BYPASSRLS`'li) rolüyle DEĞİL, `app_role` (`apps/web/.env`'deki
+`DATABASE_URL`) ile bağlanıyor — bu rol RLS'e tam olarak tabidir. Bkz.
+`apps/web/lib/db-context.ts`:
+
+- `resolveActingUser(userId)` — isteği yapan kullanıcının tenant/rolünü
+  **istemcinin beyanından değil**, `User` tablosundaki gerçek kayıttan okur
+  (`User` tablosunda RLS yok, herkesçe okunabilir referans verisidir).
+- `withTenantContext(actor, fn)` — `SUPERADMIN` için ayrı bir bağlantı
+  (`apps/web/lib/prisma-superadmin.ts`, `superadmin_role`/`BYPASSRLS`,
+  `SUPERADMIN_DATABASE_URL`) kullanır; diğer roller için TEK bir Postgres
+  transaction'ı içinde `set_config('app.tenant_id', ..., true)` ve
+  `set_config('app.role', ..., true)` (yani `SET LOCAL`) set edip sorguları
+  o transaction'ın içinde çalıştırır — transaction bitince ayarlar otomatik
+  sıfırlanır, connection pool'daki başka bir isteğe sızmaz.
+
+`apps/web/scripts/test-payment-installments.mjs` bunu API seviyesinde de
+doğruluyor: Çankaya (başka tenant) yöneticisi Mezitli'nin taksitini ne
+görebiliyor ne de tahsil edebiliyor (ikisi de 404 — tenant varlığı sızdırılmıyor),
+ve `STUDENT` rolü tahsilat işlemine hiç yetkili değil (403).
+
+**Kalan, hâlâ açık boşluk — gerçek kimlik doğrulama:** `resolveActingUser`
+yalnızca "bu `userId`'nin tenant/rolü nedir?" sorusunu cevaplar; "isteği yapan
+kişi gerçekten bu `userId`'nin sahibi mi?" sorusunu cevaplamaz — çünkü depoda
+henüz şifre kontrolü/oturum/JWT yok, `collectedByUserId`/`requestedByUserId`
+şu an istemcinin serbestçe beyan ettiği bir alan. RLS artık "yanlış tenant'ın
+verisini görme" sınıfındaki açığı tamamen kapatıyor; ama "başkasının kimliğine
+bürünme" sınıfındaki açık gerçek bir auth sistemi (login + oturum) kurulmadan
+kapanmaz. Bu, bu depodaki bir sonraki güvenlik önceliği olmalı.

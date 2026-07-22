@@ -47,11 +47,13 @@ seviye-360/
    `PaymentInstallment` satırını `PAID` işaretler ve karşılığında bağlantılı
    (`relatedInstallmentId`) bir `AccountingLedgerEntry` oluşturur. Bkz. aşağıdaki
    "Yerel Geliştirme" bölümü.
-6. **Row-Level Security** (`prisma/migrations/20260721154601_add_rls_policies`) —
-   `prisma/rls/README.md`'de tarif edilen tenant izolasyonu ve Muhasebe rol
-   kısıtlaması artık gerçek bir Postgres'e uygulanmış ve test edilmiş durumda
-   (bkz. `apps/web/scripts/test-rls-isolation.mjs`). Bilinen bir sonraki adım
-   için `prisma/rls/README.md`'deki "Uygulanma Durumu" notuna bakın.
+6. **Row-Level Security, gerçekten bağlı** (`prisma/migrations/20260721154601_add_rls_policies`,
+   `apps/web/lib/db-context.ts`) — `prisma/rls/README.md`'de tarif edilen tenant
+   izolasyonu ve Muhasebe rol kısıtlaması yalnızca uygulanıp test edilmekle
+   kalmadı, taksit tahsilatı API'sinin kendisi de artık `BYPASSRLS`'li migration
+   rolüyle değil, tam RLS'e tabi `app_role`/`superadmin_role` ile çalışıyor.
+   Kalan tek boşluk (gerçek kimlik doğrulama yokluğu) `prisma/rls/README.md`'de
+   ayrıca not edilmiştir.
 
 ## Yerel Geliştirme (Veritabanı)
 
@@ -69,21 +71,28 @@ sudo -u postgres psql -c "CREATE DATABASE seviye360 OWNER seviye360;"
 # oluşturabilmesi için gerekli (bkz. prisma/rls/README.md) — yalnızca yerel
 # geliştirme/migration rolü için kabul edilebilir, üretimde ayrı rollere bölünmeli.
 
-# 2) Kökte ve apps/web'de DATABASE_URL içeren birer .env dosyası oluşturun
+# 2) Kökte migration/seed rolüyle (owner) bir .env oluşturun
 echo 'DATABASE_URL="postgresql://seviye360:seviye360dev@localhost:5432/seviye360?schema=public"' > .env
-cp .env apps/web/.env
 
-# 3) Kök bağımlılıkları kurun (yalnızca prisma CLI + seed script'i için)
+# 3) Kök bağımlılıkları kurun, migration'ları uygulayın (app_role/superadmin_role
+#    rolleri de bu migration içinde oluşturulur), demo veri yükleyin
 npm install
-npx prisma migrate dev   # prisma/migrations altındaki tüm migration'ları (şema + RLS) uygular
+npx prisma migrate dev   # prisma/migrations altındaki tüm migration'ları (şema + RLS + roller) uygular
 npm run seed             # 2 kurum (Mezitli/Mersin, Çankaya/Ankara), her birine öğrenci; Mezitli'de 9 taksit (ilk 2'si ödenmiş)
 
-# 4) apps/web bağımlılıklarını kurup Next.js sunucusunu başlatın
+# 4) apps/web'de AYRI bir .env oluşturun — burası owner değil, RLS'e tabi
+#    app_role/superadmin_role ile çalışır (bkz. lib/db-context.ts)
+cat > apps/web/.env << 'ENVEOF'
+DATABASE_URL="postgresql://app_role:app_role_dev_only@localhost:5432/seviye360?schema=public"
+SUPERADMIN_DATABASE_URL="postgresql://superadmin_role:superadmin_dev_only@localhost:5432/seviye360?schema=public"
+ENVEOF
+
+# 5) apps/web bağımlılıklarını kurup Next.js sunucusunu başlatın
 cd apps/web
 npm install
 npm run dev
 
-# 5) (ayrı bir terminalde) entegrasyon testlerini çalıştırın
-node scripts/test-payment-installments.mjs   # taksit tahsilatı API'si
-node scripts/test-rls-isolation.mjs          # RLS: tenant izolasyonu + Muhasebe rol kısıtlaması
+# 6) (ayrı bir terminalde) entegrasyon testlerini çalıştırın
+node scripts/test-payment-installments.mjs   # taksit tahsilatı API'si (tenant izolasyonu + yetki kontrolü dahil)
+node scripts/test-rls-isolation.mjs          # RLS: tenant izolasyonu + Muhasebe rol kısıtlaması (ham DB seviyesinde)
 ```
