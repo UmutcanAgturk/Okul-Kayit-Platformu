@@ -6,3 +6,4 @@ build/
 .env
 .env.local
 next-env.d.ts
+demo/seviye360/tests/test/
