@@ -97,9 +97,9 @@
     --shadow-sm: 0 1px 2px rgba(16,21,31,.05), 0 2px 6px -2px rgba(16,21,31,.08);
     --shadow: 0 1px 2px rgba(16,21,31,.04), 0 10px 28px -14px rgba(16,21,31,.16);
     --shadow-lg: 0 8px 16px -8px rgba(16,21,31,.16), 0 28px 64px -20px rgba(16,21,31,.28);
-    --radius-sm: 8px;
-    --radius: 12px;
-    --radius-lg: 20px;
+    --radius-sm: 10px;
+    --radius: 14px;
+    --radius-lg: 22px;
     --ease: cubic-bezier(.16,1,.3,1);
     color-scheme: light;
   }
@@ -304,25 +304,41 @@
   .chip.neutral { background: var(--surface-sunken); color: var(--ink-muted); }
 
   .btn {
-    display: inline-flex; align-items: center; gap: 7px; padding: 9px 16px; border-radius: var(--radius-sm);
-    font-size: 13.5px; font-weight: 700; cursor: pointer; border: 1px solid var(--border-strong); background: var(--surface); color: var(--ink);
+    display: inline-flex; align-items: center; gap: 8px; padding: 11px 20px; border-radius: var(--radius-sm);
+    font-size: 14px; font-weight: 700; cursor: pointer; border: 1px solid var(--border-strong); background: var(--surface); color: var(--ink);
     transition: background-color .15s var(--ease), border-color .15s var(--ease), transform .15s var(--ease), box-shadow .15s var(--ease);
   }
   .btn:hover { background: var(--surface-2); border-color: var(--ink-faint); }
   .btn:active { transform: translateY(1px); }
-  .btn.primary { background: var(--brand); color: #fff; border-color: transparent; box-shadow: 0 1px 2px rgba(16,21,31,.06), 0 6px 16px -8px color-mix(in srgb, var(--brand) 70%, transparent); }
-  .btn.primary:hover { background: var(--brand-strong); }
+  .btn.primary { background: var(--brand); color: #fff; border-color: transparent; box-shadow: 0 2px 4px rgba(16,21,31,.08), 0 10px 22px -10px color-mix(in srgb, var(--brand) 70%, transparent); }
+  .btn.primary:hover { background: var(--brand-strong); transform: translateY(-1px); box-shadow: 0 4px 8px rgba(16,21,31,.1), 0 14px 28px -10px color-mix(in srgb, var(--brand) 70%, transparent); }
+  .btn.primary:active { transform: translateY(1px); }
   .btn:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
   .btn:disabled { opacity: .5; cursor: default; transform: none; }
 
   .field { display: flex; flex-direction: column; gap: 5px; }
   .field label { font-size: 12px; font-weight: 600; color: var(--ink-muted); }
   .field input, .field select {
-    padding: 9px 11px; border-radius: var(--radius-sm); border: 1px solid var(--border-strong); background: var(--surface);
+    padding: 11px 13px; border-radius: var(--radius-sm); border: 1px solid var(--border-strong); background: var(--surface);
     color: var(--ink); font-size: 13.5px; font-family: inherit; transition: border-color .15s var(--ease), box-shadow .15s var(--ease);
   }
   .field input:hover, .field select:hover { border-color: var(--ink-faint); }
   .field input:focus, .field select:focus { outline: 2px solid var(--brand); outline-offset: 1px; border-color: var(--brand); }
+
+  .hub-group-title { font-size: 12.5px; font-weight: 700; color: var(--ink-muted); text-transform: uppercase; letter-spacing: .05em; margin: 26px 0 12px; }
+  .hub-group-title:first-of-type { margin-top: 0; }
+  .hub-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
+  .hub-card {
+    display: flex; align-items: center; gap: 12px; text-align: left; font-family: inherit;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px; box-shadow: var(--shadow-sm); cursor: pointer;
+    transition: transform .15s var(--ease), box-shadow .15s var(--ease), border-color .15s var(--ease);
+  }
+  .hub-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); border-color: color-mix(in srgb, var(--brand) 45%, var(--border)); }
+  .hub-card:active { transform: translateY(0); }
+  .hub-card:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+  .hub-card .icon-wrap { flex: none; width: 42px; height: 42px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; background: var(--brand-tint); color: var(--brand); }
+  .hub-card b { font-size: 13.5px; font-weight: 700; color: var(--ink); line-height: 1.3; }
 
   .progress-track { height: 8px; border-radius: 999px; background: var(--surface-sunken); overflow: hidden; }
   .progress-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--brand-strong), var(--brand)); transition: width .5s var(--ease); }
@@ -1612,6 +1628,7 @@ const ic = (name) => ICONS[name] || "";
 /* ============================== NAV MODEL ============================== */
 const PORTALS = [
   { id: "hq", label: "Genel Merkez", sub: "Superadmin · Tüm Verilere Erişim", icon: "map", screens: [
+    { id: "hub", label: "Modüller", group: "Genel Bakış" },
     { id: "bugun", label: "Bugün", group: "Genel Bakış" },
     { id: "map", label: "Şube Performans Haritası", group: "Genel Bakış" },
     { id: "analytics", label: "Global Analytics", group: "Genel Bakış" },
@@ -1644,6 +1661,7 @@ const PORTALS = [
     { id: "iletisim", label: "İletişim", group: "Yönetim & Finans" },
   ]},
   { id: "branch", label: "Şube Yönetimi", sub: "Şube Müdürü", icon: "briefcase", screens: [
+    { id: "hub", label: "Modüller", group: "Genel Bakış" },
     { id: "bugun", label: "Bugün", group: "Genel Bakış" },
     { id: "crm", label: "CRM", group: "Kayıt İşlemleri" },
     { id: "onkayit", label: "Öğrenci Ön Kayıt", group: "Kayıt İşlemleri" },
@@ -1673,6 +1691,7 @@ const PORTALS = [
     { id: "profilim", label: "Profilim", group: "Hesabım" },
   ]},
   { id: "teacher", label: "Öğretmen", sub: "Branş Öğretmeni", icon: "book", screens: [
+    { id: "hub", label: "Modüller", group: "Sınıfım" },
     { id: "xray", label: "AI Sınıf Röntgeni", group: "Sınıfım" },
     { id: "myclass", label: "Sınıflarım", group: "Sınıfım" },
     { id: "attendance", label: "Yoklama Al", group: "Sınıfım" },
@@ -1690,6 +1709,7 @@ const PORTALS = [
     { id: "profilim", label: "Profilim", group: "Diğer" },
   ]},
   { id: "student", label: "Öğrenci & Veli", sub: "Mobil Uygulama", icon: "users", screens: [
+    { id: "hub", label: "Modüller", group: "Ben" },
     { id: "profile", label: "Öğrenci Bilgilerim", group: "Ben" },
     { id: "payment", label: "Ödeme İşlemleri", guardianOnly: true, group: "Ben" },
     { id: "basari", label: "Başarı Rozetlerim", group: "Ben" },
@@ -2112,6 +2132,7 @@ function seedAllBranchesDemoData() {
 }
 
 const SCREEN_ICONS = {
+  hub: "grid",
   map: "map", kurumlar: "briefcase", students: "users", exam: "send", analytics: "chart",
   crm: "kanban", onkayit: "users", normalkayit: "check", odeme: "cardIcon",
   assign: "seat", staff: "users", roller: "grid", ops: "clock", olcme: "chart", muhasebe: "ledger",
@@ -4283,6 +4304,46 @@ function mountIletisimBody() {
 function refreshIletisimSubTab() { renderIletisimBody(); }
 
 const SCREENS = {};
+
+/* ============================== MODÜLLER (HUB) ==============================
+ * Giriş yapıldıktan sonra ilk karşılaşılan ekran — sidebar'daki uzun, düz
+ * listeye alternatif olarak, o portaldaki TÜM modülleri (aynı grup başlıklarıyla)
+ * büyük, tıklanabilir kartlar halinde gösterir. Her portalın screens[] dizisinde
+ * ilk sırada olduğundan (bkz. PORTALS), visibleScreens(portal)[0].id her zaman
+ * "hub" olur — ayrıca bir "varsayılan ekran" ataması gerekmez. */
+SCREENS["branch:hub"] = {
+  html: () => {
+    const portal = PORTALS.find(p => p.id === state.portal);
+    const screens = visibleScreens(portal).filter(s => s.id !== "hub");
+    const groups = [];
+    screens.forEach(s => {
+      const groupName = s.group || "Diğer";
+      let g = groups.find(x => x.name === groupName);
+      if (!g) { g = { name: groupName, items: [] }; groups.push(g); }
+      g.items.push(s);
+    });
+    return `
+      <h1>Modüller</h1>
+      <p class="lede">${portal.label} portalındaki tüm modüllere buradan tek bakışta ulaşın.</p>
+      ${groups.map(g => `
+        <div class="hub-group-title">${g.name}</div>
+        <div class="hub-grid">
+          ${g.items.map(s => `
+            <button class="hub-card" data-hub-goto="${s.id}">
+              <div class="icon-wrap">${ic(SCREEN_ICONS[s.id] || "grid")}</div>
+              <b>${s.label}</b>
+            </button>
+          `).join("")}
+        </div>
+      `).join("")}
+    `;
+  },
+  mount: () => {
+    document.querySelectorAll("[data-hub-goto]").forEach(btn => {
+      btn.addEventListener("click", () => { state.screen = btn.dataset.hubGoto; renderAll(); });
+    });
+  },
+};
 
 function provinceOccupancy(city) {
   const branches = BRANCHES.filter(b => b.city === city);
