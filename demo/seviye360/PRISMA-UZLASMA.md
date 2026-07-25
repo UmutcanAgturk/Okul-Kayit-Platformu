@@ -7,11 +7,11 @@ modelini karşılaştırır. Amaç: demo'da kanıtlanmış iş akışlarından h
 model kasıtlı olarak farklı tasarım kararları içerdiğini netleştirmek — böylece gerçek
 backend'e geçişte hangi alanların taşınacağına bilinçli karar verilebilir.
 
-**Kapsam notu:** `apps/web` şu an demo'daki ~30 modülden **üçünü** (taksit tahsilatı,
-Etüt onay/red, AI Sınıf Röntgeni) gerçek bir PostgreSQL'e + RLS'ye + oturum tabanlı
-kimliğe karşı çalışan gerçek API route'larıyla implemente ediyor. Aşağıdaki
-karşılaştırma bu nedenle çoğunlukla **şema ↔ demo veri şekli** düzeyinde; gerçek
-UI/route karşılaştırması yalnızca bu üç modül için mümkün.
+**Kapsam notu:** `apps/web` şu an demo'daki ~30 modülden **dördünü** (taksit tahsilatı,
+Etüt onay/red, AI Sınıf Röntgeni, Muhasebe defteri) gerçek bir PostgreSQL'e + RLS'ye +
+oturum tabanlı kimliğe karşı çalışan gerçek API route'larıyla implemente ediyor.
+Aşağıdaki karşılaştırma bu nedenle çoğunlukla **şema ↔ demo veri şekli** düzeyinde;
+gerçek UI/route karşılaştırması yalnızca bu dört modül için mümkün.
 
 ---
 
@@ -139,6 +139,15 @@ değiştirilmeli — istemci tarafı gizleme tek başına bir güvenlik sınır�
 > (tek cihaz) veya `/api/auth/logout-all` (tüm cihazlar) ile iptal
 > edilebiliyor — `apps/web/scripts/test-session-revocation.mjs` ile 18
 > senaryoda doğrulandı.
+
+> **Güncelleme — dördüncü gerçek modül:** `AccountingLedgerEntry`'nin yukarıda
+> anlatılan rol kısıtlaması artık yalnızca DB'de değil, buna karşı çalışan
+> gerçek bir API'de de var — `apps/web/app/api/branch/accounting-ledger`.
+> `GET` şubenin defterini + gelir/gider özetini döner, `POST` yeni bir kayıt
+> ekler (`createdByUserId` yine istemciden değil oturumdan gelir).
+> `TEACHER`/`STUDENT` denemesi hem uygulama katmanında (403) hem de RLS
+> sayesinde veritabanı seviyesinde engellenir. `apps/web/scripts/test-accounting-ledger.mjs`
+> ile 15 senaryoda doğrulandı — depodaki dördüncü uçtan uca gerçek özellik.
 
 ## 8. Etüt (StudySession / VIP Eğitim)
 

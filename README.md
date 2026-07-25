@@ -72,6 +72,12 @@ seviye-360/
     artık sabit mock veri yerine gerçek `Exam`/`ExamResult`/`StudentAchievementResult`
     tablolarından, aynı gerçek DB + RLS + oturum deseniyle üretilen bir
     kazanım ısı haritası.
+11. **Dördüncü gerçek modül: Muhasebe Defteri** (`apps/web/app/api/branch/accounting-ledger`) —
+    `AccountingLedgerEntry` tablosu RLS'de zaten yalnızca `BRANCH_ADMIN`/`ACCOUNTING`/`SUPERADMIN`
+    rollerine açıktı, ama buna karşı çalışan bir API yoktu; artık `GET` ile
+    şubenin defterini + gelir/gider özetini listeleyip `POST` ile yeni bir
+    kayıt (gelir/gider) ekleyebiliyorsunuz — `TEACHER`/`STUDENT`/`PARENT`
+    rolleri hem uygulama katmanında hem veritabanı seviyesinde engellenir.
 
 ## Yerel Geliştirme (Veritabanı)
 
@@ -119,6 +125,7 @@ node scripts/test-session-revocation.mjs     # oturum iptali: çoklu cihaz, logo
 node scripts/test-payment-installments.mjs   # taksit tahsilatı API'si (login + tenant izolasyonu + yetki kontrolü)
 node scripts/test-study-sessions.mjs         # etüt onay/red API'si (login + tenant izolasyonu + yetki kontrolü)
 node scripts/test-class-xray.mjs             # AI Sınıf Röntgeni API'si (login + tenant izolasyonu + yetki kontrolü)
+node scripts/test-accounting-ledger.mjs      # Muhasebe defteri API'si (login + tenant izolasyonu + yetki kontrolü)
 node scripts/test-rls-isolation.mjs          # RLS: tenant izolasyonu + Muhasebe rol kısıtlaması (ham DB seviyesinde)
 ```
 

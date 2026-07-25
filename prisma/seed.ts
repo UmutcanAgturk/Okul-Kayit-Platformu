@@ -125,6 +125,33 @@ async function main() {
     }
   }
 
+  // Mezitli'nin Muhasebe defterinde (bkz. apps/web/app/api/branch/accounting-ledger)
+  // baştan itibaren birkaç kayıt olsun diye — taksit tahsilatı API'sinin
+  // kendi oluşturduğu kayıtlardan bağımsız, deterministik bir başlangıç seti.
+  const mezitliLedgerCount = await prisma.accountingLedgerEntry.count({ where: { tenantId: mezitli.id } });
+  if (mezitliLedgerCount === 0) {
+    await prisma.accountingLedgerEntry.create({
+      data: {
+        tenantId: mezitli.id,
+        type: "GELIR",
+        category: "Kayıt Ücreti",
+        amount: 5000,
+        entryDate: new Date(Date.UTC(2026, 6, 1)),
+        createdByUserId: branchAdminUser.id,
+      },
+    });
+    await prisma.accountingLedgerEntry.create({
+      data: {
+        tenantId: mezitli.id,
+        type: "GIDER",
+        category: "Kira",
+        amount: 18000,
+        entryDate: new Date(Date.UTC(2026, 6, 5)),
+        createdByUserId: branchAdminUser.id,
+      },
+    });
+  }
+
   // İkinci bir şube (farklı şehir/tenant) — tek başına taksit testi için
   // gerekli değildi, ama Row-Level Security'nin gerçekten tenant'lar arası
   // izolasyon sağladığını kanıtlamak için ikinci bir tenant'a ait veri şart
