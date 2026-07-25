@@ -18,6 +18,7 @@ TESTS=(
   t155_full_sync_verification.js
   t158_error_toasts.js
   t157_seed_presets.js
+  t159_aging_report.js
 )
 
 pass=0

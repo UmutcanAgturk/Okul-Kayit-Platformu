@@ -8105,6 +8105,46 @@ function upcomingPaymentRows() {
   return rows.sort((a, b) => a.installment.dueDate.localeCompare(b.installment.dueDate));
 }
 
+const AGING_BUCKETS = [
+  { id: "0-30", label: "0-30 gün", max: 30, tone: "weak" },
+  { id: "31-60", label: "31-60 gün", max: 60, tone: "critical" },
+  { id: "61-90", label: "61-90 gün", max: 90, tone: "critical" },
+  { id: "90+", label: "90+ gün", max: Infinity, tone: "critical" },
+];
+
+// Muhasebe > Tahsilat Takibi'ndeki "Tahsilat Yaşlandırma" tablosunun veri
+// kaynağı — overduePaymentRows()'un aksine tek bir kuruma (CURRENT_BRANCH)
+// değil, verilen `roster`'a (HQ'nun konsolide/tek-kurum kapsamına göre
+// değişebilir) göre çalışır ve her veli için gecikme gün sayısını hesaplayıp
+// standart bir muhasebe "yaşlandırma" aralığına (0-30/31-60/61-90/90+) atar.
+function agingReportRows(roster) {
+  const today = new Date();
+  const rows = [];
+  roster.filter(s => Array.isArray(s.installmentSchedule) && s.installmentSchedule.length).forEach(s => {
+    const overdue = s.installmentSchedule.filter(r => r.status !== "Ödendi" && new Date(r.dueDate) < today);
+    if (!overdue.length) return;
+    const oldest = overdue.reduce((a, b) => (a.dueDate < b.dueDate ? a : b));
+    const daysLate = Math.floor((today - new Date(oldest.dueDate)) / (24 * 3600 * 1000));
+    const bucket = AGING_BUCKETS.find(b => daysLate <= b.max);
+    rows.push({
+      student: s,
+      count: overdue.length,
+      totalAmount: overdue.reduce((sum, r) => sum + r.amount, 0),
+      daysLate,
+      oldestDueDate: oldest.dueDate,
+      bucket,
+    });
+  });
+  return rows.sort((a, b) => b.daysLate - a.daysLate);
+}
+
+function agingBucketSummary(rows) {
+  return AGING_BUCKETS.map(bucket => {
+    const inBucket = rows.filter(r => r.bucket.id === bucket.id);
+    return { bucket, count: inBucket.length, amount: inBucket.reduce((sum, r) => sum + r.totalAmount, 0) };
+  });
+}
+
 function collectInstallment(studentId, installmentNo) {
   const s = STUDENT_DIRECTORY.find(x => x.id === studentId);
   if (!s) return;
@@ -12007,6 +12047,40 @@ function renderMuhasebeBody() {
         <p class="stat-value" style="margin:0">₺${expectedInstallmentIncome().toLocaleString("tr-TR")}</p>
         <p style="font-size:12px;color:var(--ink-muted);margin:6px 0 0">Normal Kayıt'ta girilen toplam ücret ve taksit sayısına göre hesaplanır — Beklentiler sekmesindeki senaryo tahminlerine otomatik dahil edilir.</p>
       </div>
+      ${(() => {
+        const agingRows = agingReportRows(roster);
+        const agingSummary = agingBucketSummary(agingRows);
+        return `
+      <div class="card card-pad" id="aging-report-card" style="margin-bottom:14px">
+        <div class="card-head"><h3>Tahsilat Yaşlandırma</h3><span class="hint">${agingRows.length} veli · gecikme gün aralığına göre</span></div>
+        <div class="grid cols-4" style="margin-bottom:14px">
+          ${agingSummary.map(b => `
+            <div class="card stat-card tone-${b.bucket.tone}">
+              <p class="stat-label">${b.bucket.label}</p>
+              <p class="stat-value">${b.count}</p>
+              <p class="stat-sub">₺${b.amount.toLocaleString("tr-TR")}</p>
+            </div>
+          `).join("")}
+        </div>
+        <div class="table-wrap"><table class="data">
+          <thead><tr><th>Öğrenci</th><th>Veli</th><th>Gecikmiş Taksit</th><th>Tutar</th><th>En Eski Vade</th><th>Gecikme</th><th>Aralık</th></tr></thead>
+          <tbody>
+            ${agingRows.length ? agingRows.map(r => `
+              <tr>
+                <td><b>${r.student.name}</b></td>
+                <td>${r.student.guardian}<br><span style="color:var(--ink-faint);font-size:11.5px">${r.student.guardianPhone}</span></td>
+                <td>${r.count}</td>
+                <td>₺${r.totalAmount.toLocaleString("tr-TR")}</td>
+                <td>${r.oldestDueDate}</td>
+                <td>${r.daysLate} gün</td>
+                <td><span class="chip ${r.bucket.tone}">${r.bucket.label}</span></td>
+              </tr>
+            `).join("") : `<tr><td colspan="7" style="color:var(--ink-faint)">Gecikmiş ödeme yok — tüm veliler güncel.</td></tr>`}
+          </tbody>
+        </table></div>
+      </div>
+        `;
+      })()}
       <div class="card card-pad">
         <div class="card-head"><h3>Öğrenci Tahsilat Durumu</h3><span class="hint">${roster.length} öğrenci</span></div>
         <div class="table-wrap"><table class="data">
