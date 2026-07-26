@@ -8374,7 +8374,7 @@ const KAYIT_TURU_OPTIONS = ["Normal Kayıt", "Deneme Kulübü", "Yaz Kursu", "K�
 
 SCREENS["branch:onkayit"] = {
   html: () => `
-    <h1>Öğrenci Ön Kayıt</h1>
+    <h1>Öğrenci Ön Kayıt <span class="chip strong" style="font-size:10.5px;vertical-align:middle" title="apps/web/app/api/branch/enrollments — gerçek Postgres + RLS + oturum tabanlı kimlik">${ic("shield")} Gerçek Backend'de Doğrulandı</span></h1>
     <p class="lede">Aday öğrenci bilgilerini alarak yerini ayırtın. Ön kayıt, CRM'de "Kayıt Oldu" statüsüne düşen adaylardan otomatik de oluşabilir.</p>
     ${hqBranchSelectorHtml("ok-branch-select")}
     <div class="grid cols-2">
@@ -8533,7 +8533,7 @@ let normalKayitMode = "tekli"; // "tekli" | "toplu"
 
 SCREENS["branch:normalkayit"] = {
   html: () => `
-    <h1>Normal Kayıt</h1>
+    <h1>Normal Kayıt <span class="chip strong" style="font-size:10.5px;vertical-align:middle" title="apps/web/app/api/branch/enrollments/[id]/complete — otomatik kullanıcı adı/şifre üretimi + gerçek User/StudentProfile/taksit planı oluşturma, gerçek Postgres + RLS'ye karşı doğrulandı">${ic("shield")} Gerçek Backend'de Doğrulandı</span></h1>
     <p class="lede">${normalKayitMode === "tekli" ? "Ön kaydı olan bir adayı sözleşme ve ödeme planıyla tam kayda dönüştürün — tamamlandığında gerçek bir öğrenci profili oluşur." : "Excel'den birden çok öğrenciyi tek seferde içe aktarın — ön kayıt gerektirmez, doğrudan tam kayıt oluşturur."}</p>
     ${hqBranchSelectorHtml("nk-branch-select")}
     <div style="display:flex;gap:6px;margin-bottom:14px">
