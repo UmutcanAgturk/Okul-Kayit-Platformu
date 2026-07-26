@@ -1655,8 +1655,17 @@ const ICONS = {
   download: '<svg class="icon" viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>',
   sun: '<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.4M12 19.1v2.4M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M2.5 12h2.4M19.1 12h2.4M4.9 19.1l1.7-1.7M17.4 6.6l1.7-1.7"/></svg>',
   moon: '<svg class="icon" viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5Z"/></svg>',
+  inbox: '<svg class="icon" viewBox="0 0 24 24"><path d="M4 12h4.5l1.5 3h4l1.5-3H20"/><path d="M5.5 5h13l1.5 7v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-6l1.5-7Z"/></svg>',
 };
 const ic = (name) => ICONS[name] || "";
+
+// Tablo listelerindeki "kayıt yok" satırlarının ortak içeriği — düz,
+// stilsiz bir <td> metni yerine .empty-state'in ikonlu/ortalanmış
+// görünümünü kullanır (bkz. .empty-state CSS kuralı). Çağıran taraf
+// colspan'ı kendi <td>'sinde tutar, bu yalnızca hücrenin İÇERİĞİni üretir.
+function emptyRow(message, icon = "inbox") {
+  return `<div class="empty-state">${ic(icon)}<p>${message}</p></div>`;
+}
 
 /* ============================== NAV MODEL ============================== */
 const PORTALS = [
@@ -4445,7 +4454,7 @@ function renderCountryMap() {
                   <td><span class="chip ${occ >= 85 ? "strong" : occ >= 70 ? "weak" : "critical"}">%${occ}</span> <span style="color:var(--ink-faint);font-size:11px">(${branchEnrolledCount(b)}/${b.capacity || 0})</span></td>
                 </tr>
               `;
-              }).join("") : `<tr><td colspan="4" style="color:var(--ink-faint)">Henüz kurum eklenmedi — Kurum Yönetimi'nden ekleyebilirsiniz.</td></tr>`}
+              }).join("") : `<tr><td colspan="4">${emptyRow("Henüz kurum eklenmedi — Kurum Yönetimi'nden ekleyebilirsiniz.")}</td></tr>`}
             </tbody>
           </table>
         </div>
@@ -4514,7 +4523,7 @@ function mountCityDrilldown(city) {
         <td><span class="chip ${occ >= 85 ? "strong" : occ >= 70 ? "weak" : "critical"}">%${occ}</span></td>
       </tr>
     `;
-    }).join("") : `<tr><td colspan="5" style="color:var(--ink-faint)">Bu ilçede kurum yok.</td></tr>`;
+    }).join("") : `<tr><td colspan="5">${emptyRow("Bu ilçede kurum yok.")}</td></tr>`;
   }
   document.querySelectorAll("#district-grid [data-district]").forEach(btn => {
     btn.addEventListener("click", () => { activeDistrict = btn.dataset.district; renderList(); });
@@ -5772,7 +5781,7 @@ function renderClassroomDetailHtml() {
         <div class="table-wrap" style="max-height:320px;overflow-y:auto"><table class="data">
           <thead><tr><th>Öğrenci</th><th>Öğrenci No</th><th>Net</th></tr></thead>
           <tbody>
-            ${roster.length ? roster.map(s => `<tr class="row-clickable" data-student-id="${s.id}"><td><b>${s.name}</b></td><td>${s.studentNo}</td><td>${s.net != null ? s.net : "—"}</td></tr>`).join("") : `<tr><td colspan="3" style="color:var(--ink-faint)">Bu şubede henüz öğrenci yok.</td></tr>`}
+            ${roster.length ? roster.map(s => `<tr class="row-clickable" data-student-id="${s.id}"><td><b>${s.name}</b></td><td>${s.studentNo}</td><td>${s.net != null ? s.net : "—"}</td></tr>`).join("") : `<tr><td colspan="3">${emptyRow("Bu şubede henüz öğrenci yok.")}</td></tr>`}
           </tbody>
         </table></div>
       </div>
@@ -5998,7 +6007,7 @@ SCREENS["teacher:attendance"] = {
               </td>
             </tr>
           `;
-          }).join("") : `<tr><td colspan="3" style="color:var(--ink-faint)">Bu sınıfta henüz öğrenci yok.</td></tr>`}
+          }).join("") : `<tr><td colspan="3">${emptyRow("Bu sınıfta henüz öğrenci yok.")}</td></tr>`}
         </tbody>
       </table></div>
       ${roster.length ? `<button class="btn primary" id="att-save" style="margin-top:14px">${ic("check")} Yoklamayı Kaydet</button>` : ""}
@@ -6055,7 +6064,7 @@ SCREENS["branch:attendance"] = {
               <td>${sum.daysTaken}</td>
               <td><span class="chip ${sum.absentRate > 20 ? "critical" : sum.absentRate > 10 ? "weak" : "strong"}">%${sum.absentRate}</span></td>
             </tr>
-          `).join("") : `<tr><td colspan="5" style="color:var(--ink-faint)">Henüz sınıf yok — Sınıf Atama'dan oluşturabilirsiniz.</td></tr>`}
+          `).join("") : `<tr><td colspan="5">${emptyRow("Henüz sınıf yok — Sınıf Atama'dan oluşturabilirsiniz.")}</td></tr>`}
         </tbody>
       </table></div>
     </div>
@@ -6086,7 +6095,7 @@ SCREENS["student:attendance"] = {
         <tbody>
           ${nonVar.length ? nonVar.map(r => `
             <tr><td>${new Date(r.date + "T00:00:00").toLocaleDateString("tr-TR", { day: "2-digit", month: "long", year: "numeric" })}</td><td><span class="chip ${ATTENDANCE_TONE[r.status]}">${ATTENDANCE_LABEL[r.status]}</span></td></tr>
-          `).join("") : `<tr><td colspan="2" style="color:var(--ink-faint)">Devamsızlık/geç/izin kaydı yok — harika gidiyorsunuz!</td></tr>`}
+          `).join("") : `<tr><td colspan="2">${emptyRow("Devamsızlık/geç/izin kaydı yok — harika gidiyorsunuz!")}</td></tr>`}
         </tbody>
       </table></div>
     </div>
@@ -6311,7 +6320,7 @@ function karneStudentTableHtml(roster) {
             <td><button class="btn" data-krn-show="${s.id}" style="padding:5px 12px;font-size:12px">Karneyi Göster</button></td>
           </tr>
         `;
-        }).join("") : `<tr><td colspan="5" style="color:var(--ink-faint)">Öğrenci bulunamadı.</td></tr>`}
+        }).join("") : `<tr><td colspan="5">${emptyRow("Öğrenci bulunamadı.")}</td></tr>`}
       </tbody>
     </table></div>
   `;
@@ -6443,7 +6452,7 @@ function leaderboardTableHtml(rows) {
             <td style="font-variant-numeric:tabular-nums">${r.xp} XP</td>
             <td>${ic("trophy")} ${r.badgeCount}</td>
           </tr>
-        `).join("") : `<tr><td colspan="6" style="color:var(--ink-faint)">Öğrenci bulunamadı.</td></tr>`}
+        `).join("") : `<tr><td colspan="6">${emptyRow("Öğrenci bulunamadı.")}</td></tr>`}
       </tbody>
     </table></div>
   `;
@@ -6582,7 +6591,7 @@ SCREENS["teacher:disiplin"] = {
       <div class="card-head"><h3>Son Kayıtlar</h3><span class="hint">Sınıfınız</span></div>
       <div class="table-wrap"><table class="data">
         <thead><tr><th>Tarih</th><th>Öğrenci</th><th>Tür</th><th>Kategori</th><th>Not</th><th>Puan</th><th>Ekleyen</th></tr></thead>
-        <tbody>${recent.length ? recent.map(disciplineRecordRowHtml).join("") : `<tr><td colspan="7" style="color:var(--ink-faint)">Henüz kayıt yok.</td></tr>`}</tbody>
+        <tbody>${recent.length ? recent.map(disciplineRecordRowHtml).join("") : `<tr><td colspan="7">${emptyRow("Henüz kayıt yok.")}</td></tr>`}</tbody>
       </table></div>
     </div>
   `;
@@ -6626,7 +6635,7 @@ SCREENS["branch:disiplin"] = {
       <div class="card-head"><h3>Tüm Kayıtlar</h3><span class="hint">${records.length} kayıt</span></div>
       <div class="table-wrap"><table class="data">
         <thead><tr><th>Tarih</th><th>Öğrenci</th><th>Tür</th><th>Kategori</th><th>Not</th><th>Puan</th><th>Ekleyen</th></tr></thead>
-        <tbody>${records.length ? records.map(disciplineRecordRowHtml).join("") : `<tr><td colspan="7" style="color:var(--ink-faint)">Henüz kayıt yok.</td></tr>`}</tbody>
+        <tbody>${records.length ? records.map(disciplineRecordRowHtml).join("") : `<tr><td colspan="7">${emptyRow("Henüz kayıt yok.")}</td></tr>`}</tbody>
       </table></div>
     </div>
   `;
@@ -6652,7 +6661,7 @@ SCREENS["student:disiplin"] = {
       <div class="card-head"><h3>Kayıtlarım</h3></div>
       <div class="table-wrap"><table class="data">
         <thead><tr><th>Tarih</th><th>Tür</th><th>Kategori</th><th>Not</th><th>Puan</th><th>Ekleyen</th></tr></thead>
-        <tbody>${records.length ? records.map(r => disciplineRecordRowHtml(r, false)).join("") : `<tr><td colspan="6" style="color:var(--ink-faint)">Henüz kayıt yok.</td></tr>`}</tbody>
+        <tbody>${records.length ? records.map(r => disciplineRecordRowHtml(r, false)).join("") : `<tr><td colspan="6">${emptyRow("Henüz kayıt yok.")}</td></tr>`}</tbody>
       </table></div>
     </div>
   `;
@@ -6704,7 +6713,7 @@ SCREENS["student:veligorusme"] = {
       <div class="card-head"><h3>Taleplerim</h3></div>
       <div class="table-wrap"><table class="data">
         <thead><tr><th>Öğretmen</th><th>Tarih/Saat</th><th>Konu</th><th>Durum</th></tr></thead>
-        <tbody>${myRequests.length ? myRequests.map(r => ptaRequestRowHtml(r, { showStudent: false })).join("") : `<tr><td colspan="4" style="color:var(--ink-faint)">Henüz talebiniz yok.</td></tr>`}</tbody>
+        <tbody>${myRequests.length ? myRequests.map(r => ptaRequestRowHtml(r, { showStudent: false })).join("") : `<tr><td colspan="4">${emptyRow("Henüz talebiniz yok.")}</td></tr>`}</tbody>
       </table></div>
     </div>
   `;
@@ -6748,14 +6757,14 @@ SCREENS["teacher:veligorusme"] = {
             <button class="btn" data-pta-approve="${row.id}" style="padding:4px 10px;font-size:11.5px;color:var(--strong)">Onayla</button>
             <button class="btn" data-pta-reject="${row.id}" style="padding:4px 10px;font-size:11.5px;color:var(--critical)">Reddet</button>
           `,
-        })).join("") : `<tr><td colspan="5" style="color:var(--ink-faint)">Bekleyen talep yok.</td></tr>`}</tbody>
+        })).join("") : `<tr><td colspan="5">${emptyRow("Bekleyen talep yok.")}</td></tr>`}</tbody>
       </table></div>
     </div>
     <div class="card card-pad">
       <div class="card-head"><h3>Geçmiş</h3></div>
       <div class="table-wrap"><table class="data">
         <thead><tr><th>Öğrenci</th><th>Tarih/Saat</th><th>Konu</th><th>Durum</th></tr></thead>
-        <tbody>${decided.length ? decided.map(r => ptaRequestRowHtml(r, { showTeacher: false })).join("") : `<tr><td colspan="4" style="color:var(--ink-faint)">Henüz geçmiş kayıt yok.</td></tr>`}</tbody>
+        <tbody>${decided.length ? decided.map(r => ptaRequestRowHtml(r, { showTeacher: false })).join("") : `<tr><td colspan="4">${emptyRow("Henüz geçmiş kayıt yok.")}</td></tr>`}</tbody>
       </table></div>
     </div>
   `;
@@ -6794,7 +6803,7 @@ SCREENS["branch:veligorusme"] = {
       <div class="card-head"><h3>Talepler</h3><span class="hint">${requests.length}</span></div>
       <div class="table-wrap"><table class="data">
         <thead><tr><th>Öğrenci</th><th>Öğretmen</th><th>Tarih/Saat</th><th>Konu</th><th>Durum</th></tr></thead>
-        <tbody>${requests.length ? requests.map(r => ptaRequestRowHtml(r)).join("") : `<tr><td colspan="5" style="color:var(--ink-faint)">Henüz talep yok.</td></tr>`}</tbody>
+        <tbody>${requests.length ? requests.map(r => ptaRequestRowHtml(r)).join("") : `<tr><td colspan="5">${emptyRow("Henüz talep yok.")}</td></tr>`}</tbody>
       </table></div>
     </div>
   `;
@@ -6837,7 +6846,7 @@ function clubMemberManagerHtml(club, roster) {
               <td>${s.classroom || "—"}</td>
               <td><button class="btn" data-club-toggle="${club.id}" data-club-student="${s.id}" style="padding:4px 10px;font-size:11.5px">${club.memberStudentIds.includes(s.id) ? "Çıkar" : "Ekle"}</button></td>
             </tr>
-          `).join("") : `<tr><td colspan="3" style="color:var(--ink-faint)">Öğrenci yok.</td></tr>`}
+          `).join("") : `<tr><td colspan="3">${emptyRow("Öğrenci yok.")}</td></tr>`}
         </tbody>
       </table>
     </div>
@@ -7002,7 +7011,7 @@ SCREENS["branch:aktivite"] = {
               <td>${a.action}</td>
               <td style="color:var(--ink-muted);font-size:12.5px">${a.detail || "—"}</td>
             </tr>
-          `).join("") : `<tr><td colspan="4" style="color:var(--ink-faint)">Henüz işlem kaydı yok.</td></tr>`}
+          `).join("") : `<tr><td colspan="4">${emptyRow("Henüz işlem kaydı yok.")}</td></tr>`}
         </tbody>
       </table></div>
     </div>
@@ -7062,7 +7071,7 @@ SCREENS["branch:bugun"] = {
         <div class="card-head"><h3>Bugünkü Veli Görüşmeleri</h3><span class="hint">${ptaToday.length}</span></div>
         <div class="table-wrap"><table class="data">
           <thead><tr><th>Öğrenci</th><th>Saat</th><th>Durum</th></tr></thead>
-          <tbody>${ptaToday.length ? ptaToday.map(r => ptaRequestRowHtml(r, { showTeacher: false })).join("") : `<tr><td colspan="3" style="color:var(--ink-faint)">Bugün için görüşme yok.</td></tr>`}</tbody>
+          <tbody>${ptaToday.length ? ptaToday.map(r => ptaRequestRowHtml(r, { showTeacher: false })).join("") : `<tr><td colspan="3">${emptyRow("Bugün için görüşme yok.")}</td></tr>`}</tbody>
         </table></div>
       </div>
     </div>
@@ -7326,7 +7335,7 @@ function busRouteMemberManagerHtml(route, roster) {
               <td>${s.classroom || "—"}</td>
               <td><button class="btn" data-bus-toggle="${route.id}" data-bus-student="${s.id}" style="padding:4px 10px;font-size:11.5px">${route.memberStudentIds.includes(s.id) ? "Çıkar" : "Ekle"}</button></td>
             </tr>
-          `).join("") : `<tr><td colspan="3" style="color:var(--ink-faint)">Öğrenci yok.</td></tr>`}
+          `).join("") : `<tr><td colspan="3">${emptyRow("Öğrenci yok.")}</td></tr>`}
         </tbody>
       </table>
     </div>
@@ -7490,7 +7499,7 @@ SCREENS["branch:ogretmenperf"] = {
               <td><span class="chip strong">${s.positiveCount}</span> <span class="chip critical">${s.negativeCount}</span></td>
             </tr>
           `;
-          }).join("") : `<tr><td colspan="7" style="color:var(--ink-faint)">Henüz öğretmen yok.</td></tr>`}
+          }).join("") : `<tr><td colspan="7">${emptyRow("Henüz öğretmen yok.")}</td></tr>`}
         </tbody>
       </table></div>
     </div>
@@ -7572,7 +7581,7 @@ SCREENS["student:quiz"] = {
         <div class="card-head"><h3>Geçmiş Denemeler</h3></div>
         <div class="table-wrap"><table class="data">
           <thead><tr><th>Tarih</th><th>Ders</th><th>Sonuç</th></tr></thead>
-          <tbody>${myAttempts.length ? myAttempts.map(a => `<tr><td>${a.createdAt}</td><td>${a.subject}</td><td>${a.correctCount}/${a.totalCount}</td></tr>`).join("") : `<tr><td colspan="3" style="color:var(--ink-faint)">Henüz pratik yapmadınız.</td></tr>`}</tbody>
+          <tbody>${myAttempts.length ? myAttempts.map(a => `<tr><td>${a.createdAt}</td><td>${a.subject}</td><td>${a.correctCount}/${a.totalCount}</td></tr>`).join("") : `<tr><td colspan="3">${emptyRow("Henüz pratik yapmadınız.")}</td></tr>`}</tbody>
         </table></div>
       </div>
     `;
@@ -7930,7 +7939,7 @@ function renderRollerTable() {
     countEl.textContent = rows.length + " kayıt";
     tableEl.innerHTML = `
       <thead><tr>${isHq ? "<th>Şube</th>" : ""}<th>Ad</th><th>Rol</th><th>Branş</th><th>Kullanıcı Adı</th><th></th></tr></thead>
-      <tbody>${rows.length ? rows.map(s => rollerPersonelRowHtml(s, isHq)).join("") : `<tr><td colspan="${isHq ? 6 : 5}" style="color:var(--ink-faint)">Kayıt yok.</td></tr>`}</tbody>
+      <tbody>${rows.length ? rows.map(s => rollerPersonelRowHtml(s, isHq)).join("") : `<tr><td colspan="${isHq ? 6 : 5}">${emptyRow("Kayıt yok.")}</td></tr>`}</tbody>
     `;
     wireRollerPersonelRow();
     return;
@@ -7943,7 +7952,7 @@ function renderRollerTable() {
     countEl.textContent = rows.length + " kayıt";
     tableEl.innerHTML = `
       <thead><tr>${isHq ? "<th>Şube</th>" : ""}<th>Ad</th><th>Sınıf</th><th>Kullanıcı Adı</th><th></th></tr></thead>
-      <tbody>${rows.length ? rows.map(s => rollerStudentRowHtml(s, isHq)).join("") : `<tr><td colspan="${isHq ? 5 : 4}" style="color:var(--ink-faint)">Kayıt yok.</td></tr>`}</tbody>
+      <tbody>${rows.length ? rows.map(s => rollerStudentRowHtml(s, isHq)).join("") : `<tr><td colspan="${isHq ? 5 : 4}">${emptyRow("Kayıt yok.")}</td></tr>`}</tbody>
     `;
     wireRollerStudentRow();
     return;
@@ -7956,7 +7965,7 @@ function renderRollerTable() {
   countEl.textContent = rows2.length + " kayıt";
   tableEl.innerHTML = `
     <thead><tr>${isHq ? "<th>Şube</th>" : ""}<th>Öğrenci</th><th>Veli</th><th>Kullanıcı Adı</th><th></th></tr></thead>
-    <tbody>${rows2.length ? rows2.map(s => rollerGuardianRowHtml(s, isHq)).join("") : `<tr><td colspan="${isHq ? 5 : 4}" style="color:var(--ink-faint)">Kayıt yok.</td></tr>`}</tbody>
+    <tbody>${rows2.length ? rows2.map(s => rollerGuardianRowHtml(s, isHq)).join("") : `<tr><td colspan="${isHq ? 5 : 4}">${emptyRow("Kayıt yok.")}</td></tr>`}</tbody>
   `;
   wireRollerGuardianRow();
 }
@@ -8493,7 +8502,7 @@ function renderOnKayitTable() {
           </td>
         </tr>
       `;
-      }).join("") : `<tr><td colspan="5" style="color:var(--ink-faint)">Henüz ön kayıt yok.</td></tr>`}
+      }).join("") : `<tr><td colspan="5">${emptyRow("Henüz ön kayıt yok.")}</td></tr>`}
     </tbody>
   `;
 
@@ -9354,7 +9363,7 @@ function renderPaymentStudentTable(query) {
         </select>
       </td>
     </tr>
-  `).join("") : `<tr><td colspan="5" style="color:var(--ink-faint)">Öğrenci bulunamadı.</td></tr>`;
+  `).join("") : `<tr><td colspan="5">${emptyRow("Öğrenci bulunamadı.")}</td></tr>`;
   tbody.querySelectorAll("[data-pm-assign]").forEach(sel => {
     sel.addEventListener("change", () => {
       const s = STUDENT_DIRECTORY.find(x => x.id === Number(sel.dataset.pmAssign));
@@ -10021,7 +10030,7 @@ function renderKazanimYonetimRows() {
         <td><code style="font-size:11px">${a.code}</code></td>
         <td style="font-size:12.5px">${a.label}</td>
       </tr>
-    `).join("") : `<tr><td colspan="5" style="color:var(--ink-faint)">Kayıt bulunamadı.</td></tr>`;
+    `).join("") : `<tr><td colspan="5">${emptyRow("Kayıt bulunamadı.")}</td></tr>`;
   }
   const selectAllCb = document.getElementById("kyz-select-all");
   if (selectAllCb) selectAllCb.checked = rows.length > 0 && rows.every(a => kazanimYonetimSelected.has(a.id));
@@ -10146,7 +10155,7 @@ function renderDurumTab(scope) {
               <td>${e.ortNet}</td>
               <td>${e.dogruOrani != null ? "%" + e.dogruOrani : "—"}</td>
             </tr>
-          `).join("") : `<tr><td colspan="5" style="color:var(--ink-faint)">Henüz sınav sonucu yok.</td></tr>`}
+          `).join("") : `<tr><td colspan="5">${emptyRow("Henüz sınav sonucu yok.")}</td></tr>`}
         </tbody>
       </table></div>
     </div>
@@ -10271,7 +10280,7 @@ function renderKazanimTab(scope) {
               <td>${s.classroom || "—"}</td>
               <td>${s.cells.filter(c => c.mastery === "critical").map(c => `<span class="chip critical" style="margin:2px">${achLabel(c.achievementId)}</span>`).join("")}</td>
             </tr>
-          `).join("") : `<tr><td colspan="3" style="color:var(--ink-faint)">Kritik eksik tespit edilmedi.</td></tr>`}
+          `).join("") : `<tr><td colspan="3">${emptyRow("Kritik eksik tespit edilmedi.")}</td></tr>`}
         </tbody>
       </table></div>
     </div>
@@ -11147,7 +11156,7 @@ function renderOptikRosterStage(scope) {
                 ${doneIds.has(s.id) ? `<button class="btn" data-optik-view="${s.id}" style="padding:5px 10px;font-size:12px">Sonuç</button>` : ""}
               </td>
             </tr>
-          `).join("") : `<tr><td colspan="4" style="color:var(--ink-faint)">Bu sınıfta öğrenci yok.</td></tr>`}
+          `).join("") : `<tr><td colspan="4">${emptyRow("Bu sınıfta öğrenci yok.")}</td></tr>`}
         </tbody>
       </table></div>
     </div>
@@ -11386,7 +11395,7 @@ function renderEtutTable() {
           <td><button class="btn" data-etut-delete="${r.id}" style="padding:5px 9px;font-size:12px">Sil</button></td>
         </tr>
       `;
-      }).join("") : `<tr><td colspan="${isHq ? 6 : 5}" style="color:var(--ink-faint)">Kayıt yok.</td></tr>`}
+      }).join("") : `<tr><td colspan="${isHq ? 6 : 5}">${emptyRow("Kayıt yok.")}</td></tr>`}
     </tbody>
   `;
   tableEl.querySelectorAll("[data-etut-delete]").forEach(btn => {
@@ -11454,7 +11463,7 @@ function renderMentorAdminBody() {
           ${roster.length ? roster.map(s => {
             const mentor = getStudentMentorStaff(s);
             return `<tr><td>${s.name}</td><td>${s.gradeLevel}</td><td>${mentor ? mentor.name : `<span class="chip weak">Atanmadı</span>`}</td><td>Ayda ${mentorMonthlyQuota(s.gradeLevel)}</td></tr>`;
-          }).join("") : `<tr><td colspan="4" style="color:var(--ink-faint)">Bu şubede öğrenci yok.</td></tr>`}
+          }).join("") : `<tr><td colspan="4">${emptyRow("Bu şubede öğrenci yok.")}</td></tr>`}
         </tbody>
       </table></div>
     </div>
@@ -11467,7 +11476,7 @@ function renderMentorAdminBody() {
             const student = STUDENT_DIRECTORY.find(s => s.id === r.studentId);
             const mentor = allStaffAcrossBranches().find(s => s.username === r.mentorUsername);
             return `<tr><td>${student ? student.name : "—"}</td><td>${mentor ? mentor.name : "—"}</td><td>${r.slotDate || "—"}${r.slotTime ? " · " + r.slotTime : ""}</td><td><span class="chip ${MENTOR_STATUS_TONE[r.status]}">${MENTOR_STATUS_LABEL[r.status]}</span></td></tr>`;
-          }).join("") : `<tr><td colspan="4" style="color:var(--ink-faint)">Henüz randevu talebi yok.</td></tr>`}
+          }).join("") : `<tr><td colspan="4">${emptyRow("Henüz randevu talebi yok.")}</td></tr>`}
         </tbody>
       </table></div>
     </div>
@@ -12170,7 +12179,7 @@ function renderMuhasebeBody() {
                 <td>${r.daysLate} gün</td>
                 <td><span class="chip ${r.bucket.tone}">${r.bucket.label}</span></td>
               </tr>
-            `).join("") : `<tr><td colspan="7" style="color:var(--ink-faint)">Gecikmiş ödeme yok — tüm veliler güncel.</td></tr>`}
+            `).join("") : `<tr><td colspan="7">${emptyRow("Gecikmiş ödeme yok — tüm veliler güncel.")}</td></tr>`}
           </tbody>
         </table></div>
       </div>
@@ -12199,7 +12208,7 @@ function renderMuhasebeBody() {
                 </td>
               </tr>
             `;
-            }).join("") : `<tr><td colspan="${isConsolidated ? 6 : 5}" style="color:var(--ink-faint)">Kapsamda kayıtlı öğrenci yok.</td></tr>`}
+            }).join("") : `<tr><td colspan="${isConsolidated ? 6 : 5}">${emptyRow("Kapsamda kayıtlı öğrenci yok.")}</td></tr>`}
           </tbody>
         </table></div>
       </div>
@@ -12306,7 +12315,7 @@ function renderMuhasebeBody() {
 }
 
 function renderLedgerRows(filtered, showBranchCol) {
-  if (!filtered.length) return `<tr><td colspan="${showBranchCol ? 5 : 4}" style="color:var(--ink-faint)">Kayıt bulunamadı.</td></tr>`;
+  if (!filtered.length) return `<tr><td colspan="${showBranchCol ? 5 : 4}">${emptyRow("Kayıt bulunamadı.")}</td></tr>`;
   return filtered.map(e => {
     const key = `${e.branchId}:${e._idx}`;
     if (ledgerDeletingIndex === key) return `
@@ -12599,7 +12608,7 @@ SCREENS["teacher:myclass"] = {
               <td>${s.net != null ? s.net : "—"}</td>
               <td style="color:var(--ink-faint);font-size:12.5px">${s.guardian} · ${s.guardianPhone}</td>
             </tr>
-          `).join("") : `<tr><td colspan="4" style="color:var(--ink-faint)">Bu sınıfta henüz öğrenci yok — Şube Yönetimi'nde Normal Kayıt ve Sınıf Atama ile eklenir.</td></tr>`}
+          `).join("") : `<tr><td colspan="4">${emptyRow("Bu sınıfta henüz öğrenci yok — Şube Yönetimi'nde Normal Kayıt ve Sınıf Atama ile eklenir.")}</td></tr>`}
         </tbody>
       </table></div>
     </div>
@@ -12692,7 +12701,7 @@ function renderEtutTeacherHistory() {
         <td>${r.status === "ONAYLANDI" ? `<button class="btn" data-complete-etut="${r.id}" style="padding:5px 9px;font-size:12px">Tamamlandı İşaretle</button>` : ""}</td>
       </tr>
     `;
-  }).join("") : `<tr><td colspan="5" style="color:var(--ink-faint)">Henüz işlem yapılmadı.</td></tr>`;
+  }).join("") : `<tr><td colspan="5">${emptyRow("Henüz işlem yapılmadı.")}</td></tr>`;
   tbody.querySelectorAll("[data-complete-etut]").forEach(btn => {
     btn.addEventListener("click", () => {
       const req = ETUT_REQUESTS.find(r => r.id === Number(btn.dataset.completeEtut));
@@ -12765,7 +12774,7 @@ SCREENS["teacher:mentor"] = {
           ${history.length ? history.map(r => {
             const student = STUDENT_DIRECTORY.find(s => s.id === r.studentId);
             return `<tr><td>${student ? student.name : "—"}</td><td>${r.slotDate || "—"}${r.slotTime ? " · " + r.slotTime : ""}</td><td>${r.note || "—"}</td><td><span class="chip ${MENTOR_STATUS_TONE[r.status]}">${MENTOR_STATUS_LABEL[r.status]}</span></td></tr>`;
-          }).join("") : `<tr><td colspan="4" style="color:var(--ink-faint)">Henüz işlem yapılmadı.</td></tr>`}
+          }).join("") : `<tr><td colspan="4">${emptyRow("Henüz işlem yapılmadı.")}</td></tr>`}
         </tbody>
       </table></div>
     </div>
@@ -13249,7 +13258,7 @@ function renderMyEtutRows(myRequests) {
       <td>${r.slotDate || "—"}${r.slotTime ? " · " + r.slotTime : ""}</td>
       <td><span class="chip ${ETUT_STATUS_TONE[r.status]}">${ETUT_STATUS_LABEL[r.status]}</span></td>
     </tr>
-  `).join("") : `<tr><td colspan="3" style="color:var(--ink-faint)">Henüz talep oluşturulmadı.</td></tr>`;
+  `).join("") : `<tr><td colspan="3">${emptyRow("Henüz talep oluşturulmadı.")}</td></tr>`;
 }
 
 /* ============================== STUDENT: SEVİYE MENTÖR ============================== */
@@ -13334,7 +13343,7 @@ function renderMyMentorRows(myRequests) {
       <td>${r.note || "—"}</td>
       <td><span class="chip ${MENTOR_STATUS_TONE[r.status]}">${MENTOR_STATUS_LABEL[r.status]}</span></td>
     </tr>
-  `).join("") : `<tr><td colspan="3" style="color:var(--ink-faint)">Henüz randevu talebi oluşturulmadı.</td></tr>`;
+  `).join("") : `<tr><td colspan="3">${emptyRow("Henüz randevu talebi oluşturulmadı.")}</td></tr>`;
 }
 
 /* ============================== STUDENT: ROADMAP ============================== */
