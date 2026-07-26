@@ -19,9 +19,23 @@ export async function GET(request: NextRequest) {
     return tx.studySession.findMany({
       where: { teacherId: teacherProfile.id },
       orderBy: { scheduledStart: "asc" },
-      include: { achievement: true, student: true },
+      include: { achievement: true, student: { include: { user: true } } },
     });
   });
 
-  return NextResponse.json({ sessions });
+  // Ham Prisma nesnesi yerine seçilmiş alanlar döndürülür — aksi halde
+  // student.user.passwordHash gibi hassas alanlar da istemciye sızardı.
+  return NextResponse.json({
+    sessions: sessions.map((s) => ({
+      id: s.id,
+      status: s.status,
+      scheduledStart: s.scheduledStart,
+      scheduledEnd: s.scheduledEnd,
+      student: {
+        id: s.student.id,
+        user: { firstName: s.student.user.firstName, lastName: s.student.user.lastName },
+      },
+      achievement: s.achievement ? { code: s.achievement.code, label: s.achievement.label } : null,
+    })),
+  });
 }
