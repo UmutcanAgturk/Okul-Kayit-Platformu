@@ -33,6 +33,11 @@ CREATE POLICY tenant_and_role_isolation ON "AccountingLedgerEntry"
 
 Bu sayede `TEACHER`, `STUDENT`, `PARENT` ve `GUIDANCE_COORDINATOR` rolündeki bir kullanıcı, aynı tenant'a ait olsa bile Muhasebe kayıtlarını hiçbir zaman sorgulayamaz — veritabanı seviyesinde garanti edilir, sadece UI'da gizlenmiş olmaz.
 
+`PayrollRecord` (bordro) tablosu da aynı `tenant_and_role_isolation` politikasını taşır (bkz.
+`prisma/migrations/20260726184626_add_vat_withholding_payroll`) — maaş verisi hassastır, bir
+öğretmen kendi bordrosunu bile bu tablo üzerinden asla göremez; yalnızca Şube Yöneticisi/Muhasebe/
+Genel Merkez erişebilir.
+
 ## Uygulanma Durumu
 
 Bu politikalar artık yalnızca bir tasarım değil — `prisma/migrations/20260721154601_add_rls_policies`

@@ -5,6 +5,7 @@
 // iki modelin aynı senaryoyu temsil ettiği doğrulanabilir.
 import { PrismaClient, TenantType, UserRole, GradeLevel, PaymentStatus, ExamType, ExamScope } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { computePayroll } from "../apps/web/lib/payroll";
 
 const prisma = new PrismaClient();
 
@@ -164,6 +165,23 @@ async function main() {
         amount: 18000,
         entryDate: new Date(Date.UTC(2026, 6, 5)),
         createdByUserId: branchAdminUser.id,
+        // GVK md 94: işyeri kirası, gerçek kişiden kiralanmışsa %20 stopaja
+        // tabidir — kesilen pay muhtasar beyanname ile beyan edilir, kalanı
+        // kiraya verene net ödenir (bkz. lib/tax.ts, /api/branch/.../vat-summary).
+        withholdingRate: 0.2,
+      },
+    });
+    await prisma.accountingLedgerEntry.create({
+      data: {
+        tenantId: mezitli.id,
+        type: "GIDER",
+        category: "Büro Malzemesi",
+        amount: 1200,
+        entryDate: new Date(Date.UTC(2026, 6, 8)),
+        createdByUserId: branchAdminUser.id,
+        // Standart KDV oranı (%20) — "Kayıt Ücreti"nin aksine bu bir eğitim
+        // hizmeti değildir, KDV Kanunu 17/2-b istisnası kapsamına girmez.
+        vatRate: 0.2,
       },
     });
   }
@@ -263,6 +281,41 @@ async function main() {
     update: {},
     create: { userId: teacherUser.id, branch: "Matematik" },
   });
+
+  // Basitleştirilmiş bordro örneği (bkz. apps/web/lib/payroll.ts) — brüt
+  // maaştan SGK/işsizlik/gelir vergisi/damga vergisi kesintilerini hesaplayıp
+  // işveren toplam maliyetini otomatik olarak Muhasebe defterine de yazar
+  // (bkz. /api/branch/payroll).
+  const payrollPeriod = "2026-07";
+  const existingPayroll = await prisma.payrollRecord.findUnique({
+    where: { teacherId_period: { teacherId: teacherProfile.id, period: payrollPeriod } },
+  });
+  if (!existingPayroll) {
+    const grossSalary = 30000;
+    const breakdown = computePayroll(grossSalary);
+    const payrollLedgerEntry = await prisma.accountingLedgerEntry.create({
+      data: {
+        tenantId: mezitli.id,
+        type: "GIDER",
+        category: "Personel Maaşı",
+        amount: breakdown.employerCost,
+        entryDate: new Date(Date.UTC(2026, 6, 31)),
+        note: `${teacherUser.firstName} ${teacherUser.lastName} — ${payrollPeriod} bordrosu (işveren toplam maliyeti)`,
+        createdByUserId: branchAdminUser.id,
+      },
+    });
+    await prisma.payrollRecord.create({
+      data: {
+        tenantId: mezitli.id,
+        teacherId: teacherProfile.id,
+        period: payrollPeriod,
+        grossSalary,
+        ...breakdown,
+        ledgerEntryId: payrollLedgerEntry.id,
+        createdByUserId: branchAdminUser.id,
+      },
+    });
+  }
 
   const achievement = await prisma.curriculumNode.upsert({
     where: { code: "MAT.9.1.2.3" },
@@ -420,6 +473,7 @@ async function main() {
   console.log("  Etüt Seansı (StudySession, AI_SUGGESTED):", studySession.id);
   console.log("  Sınav (Exam, AI Sınıf Röntgeni için):", xrayExam.id, "-", xrayExam.name);
   console.log("  9-A sınıfındaki öğrenci sayısı (AI Sınıf Röntgeni için):", classXRayStudents.length);
+  console.log("  Bordro örneği (PayrollRecord, 2026-07, Ayşe Demir): brüt ₺30.000 -> net ₺" + computePayroll(30000).netSalary);
   console.log("  Tüm seed kullanıcıları için şifre:", SEED_DEV_PASSWORD);
 }
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
 import { withTenantContext } from "@/lib/db-context";
+import { vatBreakdown, withholdingBreakdown } from "@/lib/tax";
 
 /**
  * Dördüncü gerçek modül: Muhasebe defteri. `AccountingLedgerEntry` tablosu
@@ -36,8 +37,23 @@ export async function GET(request: NextRequest) {
   const totalGelir = entries.filter((e) => e.type === "GELIR").reduce((sum, e) => sum + Number(e.amount), 0);
   const totalGider = entries.filter((e) => e.type === "GIDER").reduce((sum, e) => sum + Number(e.amount), 0);
 
+  // vatRate/withholdingRate saklanan tek gerçek kaynak — matrah/KDV/net
+  // ödenecek tutar her okumada bu ham orandan türetilir (bkz. lib/tax.ts).
+  const entriesWithTax = entries.map((entry) => {
+    const amount = Number(entry.amount);
+    const vatRate = entry.vatRate === null ? null : Number(entry.vatRate);
+    const withholdingRate = entry.withholdingRate === null ? null : Number(entry.withholdingRate);
+    return {
+      ...entry,
+      tax: {
+        ...vatBreakdown(amount, vatRate),
+        ...withholdingBreakdown(amount, withholdingRate),
+      },
+    };
+  });
+
   return NextResponse.json({
-    entries,
+    entries: entriesWithTax,
     summary: { totalGelir, totalGider, net: totalGelir - totalGider },
   });
 }
@@ -65,6 +81,17 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // vatRate/withholdingRate isteğe bağlıdır — verilmezse KDV/stopaj dışı
+  // (örn. lisanslı eğitim kurumunun eğitim geliri, KDV Kanunu 17/2-b istisnası).
+  const vatRate = isValidRate(body.vatRate) ? body.vatRate : null;
+  const withholdingRate = isValidRate(body.withholdingRate) ? body.withholdingRate : null;
+  if (body.vatRate !== undefined && body.vatRate !== null && !isValidRate(body.vatRate)) {
+    return NextResponse.json({ message: "vatRate 0 ile 1 arasında bir sayı olmalıdır" }, { status: 400 });
+  }
+  if (body.withholdingRate !== undefined && body.withholdingRate !== null && !isValidRate(body.withholdingRate)) {
+    return NextResponse.json({ message: "withholdingRate 0 ile 1 arasında bir sayı olmalıdır" }, { status: 400 });
+  }
+
   const entry = await withTenantContext(actor, (tx) =>
     tx.accountingLedgerEntry.create({
       data: {
@@ -74,10 +101,16 @@ export async function POST(request: NextRequest) {
         amount,
         entryDate,
         note,
+        vatRate,
+        withholdingRate,
         createdByUserId: actor.id,
       },
     }),
   );
 
   return NextResponse.json({ entry }, { status: 201 });
+}
+
+function isValidRate(value: unknown): value is number {
+  return typeof value === "number" && value >= 0 && value <= 1;
 }

@@ -80,6 +80,7 @@ model Tenant {
   paymentInstallments PaymentInstallment[]
   paymentMethods     PaymentMethod[]
   ledgerEntries      AccountingLedgerEntry[]
+  payrollRecords     PayrollRecord[]
 
   @@index([parentId])
 }
@@ -148,6 +149,7 @@ model TeacherProfile {
 
   availabilitySlots   TeacherAvailabilitySlot[]
   studySessions       StudySession[]
+  payrollRecords      PayrollRecord[]
 
   @@index([branch])
 }
@@ -528,15 +530,62 @@ model AccountingLedgerEntry {
 
   type          AccountingEntryType
   category      String              // örn. "Taksit Tahsilatı", "Kira", "Personel Maaşı"
-  amount        Decimal             @db.Decimal(10, 2)
+  amount        Decimal             @db.Decimal(10, 2) // her zaman KDV dahil brüt tutar
   entryDate     DateTime
   note          String?
 
+  // KDV Kanunu md 17/2-b uyarınca lisanslı eğitim kurumlarının eğitim/öğretim
+  // hizmeti gelirleri genelde KDV'den istisnadır — bu yüzden vatRate NULL
+  // (istisna/KDV dışı) olabilir. Doluysa `amount` KDV dahil kabul edilir;
+  // matrah = amount / (1 + vatRate), kdv = amount - matrah (bkz. lib/tax.ts).
+  vatRate         Decimal?          @db.Decimal(5, 4)
+  // GVK md 94 stopajı (örn. gerçek kişiden kiralanan işyeri kirası %20) —
+  // doluysa `amount` kesintiden ÖNCEKİ (brüt/sözleşme) tutardır; kesilen pay
+  // muhtasar beyanname ile vergi dairesine, kalanı hak sahibine ödenir.
+  withholdingRate Decimal?          @db.Decimal(5, 4)
+
   createdByUserId String            // BRANCH_ADMIN veya ACCOUNTING rolündeki User.id
   relatedInstallmentId String?      // varsa ilgili PaymentInstallment.id
+
+  payrollRecord PayrollRecord?
 
   createdAt     DateTime            @default(now())
 
   @@index([tenantId, entryDate])
   @@index([tenantId, type])
+}
+
+// Basitleştirilmiş, gösterim amaçlı bordro hesaplayıcısının çıktısı (bkz.
+// lib/payroll.ts) — kümülatif yıllık gelir vergisi dilimi takibi ve asgari
+// ücret istisnası GİBİ ayrıntılar burada MODELLENMEMİŞTİR; resmi bir bordro
+// motoru değildir. Her kayıt, işveren maliyetini (brüt + işveren payları)
+// tek bir "Personel Maaşı" gider kalemi olarak Muhasebe defterine de yazar.
+model PayrollRecord {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  teacherId String
+  teacher   TeacherProfile @relation(fields: [teacherId], references: [id])
+  period    String // "2026-07" (YYYY-MM)
+
+  grossSalary               Decimal @db.Decimal(10, 2)
+  sgkEmployeeShare          Decimal @db.Decimal(10, 2) // %14
+  unemploymentEmployeeShare Decimal @db.Decimal(10, 2) // %1
+  incomeTaxWithheld         Decimal @db.Decimal(10, 2) // basitleştirilmiş ilk dilim (%15)
+  stampDutyWithheld         Decimal @db.Decimal(10, 2) // %0,759
+  netSalary                 Decimal @db.Decimal(10, 2)
+
+  sgkEmployerShare          Decimal @db.Decimal(10, 2) // %20,5
+  unemploymentEmployerShare Decimal @db.Decimal(10, 2) // %2
+  employerCost              Decimal @db.Decimal(10, 2) // brüt + işveren payları
+
+  ledgerEntryId String?               @unique
+  ledgerEntry   AccountingLedgerEntry? @relation(fields: [ledgerEntryId], references: [id])
+
+  createdByUserId String
+  createdAt       DateTime @default(now())
+
+  @@unique([teacherId, period])
+  @@index([tenantId, period])
 }

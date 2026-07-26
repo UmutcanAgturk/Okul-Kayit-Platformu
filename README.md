@@ -100,6 +100,26 @@ seviye-360/
     özetini + genel toplamı döner; `?tenantId=` ile tek bir kurumun kayıtlarına
     drill-down yapılabilir. Mobil uygulamadaki Superadmin yer tutucu ekranının
     yerini aldı.
+15. **Türk vergi sistemine göre Muhasebe genişletmeleri** — gerçek bir GİB/
+    e-Beyanname entegrasyonu DEĞİLDİR; sayıları doğru hesaplayıp raporlar:
+    - **KDV**: `AccountingLedgerEntry.vatRate` (nullable — KDV Kanunu 17/2-b
+      uyarınca lisanslı eğitim kurumlarının eğitim geliri gibi istisna
+      kalemlerinde null kalır). `amount` her zaman KDV dahildir; matrah/KDV
+      ayrıştırması `apps/web/lib/tax.ts`'te, hem `GET/POST /api/branch/accounting-ledger`
+      hem yeni `GET /api/branch/accounting-ledger/vat-summary`'de (Hesaplanan/
+      İndirilecek/Ödenecek/Devreden KDV) kullanılır.
+    - **Stopaj (GVK md 94)**: `AccountingLedgerEntry.withholdingRate` — örn.
+      gerçek kişiden kiralanan işyeri kirasında %20. `amount` kesintiden
+      ÖNCEKİ tutardır; kesilen pay/kalan net `lib/tax.ts`'te hesaplanır.
+    - **Basitleştirilmiş bordro**: yeni `PayrollRecord` modeli + `GET/POST
+      /api/branch/payroll` (`apps/web/lib/payroll.ts`). Brüt maaştan SGK/
+      işsizlik işçi-işveren payları, gelir vergisi (basitleştirilmiş ilk
+      dilim — kümülatif yıllık dilim takibi ve asgari ücret istisnası
+      MODELLENMEMİŞTİR, bkz. dosyadaki yorum), damga vergisi hesaplar; her
+      bordro, işveren toplam maliyetini otomatik olarak Muhasebe defterine
+      "Personel Maaşı" gider kalemi olarak da yazar. `PayrollRecord`,
+      `AccountingLedgerEntry` ile aynı rol kısıtlı RLS politikasını taşır
+      (yalnızca SUPERADMIN/BRANCH_ADMIN/ACCOUNTING).
 
 ## Yerel Geliştirme (Veritabanı)
 
