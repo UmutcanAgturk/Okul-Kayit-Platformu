@@ -87,6 +87,19 @@ seviye-360/
     ve `GET /api/branch/payment-installments` (taksit tahsilatı ekranının
     önce hangi taksitin tahsil edileceğini listeleyebilmesi için). Ayrıntılar
     için bkz. `apps/mobile/README.md`.
+13. **Taksit tahsilatı yaşlandırma raporu** (`apps/web/app/api/branch/payment-installments/aging`) —
+    vadesi geçmiş (PENDING + `dueDate` < bugün) taksitleri öğrenciye göre
+    gruplayıp standart bir muhasebe yaşlandırma aralığına (0-30/31-60/61-90/90+
+    gün) ayırır — demo/seviye360-app.html'deki `agingReportRows`/`t159_aging_report.js`'in
+    gerçek Postgres'e karşı çalışan karşılığı. Mobil uygulamada Şube Yönetimi
+    ana ekranına eklendi.
+14. **Genel Merkez (Superadmin) konsolide muhasebe görünümü** (`apps/web/app/api/hq/accounting-ledger`) —
+    `/api/branch/accounting-ledger`'ın kasıtlı olarak dışarıda bıraktığı SUPERADMIN
+    rolüne özel: `withTenantContext`'in SUPERADMIN için otomatik geçtiği
+    `superadmin_role` (BYPASSRLS) bağlantısıyla tüm kurumların gelir/gider/net
+    özetini + genel toplamı döner; `?tenantId=` ile tek bir kurumun kayıtlarına
+    drill-down yapılabilir. Mobil uygulamadaki Superadmin yer tutucu ekranının
+    yerini aldı.
 
 ## Yerel Geliştirme (Veritabanı)
 

@@ -23,7 +23,7 @@ tüm veri, `apps/web`'in çalışan sunucusundan gelir.
 ## Yeni eklenen API'ler (bu mobil istemci için)
 
 Mobil istemcinin kendi kimliğini/kaynaklarını keşfedebilmesi için `apps/web`'e
-iki salt-okunur endpoint eklendi:
+salt-okunur endpoint'ler eklendi:
 
 - `GET /api/me` — oturumdaki kullanıcı + role özgü ID'ler (öğrenci/veli için
   bağlı öğrenci listesi, öğretmen için `teacherId`).
@@ -31,6 +31,11 @@ iki salt-okunur endpoint eklendi:
   (`?status=PENDING|PAID` filtresiyle); mevcut `.../[installmentId]/collect`
   route'u yalnızca ID ile çalıştığından, tahsil edilecek taksiti önce
   görebilmek için gerekliydi.
+- `GET /api/branch/payment-installments/aging` — vadesi geçmiş taksitleri
+  öğrenciye göre gruplayıp 0-30/31-60/61-90/90+ gün yaşlandırma kovalarına
+  ayırır (Şube Yönetimi ana ekranında "Tahsilat Yaşlandırma" kartı).
+- `GET /api/hq/accounting-ledger` — yalnızca SUPERADMIN: tüm kurumların
+  konsolide gelir/gider/net özeti + genel toplam (`(admin)` ana ekranı).
 
 ## Kurulum
 
@@ -53,9 +58,6 @@ npx expo start
 
 ## Kapsam dışı
 
-- Superadmin (Genel Merkez) için konsolide bir API henüz yok — `(admin)`
-  grubu bunu açıkça belirten bir yer tutucudur (bkz.
-  `apps/web/app/api/branch/accounting-ledger/route.ts`'deki gerekçe).
 - AI Sınıf Röntgeni ekranı, sınav/sınıf seçimi için bir keşif (listeleme)
   API'si olmadığından examId/classroomId'yi elle ister — web tarafındaki
   `apps/web/app/(teacher)/sinif-rontgeni/[examId]/page.tsx` da aynı şekilde

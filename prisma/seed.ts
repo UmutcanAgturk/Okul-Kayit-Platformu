@@ -40,6 +40,22 @@ async function main() {
     create: { tenantId: mezitli.id, name: "9-A", gradeLevel: GradeLevel.SINIF_9 },
   });
 
+  // SUPERADMIN'in tenantId'si yoktur (Genel Merkez, tek bir şubeye bağlı
+  // değildir) — bkz. schema.prisma User.tenantId yorumu ve db-context.ts'teki
+  // withTenantContext (SUPERADMIN için superadmin_role/BYPASSRLS'e geçer).
+  const superadminUser = await prisma.user.upsert({
+    where: { email: "admin@seviye360.com" },
+    update: {},
+    create: {
+      tenantId: null,
+      email: "admin@seviye360.com",
+      passwordHash,
+      role: UserRole.SUPERADMIN,
+      firstName: "Seviye 360",
+      lastName: "Genel Merkez",
+    },
+  });
+
   const branchAdminUser = await prisma.user.upsert({
     where: { email: "merve.aslan@seviye360.com" },
     update: {},
@@ -393,6 +409,7 @@ async function main() {
   }
 
   console.log("Seed tamamlandı:");
+  console.log("  Superadmin (User):", superadminUser.id, "-", superadminUser.email);
   console.log("  Şube 1 (Tenant):", mezitli.id, mezitli.name);
   console.log("  Öğrenci 1 (StudentProfile):", student.id, "-", studentUser.firstName, studentUser.lastName);
   console.log("  Şube Yöneticisi 1 (User):", branchAdminUser.id, "-", branchAdminUser.email);

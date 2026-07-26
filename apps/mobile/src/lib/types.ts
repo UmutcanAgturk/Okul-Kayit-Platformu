@@ -74,6 +74,33 @@ export interface LedgerSummary {
   net: number;
 }
 
+export interface AgingBucket {
+  id: string;
+  label: string;
+  count: number;
+  amount: number;
+}
+
+export interface AgingRow {
+  studentId: string;
+  studentName: string;
+  count: number;
+  totalAmount: number;
+  daysLate: number;
+  oldestDueDate: string;
+  bucketId: string;
+}
+
+export interface HqTenantSummary {
+  tenantId: string;
+  tenantName: string;
+  tenantCode: string;
+  entryCount: number;
+  totalGelir: number;
+  totalGider: number;
+  net: number;
+}
+
 export type MasteryLevel = 'CRITICAL' | 'WEAK' | 'STRONG';
 
 export interface ClassXRayResponse {
