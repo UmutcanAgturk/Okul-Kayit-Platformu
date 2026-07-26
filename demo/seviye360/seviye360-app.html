@@ -290,6 +290,20 @@
   .card-head h3 { font-size: 13.5px; font-weight: 700; margin: 0; }
   .card-head .hint { font-size: 12px; color: var(--ink-faint); }
 
+  /* Masaüstü ana uygulamadaki .empty-state — bu sınıf onlarca ekranda
+     kullanılıyordu ama şimdiye kadar yalnızca #mobile-shell (telefon önizleme)
+     kapsamında stillendirilmişti; masaüstünde stilsiz, ortalanmamış bir
+     ikon+paragraf olarak görünüyordu. */
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 52px 24px; color: var(--ink-faint); gap: 4px;
+  }
+  .empty-state svg {
+    width: 22px; height: 22px; opacity: .85; margin-bottom: 10px; color: var(--brand);
+    background: var(--brand-tint); border-radius: 999px; padding: 13px; box-sizing: content-box;
+  }
+  .empty-state p { font-size: var(--text-base); margin: 0; max-width: 320px; }
+
   .stat-card { border-left: 4px solid var(--border-strong); border-radius: var(--radius-sm) var(--radius) var(--radius) var(--radius-sm); padding: 15px 18px; }
   .stat-card.tone-critical { border-left-color: var(--critical); }
   .stat-card.tone-strong { border-left-color: var(--strong); }
