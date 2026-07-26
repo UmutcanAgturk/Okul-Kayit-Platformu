@@ -101,6 +101,25 @@
     --radius: 14px;
     --radius-lg: 22px;
     --ease: cubic-bezier(.16,1,.3,1);
+    /* Tipografi ölçeği — mevcut baskın değerlerden türetildi; yeni bileşenler
+       px yerine bu token'lara referans vermeli. */
+    --text-2xs: 10.5px;
+    --text-xs: 11.5px;
+    --text-sm: 12.5px;
+    --text-base: 13.5px;
+    --text-md: 15px;
+    --text-lg: 17px;
+    --text-xl: 22px;
+    --text-2xl: 23px;
+    --text-3xl: 30px;
+    /* Boşluk ölçeği — kart iç boşluğu, bölüm aralıkları ve grid gap'leri için. */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-6: 24px;
+    --space-7: 32px;
     color-scheme: light;
   }
   @media (prefers-color-scheme: dark) {
@@ -250,7 +269,7 @@
   .screen-tab:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
   .content { padding: 22px 28px 60px; max-width: 1240px; }
-  .screen h1 { font-size: 23px; font-weight: 750; letter-spacing: -0.02em; margin: 0 0 4px; text-wrap: balance; }
+  .screen h1 { font-size: var(--text-2xl); font-weight: 750; letter-spacing: -0.02em; margin: 0 0 4px; text-wrap: balance; }
   .screen > .lede { margin: 0 0 22px; color: var(--ink-muted); font-size: 14px; max-width: 62ch; }
 
   /* ---------------- Shared components ---------------- */
@@ -278,15 +297,15 @@
   .stat-card.tone-weak { border-left-color: var(--weak); }
   .stat-label {
     display: flex; align-items: center; gap: 6px;
-    font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); margin: 0 0 8px;
+    font-size: var(--text-2xs); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); margin: 0 0 8px;
   }
   .stat-label::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--border-strong); flex: none; }
   .stat-card.tone-critical .stat-label::before { background: var(--critical); }
   .stat-card.tone-strong .stat-label::before { background: var(--strong); }
   .stat-card.tone-accent .stat-label::before { background: var(--accent); }
   .stat-card.tone-weak .stat-label::before { background: var(--weak); }
-  .stat-value { font-size: 22px; font-weight: 750; margin: 0; letter-spacing: -0.015em; font-variant-numeric: tabular-nums; }
-  .stat-sub { margin: 4px 0 0; font-size: 12.5px; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+  .stat-value { font-size: var(--text-xl); font-weight: 750; margin: 0; letter-spacing: -0.015em; font-variant-numeric: tabular-nums; }
+  .stat-sub { margin: 4px 0 0; font-size: var(--text-sm); color: var(--ink-muted); font-variant-numeric: tabular-nums; }
   .stat-sub.up { color: var(--strong); } .stat-sub.down { color: var(--critical); }
 
   table.data { border-collapse: collapse; width: 100%; font-size: 13px; }
@@ -8255,10 +8274,10 @@ function refreshOpsBody() {
 
   el.innerHTML = `
     <div class="grid cols-4" style="margin-bottom:16px">
-      <div class="card card-pad"><div class="hint">Bugün · ${day}</div><h2 style="margin:6px 0 0;font-size:22px">${CURRENT_BRANCH.staff.length - absentCount}/${CURRENT_BRANCH.staff.length}</h2><div style="font-size:12px;color:var(--ink-faint)">personel bugün mesaide</div></div>
-      <div class="card card-pad"><div class="hint">Geciken Ödeme</div><h2 style="margin:6px 0 0;font-size:22px;color:${overdue.length ? "var(--critical)" : "inherit"}">${overdue.length}</h2><div style="font-size:12px;color:var(--ink-faint)">₺${overdueTotal.toLocaleString("tr-TR")} toplam</div></div>
-      <div class="card card-pad"><div class="hint">Yaklaşan Ödeme (7 gün)</div><h2 style="margin:6px 0 0;font-size:22px">${upcoming.length}</h2><div style="font-size:12px;color:var(--ink-faint)">veli takip listesinde</div></div>
-      <div class="card card-pad"><div class="hint">Bugünkü Etüt</div><h2 style="margin:6px 0 0;font-size:22px">${etutRows.reduce((s, r) => s + r.count, 0)}</h2><div style="font-size:12px;color:var(--ink-faint)">${etutRows.length} aktif slot</div></div>
+      <div class="card stat-card"><p class="stat-label">Bugün · ${day}</p><p class="stat-value">${CURRENT_BRANCH.staff.length - absentCount}/${CURRENT_BRANCH.staff.length}</p><p class="stat-sub">personel bugün mesaide</p></div>
+      <div class="card stat-card ${overdue.length ? "tone-critical" : ""}"><p class="stat-label">Geciken Ödeme</p><p class="stat-value" style="color:${overdue.length ? "var(--critical)" : "inherit"}">${overdue.length}</p><p class="stat-sub">₺${overdueTotal.toLocaleString("tr-TR")} toplam</p></div>
+      <div class="card stat-card"><p class="stat-label">Yaklaşan Ödeme (7 gün)</p><p class="stat-value">${upcoming.length}</p><p class="stat-sub">veli takip listesinde</p></div>
+      <div class="card stat-card"><p class="stat-label">Bugünkü Etüt</p><p class="stat-value">${etutRows.reduce((s, r) => s + r.count, 0)}</p><p class="stat-sub">${etutRows.length} aktif slot</p></div>
     </div>
     <div class="grid cols-3">
       <div class="card card-pad">
@@ -11396,9 +11415,9 @@ function renderMentorAdminBody() {
 
   el.innerHTML = `
     <div class="grid cols-3" style="margin-bottom:16px">
-      <div class="card card-pad"><div class="hint">Mentör Öğretmen</div><h2 style="margin:6px 0 0;font-size:22px">${mentors.length}</h2></div>
-      <div class="card card-pad"><div class="hint">Atanmamış Öğrenci</div><h2 style="margin:6px 0 0;font-size:22px;color:${unassigned.length ? "var(--weak)" : "inherit"}">${unassigned.length}</h2></div>
-      <div class="card card-pad"><div class="hint">Bekleyen Randevu</div><h2 style="margin:6px 0 0;font-size:22px">${requests.filter(r => r.status === "BEKLIYOR").length}</h2></div>
+      <div class="card stat-card"><p class="stat-label">Mentör Öğretmen</p><p class="stat-value">${mentors.length}</p></div>
+      <div class="card stat-card ${unassigned.length ? "tone-weak" : ""}"><p class="stat-label">Atanmamış Öğrenci</p><p class="stat-value" style="color:${unassigned.length ? "var(--weak)" : "inherit"}">${unassigned.length}</p></div>
+      <div class="card stat-card"><p class="stat-label">Bekleyen Randevu</p><p class="stat-value">${requests.filter(r => r.status === "BEKLIYOR").length}</p></div>
     </div>
     <div class="card card-pad" style="margin-bottom:16px">
       <div class="card-head"><h3>Mentör Öğretmenler</h3><span class="hint">${mentors.length} aktif</span></div>
@@ -12703,8 +12722,8 @@ SCREENS["teacher:mentor"] = {
     <h1>Mentörlük Onayı</h1>
     <p class="lede">Size atanan öğrencilerin (mentilerinizin) randevu taleplerini onaylayın/reddedin ve mentörlük geçmişinizi görüntüleyin.</p>
     <div class="grid cols-2" style="margin-bottom:16px">
-      <div class="card card-pad"><div class="hint">Mentilerim</div><h2 style="margin:6px 0 0;font-size:22px">${mentees.length}</h2></div>
-      <div class="card card-pad"><div class="hint">Bekleyen Randevu Talebi</div><h2 style="margin:6px 0 0;font-size:22px;color:${pending.length ? "var(--weak)" : "inherit"}">${pending.length}</h2></div>
+      <div class="card stat-card"><p class="stat-label">Mentilerim</p><p class="stat-value">${mentees.length}</p></div>
+      <div class="card stat-card ${pending.length ? "tone-weak" : ""}"><p class="stat-label">Bekleyen Randevu Talebi</p><p class="stat-value" style="color:${pending.length ? "var(--weak)" : "inherit"}">${pending.length}</p></div>
     </div>
     <div class="grid cols-2">
       <div class="card card-pad">
@@ -12927,9 +12946,9 @@ function renderGuardianPayBody() {
 
   el.innerHTML = `
     <div class="grid cols-3" style="margin-bottom:16px">
-      <div class="card card-pad"><div class="hint">Toplam Ücret</div><h2 style="margin:6px 0 0;font-size:20px">₺${(self.totalTuition || 0).toLocaleString("tr-TR")}</h2></div>
-      <div class="card card-pad"><div class="hint">Ödenen</div><h2 style="margin:6px 0 0;font-size:20px;color:var(--strong)">${paid.length}/${schedule.length} taksit</h2></div>
-      <div class="card card-pad"><div class="hint">Kalan Bakiye</div><h2 style="margin:6px 0 0;font-size:20px;color:${remaining > 0 ? "var(--critical)" : "inherit"}">₺${remaining.toLocaleString("tr-TR")}</h2></div>
+      <div class="card stat-card"><p class="stat-label">Toplam Ücret</p><p class="stat-value">₺${(self.totalTuition || 0).toLocaleString("tr-TR")}</p></div>
+      <div class="card stat-card tone-strong"><p class="stat-label">Ödenen</p><p class="stat-value" style="color:var(--strong)">${paid.length}/${schedule.length} taksit</p></div>
+      <div class="card stat-card ${remaining > 0 ? "tone-critical" : ""}"><p class="stat-label">Kalan Bakiye</p><p class="stat-value" style="color:${remaining > 0 ? "var(--critical)" : "inherit"}">₺${remaining.toLocaleString("tr-TR")}</p></div>
     </div>
     <div class="card card-pad">
       <div class="card-head"><h3>Taksit Takvimi</h3><span class="hint">${schedule.length} taksit</span></div>

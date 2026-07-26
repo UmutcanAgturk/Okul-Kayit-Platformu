@@ -20,6 +20,7 @@ TESTS=(
   t157_seed_presets.js
   t159_aging_report.js
   t160_hub_and_buttons.js
+  t161_typography_tokens.js
 )
 
 pass=0
