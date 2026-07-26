@@ -120,6 +120,33 @@ seviye-360/
       "Personel Maaşı" gider kalemi olarak da yazar. `PayrollRecord`,
       `AccountingLedgerEntry` ile aynı rol kısıtlı RLS politikasını taşır
       (yalnızca SUPERADMIN/BRANCH_ADMIN/ACCOUNTING).
+16. **Normal Kayıt / Ön Kayıt — gerçek Enrollment API'si** (`apps/web/app/api/branch/enrollments`) —
+    `Enrollment` modeli şemada ve RLS'de baştan beri vardı ama hiçbir zaman
+    buna karşı çalışan bir API yoktu (demo/seviye360-app.html'deki CRM/Ön Kayıt/
+    Normal Kayıt ekranları yalnızca localStorage'a yazıyordu). `GET/POST` bir
+    adayı (henüz User/StudentProfile olmadan) tenant'a kaydeder;
+    `POST .../[id]/complete` bir NORMAL_KAYIT adayını tamamlar: otomatik
+    kullanıcı adı/şifre üretir (`apps/web/lib/enrollment.ts`), gerçek bir
+    `User`(STUDENT) + `StudentProfile` + taksit planı (`PaymentInstallment[]`)
+    oluşturur ve `Enrollment.stage`'i `KAYIT_TAMAMLANDI`'ya taşır — kayıt geliri
+    burada YAZILMAZ, her taksit fiilen tahsil edildiğinde zaten mevcut
+    `.../collect` route'u tarafından yazılıyor (çifte sayımı önler). `Enrollment`
+    RLS'i bu route eklenirken `AccountingLedgerEntry`/`PayrollRecord` ile aynı
+    rol-kısıtlı politikaya yükseltildi (yalnızca BRANCH_ADMIN/GUIDANCE_COORDINATOR/
+    SUPERADMIN — aday PII'sı hassastır).
+17. **Rate limiting** (`apps/web/middleware.ts`, `apps/web/lib/rate-limit.ts`) —
+    RLS README'de "kalan gerçekçi adım" olarak işaretlenmiş boşluğu kapatır.
+    Tüm `/api/*` için IP bazlı genel bir üst sınır (120 istek/dk); `/api/auth/login`
+    için ayrıca daha sıkı bir IP limiti (20/5dk) VE bağımsız bir hesap (e-posta)
+    bazlı kilitlenme (5 başarısız deneme/15dk, yalnızca başarısız denemeler
+    sayılır) uygulanır. Bellek içi, tek süreçli dağıtım (`next start`) için
+    doğru çalışır — yatay ölçeklenirse paylaşılan bir depo (Redis) gerekir,
+    bkz. dosyadaki not.
+18. **JWT_SECRET sertleştirme** (`apps/web/lib/auth.ts`) — en az 32 karakter
+    zorunlu kılınır; `NODE_ENV=production`'da "dev-only"/"changeme"/"secret"
+    gibi bariz bir placeholder içeriyorsa uygulama hiç başlamaz. Bkz.
+    `apps/web/.env.example` — üretimde bir secret yöneticisinden enjekte
+    edilmesi gerektiği not düşülmüştür.
 
 ## Yerel Geliştirme (Veritabanı)
 

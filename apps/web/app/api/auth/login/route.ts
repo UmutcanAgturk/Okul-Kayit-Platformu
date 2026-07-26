@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createSessionToken, verifyPassword, SESSION_COOKIE_NAME, SESSION_TTL_SECONDS } from "@/lib/auth";
+import { peekRateLimit, recordAttempt } from "@/lib/rate-limit";
+
+// Hesap bazlı kilitlenme: middleware.ts'teki IP bazlı limitten BAĞIMSIZ bir
+// ikinci savunma hattı — dağıtık (çok-IP'li) bir credential-stuffing saldırısı
+// tek bir hesaba karşı IP limitini es geçebilir. Yalnızca BAŞARISIZ denemeler
+// sayılır; başarılı bir giriş sayaca dokunmaz (bkz. aşağıdaki recordAttempt çağrısı).
+const LOGIN_EMAIL_LIMIT = 5;
+const LOGIN_EMAIL_WINDOW_MS = 15 * 60 * 1000;
 
 /**
  * Gerçek kimlik doğrulama — bu depodaki ilk giriş endpoint'i. Şu ana kadar
@@ -19,6 +27,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: "E-posta ve şifre zorunludur" }, { status: 400 });
   }
 
+  const emailKey = `login:email:${email.toLowerCase()}`;
+  const lockout = peekRateLimit(emailKey, LOGIN_EMAIL_LIMIT, LOGIN_EMAIL_WINDOW_MS);
+  if (!lockout.allowed) {
+    return NextResponse.json(
+      { message: "Çok fazla başarısız deneme. Lütfen bir süre sonra tekrar deneyin." },
+      { status: 429, headers: { "Retry-After": String(lockout.retryAfterSeconds) } },
+    );
+  }
+
   const user = await prisma.user.findUnique({ where: { email } });
   // Kullanıcı bulunamasa bile aynı süre/mesajla yanıt ver — e-posta adresinin
   // sistemde kayıtlı olup olmadığını dışarıdan ayırt edilemez kılmak için
@@ -27,6 +44,7 @@ export async function POST(request: NextRequest) {
   const isValid = user?.isActive ? await verifyPassword(password, passwordHash) : await verifyPassword(password, passwordHash);
 
   if (!user || !user.isActive || !isValid) {
+    recordAttempt(emailKey, LOGIN_EMAIL_LIMIT, LOGIN_EMAIL_WINDOW_MS);
     return NextResponse.json({ message: "E-posta veya şifre hatalı" }, { status: 401 });
   }
 

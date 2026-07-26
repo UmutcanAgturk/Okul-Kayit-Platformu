@@ -186,6 +186,25 @@ async function main() {
     });
   }
 
+  // Normal Kayıt/Ön Kayıt akışını (bkz. apps/web/app/api/branch/enrollments)
+  // henüz StudentProfile'a dönüşmemiş bir "aday" ile gösterebilmek için tek
+  // bir Ön Kayıt satırı — CRM/lead listesinin boş görünmemesi için.
+  const mezitliEnrollmentCount = await prisma.enrollment.count({ where: { tenantId: mezitli.id } });
+  if (mezitliEnrollmentCount === 0) {
+    await prisma.enrollment.create({
+      data: {
+        tenantId: mezitli.id,
+        type: "ON_KAYIT",
+        stage: "ON_KAYIT_ALINDI",
+        candidateFullName: "Kerem Şahin",
+        candidateGradeLevel: GradeLevel.SINIF_9,
+        guardianFullName: "Nur Şahin",
+        guardianPhone: "05321234567",
+        depositAmount: 2500,
+      },
+    });
+  }
+
   // İkinci bir şube (farklı şehir/tenant) — tek başına taksit testi için
   // gerekli değildi, ama Row-Level Security'nin gerçekten tenant'lar arası
   // izolasyon sağladığını kanıtlamak için ikinci bir tenant'a ait veri şart
@@ -474,6 +493,7 @@ async function main() {
   console.log("  Sınav (Exam, AI Sınıf Röntgeni için):", xrayExam.id, "-", xrayExam.name);
   console.log("  9-A sınıfındaki öğrenci sayısı (AI Sınıf Röntgeni için):", classXRayStudents.length);
   console.log("  Bordro örneği (PayrollRecord, 2026-07, Ayşe Demir): brüt ₺30.000 -> net ₺" + computePayroll(30000).netSalary);
+  console.log("  Ön Kayıt adayı (Enrollment, henüz StudentProfile'a dönüşmemiş): Kerem Şahin");
   console.log("  Tüm seed kullanıcıları için şifre:", SEED_DEV_PASSWORD);
 }
 

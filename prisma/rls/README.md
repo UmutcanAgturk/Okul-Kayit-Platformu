@@ -38,6 +38,12 @@ Bu sayede `TEACHER`, `STUDENT`, `PARENT` ve `GUIDANCE_COORDINATOR` rolündeki bi
 öğretmen kendi bordrosunu bile bu tablo üzerinden asla göremez; yalnızca Şube Yöneticisi/Muhasebe/
 Genel Merkez erişebilir.
 
+`Enrollment` (Normal Kayıt/Ön Kayıt aday verisi) başlangıçta yalnızca `tenant_isolation`
+taşıyordu (herhangi bir rol, kendi tenant'ındaki aday PII'sini görebilirdi); ilk gerçek API
+(`/api/branch/enrollments`) eklenirken `tenant_and_role_isolation`'a yükseltildi — bkz.
+`prisma/migrations/20260726190757_enrollment_role_rls`. Yalnızca `BRANCH_ADMIN`/
+`GUIDANCE_COORDINATOR`/`SUPERADMIN` erişebilir.
+
 ## Uygulanma Durumu
 
 Bu politikalar artık yalnızca bir tasarım değil — `prisma/migrations/20260721154601_add_rls_policies`
