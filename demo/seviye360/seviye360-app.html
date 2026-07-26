@@ -12039,8 +12039,9 @@ SCREENS["branch:muhasebe"] = {
     ` : "";
 
     return `
-      <h1>Muhasebe</h1>
+      <h1>Muhasebe <span class="chip strong" style="font-size:10.5px;vertical-align:middle" title="apps/web/app/api/branch/accounting-ledger (+ vat-summary), /api/branch/payment-installments/aging, /api/hq/accounting-ledger, /api/branch/payroll — gerçek Postgres + RLS + oturum tabanlı kimlik">${ic("shield")} Gerçek Backend'de Doğrulandı</span></h1>
       <p class="lede">${isHq ? "Genel Merkez, kurum bazlı tekil görünüme geçebilir ya da tüm şubeleri konsolide edip genel toplu resmi görebilir — tamamen dinamik." : ic("lock") + " Bu ekran yalnızca Şube Yöneticisi rolüne açıktır."}</p>
+      <p class="hint" style="margin:-8px 0 14px">Gerçek backend'de ayrıca: KDV oranı/özeti (KDV Kanunu 17/2-b istisnası dahil), GVK md 94 kira stopajı, tahsilat yaşlandırma raporu ve basitleştirilmiş bordro (SGK/gelir vergisi/damga vergisi) — bu mock ekranda henüz görselleştirilmedi.</p>
       ${scopeRow}
       ${subTabRow}
       <div id="muhasebe-body">${renderMuhasebeBody()}</div>
