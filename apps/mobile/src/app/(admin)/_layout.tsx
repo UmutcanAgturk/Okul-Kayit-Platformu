@@ -1,0 +1,33 @@
+import { Ionicons } from '@expo/vector-icons';
+import { Tabs } from 'expo-router';
+
+import { useTheme } from '@/hooks/use-theme';
+
+export default function AdminPortalLayout() {
+  const theme = useTheme();
+  return (
+    <Tabs
+      screenOptions={{
+        headerStyle: { backgroundColor: theme.backgroundElement },
+        headerTintColor: theme.text,
+        tabBarActiveTintColor: theme.brand,
+        tabBarInactiveTintColor: theme.textSecondary,
+        tabBarStyle: { backgroundColor: theme.backgroundElement, borderTopColor: theme.border },
+      }}>
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: 'Genel Merkez',
+          tabBarIcon: ({ color, size }) => <Ionicons name="home" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profil',
+          tabBarIcon: ({ color, size }) => <Ionicons name="person" size={size} color={color} />,
+        }}
+      />
+    </Tabs>
+  );
+}

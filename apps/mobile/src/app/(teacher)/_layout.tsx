@@ -1,0 +1,47 @@
+import { Ionicons } from '@expo/vector-icons';
+import { Tabs } from 'expo-router';
+
+import { useTheme } from '@/hooks/use-theme';
+
+export default function TeacherPortalLayout() {
+  const theme = useTheme();
+  return (
+    <Tabs
+      screenOptions={{
+        headerStyle: { backgroundColor: theme.backgroundElement },
+        headerTintColor: theme.text,
+        tabBarActiveTintColor: theme.brand,
+        tabBarInactiveTintColor: theme.textSecondary,
+        tabBarStyle: { backgroundColor: theme.backgroundElement, borderTopColor: theme.border },
+      }}>
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: 'Ana Sayfa',
+          tabBarIcon: ({ color, size }) => <Ionicons name="home" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="study-sessions"
+        options={{
+          title: 'Etüt Seansları',
+          tabBarIcon: ({ color, size }) => <Ionicons name="book" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="class-xray"
+        options={{
+          title: 'Sınıf Röntgeni',
+          tabBarIcon: ({ color, size }) => <Ionicons name="analytics" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profil',
+          tabBarIcon: ({ color, size }) => <Ionicons name="person" size={size} color={color} />,
+        }}
+      />
+    </Tabs>
+  );
+}

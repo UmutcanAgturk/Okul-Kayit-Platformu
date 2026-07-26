@@ -6,4 +6,9 @@ build/
 .env
 .env.local
 next-env.d.ts
+*.tsbuildinfo
 demo/seviye360/tests/test/
+
+# Expo (apps/mobile)
+.expo/
+expo-env.d.ts

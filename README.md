@@ -17,6 +17,7 @@ seviye-360/
 ├── apps/
 │   ├── web/                          # Next.js 14 (App Router) - 4 portal (Superadmin, Şube, Öğretmen, Öğrenci/Veli)
 │   │   └── components/teacher/class-xray/   # FAZ 1 - AI Sınıf Röntgeni
+│   ├── mobile/                       # Expo (React Native) - apps/web'in gerçek API'lerine konuşan mobil istemci
 │   └── services/
 │       └── study-session-assignment/  # NestJS - AI Otomatik Etüt Atama servisi (Kafka/RabbitMQ tüketicisi)
 ├── packages/
@@ -78,6 +79,14 @@ seviye-360/
     şubenin defterini + gelir/gider özetini listeleyip `POST` ile yeni bir
     kayıt (gelir/gider) ekleyebiliyorsunuz — `TEACHER`/`STUDENT`/`PARENT`
     rolleri hem uygulama katmanında hem veritabanı seviyesinde engellenir.
+12. **Gerçek mobil istemci** (`apps/mobile`) — Expo (React Native), yukarıdaki
+    gerçek API'lere (auth, taksit tahsilatı, etüt onay/red, muhasebe defteri,
+    AI Sınıf Röntgeni) doğrudan konuşur; ayrı bir backend'i yoktur. Bunun
+    için iki salt-okunur endpoint eklendi: `GET /api/me` (oturumdaki
+    kullanıcının rolüne göre kendi öğrenci/öğretmen kaydını keşfetmesi için)
+    ve `GET /api/branch/payment-installments` (taksit tahsilatı ekranının
+    önce hangi taksitin tahsil edileceğini listeleyebilmesi için). Ayrıntılar
+    için bkz. `apps/mobile/README.md`.
 
 ## Yerel Geliştirme (Veritabanı)
 
