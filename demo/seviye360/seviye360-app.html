@@ -339,12 +339,17 @@
   .btn {
     display: inline-flex; align-items: center; gap: 8px; padding: 11px 20px; border-radius: var(--radius-sm);
     font-size: 14px; font-weight: 700; cursor: pointer; border: 1px solid var(--border-strong); background: var(--surface); color: var(--ink);
-    transition: background-color .15s var(--ease), border-color .15s var(--ease), transform .15s var(--ease), box-shadow .15s var(--ease);
+    background-size: 160% 160%; background-position: 0% 0%;
+    transition: background-color .2s var(--ease), background-position .5s var(--ease), border-color .2s var(--ease), transform .15s var(--ease), box-shadow .25s var(--ease), color .2s var(--ease);
   }
   .btn:hover { background: var(--surface-2); border-color: var(--ink-faint); }
   .btn:active { transform: translateY(1px); }
-  .btn.primary { background: var(--brand); color: #fff; border-color: transparent; box-shadow: 0 2px 4px rgba(16,21,31,.08), 0 10px 22px -10px color-mix(in srgb, var(--brand) 70%, transparent); }
-  .btn.primary:hover { background: var(--brand-strong); transform: translateY(-1px); box-shadow: 0 4px 8px rgba(16,21,31,.1), 0 14px 28px -10px color-mix(in srgb, var(--brand) 70%, transparent); }
+  .btn.primary {
+    background-image: linear-gradient(135deg, var(--brand) 0%, var(--brand-strong) 55%, var(--brand) 100%);
+    color: #fff; border-color: transparent;
+    box-shadow: 0 2px 4px rgba(16,21,31,.08), 0 10px 22px -10px color-mix(in srgb, var(--brand) 70%, transparent);
+  }
+  .btn.primary:hover { background-position: 100% 100%; transform: translateY(-1px); box-shadow: 0 4px 8px rgba(16,21,31,.1), 0 14px 28px -10px color-mix(in srgb, var(--brand) 70%, transparent); }
   .btn.primary:active { transform: translateY(1px); }
   .btn:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
   .btn:disabled { opacity: .5; cursor: default; transform: none; }
@@ -354,11 +359,21 @@
 
   .btn.danger { color: var(--critical); }
   .btn.danger:hover { background: var(--critical-bg); border-color: var(--critical); }
-  .btn.danger.solid { background: var(--critical); color: var(--critical-ink); border-color: transparent; box-shadow: 0 2px 4px rgba(16,21,31,.08), 0 10px 22px -10px color-mix(in srgb, var(--critical) 70%, transparent); }
-  .btn.danger.solid:hover { background: color-mix(in srgb, var(--critical) 85%, black); border-color: transparent; transform: translateY(-1px); }
+  .btn.danger.solid {
+    background-image: linear-gradient(135deg, var(--critical) 0%, color-mix(in srgb, var(--critical) 70%, black) 55%, var(--critical) 100%);
+    color: var(--critical-ink); border-color: transparent;
+    box-shadow: 0 2px 4px rgba(16,21,31,.08), 0 10px 22px -10px color-mix(in srgb, var(--critical) 70%, transparent);
+  }
+  .btn.danger.solid:hover { background-position: 100% 100%; border-color: transparent; transform: translateY(-1px); }
 
   .btn.success { color: var(--strong); }
   .btn.success:hover { background: var(--strong-bg); border-color: var(--strong); }
+  .btn.success.solid {
+    background-image: linear-gradient(135deg, var(--strong) 0%, color-mix(in srgb, var(--strong) 70%, black) 55%, var(--strong) 100%);
+    color: var(--strong-ink); border-color: transparent;
+    box-shadow: 0 2px 4px rgba(16,21,31,.08), 0 10px 22px -10px color-mix(in srgb, var(--strong) 70%, transparent);
+  }
+  .btn.success.solid:hover { background-position: 100% 100%; border-color: transparent; transform: translateY(-1px); }
 
   .field { display: flex; flex-direction: column; gap: 5px; }
   .field label { font-size: 12px; font-weight: 600; color: var(--ink-muted); }
