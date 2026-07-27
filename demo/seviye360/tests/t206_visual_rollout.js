@@ -51,6 +51,20 @@ const APP = 'file://' + require('path').resolve(__dirname, '../seviye360-app.htm
   await page.waitForTimeout(400);
   check('Ölçme-Değerlendirme Sınav Genel Durumu KPI kartları ikonlu', await page.locator('#olcme-body .stat-card .stat-label svg').count() >= 4);
 
+  // ===== Şube Performans Haritası: ikonlu KPI kartları =====
+  await page.evaluate(() => { state.portal = 'hq'; state.screen = 'map'; renderAll(); });
+  await page.waitForTimeout(400);
+  check('Şube Performans Haritası KPI kartları ikonlu', await page.locator('.stat-card .stat-label svg').count() >= 4);
+
+  // ===== Öğretmen Performans Paneli: KPI satırı + podyum =====
+  await page.evaluate(() => { state.portal = 'branch'; state.screen = 'ogretmenperf'; renderAll(); });
+  await page.waitForTimeout(400);
+  bodyText = await page.locator('body').innerHTML();
+  check('Öğretmen Performans Paneli: yeni KPI satırı görünüyor', /Toplam Öğretmen/.test(bodyText) && /Ortalama Devam/.test(bodyText));
+  check('Öğretmen Performans Paneli: "En Başarılı Öğretmenler" podyumu görünüyor', /En Başarılı Öğretmenler/.test(bodyText));
+  const teacherPodiumCards = await page.locator('.card:has(h3:has-text("En Başarılı Öğretmenler")) .stat-card').count();
+  check('Öğretmen podyum kartı sayısı tutarlı (1-3 arası)', teacherPodiumCards >= 1 && teacherPodiumCards <= 3, `${teacherPodiumCards} kart`);
+
   check('Konsol/sayfa hatası oluşmadı', errors.length === 0, errors.join(' | '));
 
   console.log('\n=== ÖZET ===');

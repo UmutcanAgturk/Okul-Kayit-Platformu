@@ -4414,10 +4414,10 @@ function renderCountryMap() {
     <h1>Şube Performans Haritası</h1>
     <p class="lede">Türkiye'nin 81 ili gerçek sınırlarıyla gösterilir — kurumu olan iller doluluk oranına göre dinamik renklenir; herhangi bir ile tıklayarak ilçe bazlı dağılıma inebilirsiniz.</p>
     <div class="grid cols-4" style="margin-bottom:16px">
-      <div class="card stat-card tone-accent"><p class="stat-label">Toplam Ciro (Ay)</p><p class="stat-value">₺${totalCiro.toFixed(1)}M</p></div>
-      <div class="card stat-card tone-strong"><p class="stat-label">Ort. Tahsilat Oranı</p><p class="stat-value">%${avgTahsilat}</p></div>
-      <div class="card stat-card"><p class="stat-label">Ort. Kapasite Doluluğu</p><p class="stat-value">%${avgDoluluk}</p></div>
-      <div class="card stat-card tone-critical"><p class="stat-label">Riskli Kurum</p><p class="stat-value">${riskli}</p><p class="stat-sub down">Doluluk &lt; %70</p></div>
+      <div class="card stat-card tone-accent"><p class="stat-label"><span>Toplam Ciro (Ay)</span><span style="margin-left:auto;color:var(--ink-faint);opacity:.7">${ic("cash")}</span></p><p class="stat-value">₺${totalCiro.toFixed(1)}M</p></div>
+      <div class="card stat-card tone-strong"><p class="stat-label"><span>Ort. Tahsilat Oranı</span><span style="margin-left:auto;color:var(--ink-faint);opacity:.7">${ic("wallet")}</span></p><p class="stat-value">%${avgTahsilat}</p></div>
+      <div class="card stat-card"><p class="stat-label"><span>Ort. Kapasite Doluluğu</span><span style="margin-left:auto;color:var(--ink-faint);opacity:.7">${ic("seat")}</span></p><p class="stat-value">%${avgDoluluk}</p></div>
+      <div class="card stat-card tone-critical"><p class="stat-label"><span>Riskli Kurum</span><span style="margin-left:auto;color:var(--ink-faint);opacity:.7">${ic("bell")}</span></p><p class="stat-value">${riskli}</p><p class="stat-sub down">Doluluk &lt; %70</p></div>
     </div>
     <div class="map-wrap">
       <div class="card card-pad">
@@ -7505,11 +7505,33 @@ SCREENS["branch:ogretmenperf"] = {
     const withNet = perfRows.filter(r => r.stats.avgNet != null);
     const withAtt = perfRows.filter(r => r.stats.avgAtt != null);
     const maxNet = withNet.length ? Math.max(...withNet.map(r => r.stats.avgNet), 1) : 1;
+    const avgAttAll = withAtt.length ? Math.round(withAtt.reduce((a, r) => a + r.stats.avgAtt, 0) / withAtt.length) : null;
+    const totalRoster = perfRows.reduce((a, r) => a + r.stats.rosterSize, 0);
+    const topTeachers = withNet.slice().sort((a, b) => b.stats.avgNet - a.stats.avgNet).slice(0, 3);
+    const medal = ["🥇", "🥈", "🥉"];
     return `
     <h1>Öğretmen Performans Paneli</h1>
     <p class="lede">Her öğretmenin verdiği sınıflardaki gerçek net/devam/davranış verisinden hesaplanan özet — yalnızca yöneticiler görür.</p>
     ${hqBranchSelectorHtml("perf-branch-select")}
     ${teachers.length ? `
+    <div class="grid cols-3" style="margin-bottom:14px">
+      <div class="card stat-card tone-accent"><p class="stat-label"><span>Toplam Öğretmen</span><span style="margin-left:auto;color:var(--ink-faint);opacity:.7">${ic("users")}</span></p><p class="stat-value">${teachers.length}</p></div>
+      <div class="card stat-card tone-strong"><p class="stat-label"><span>Ortalama Devam</span><span style="margin-left:auto;color:var(--ink-faint);opacity:.7">${ic("check")}</span></p><p class="stat-value">${avgAttAll != null ? "%" + avgAttAll : "—"}</p></div>
+      <div class="card stat-card"><p class="stat-label"><span>Toplam Öğrenci (Verilen Sınıflar)</span><span style="margin-left:auto;color:var(--ink-faint);opacity:.7">${ic("book")}</span></p><p class="stat-value">${totalRoster}</p></div>
+    </div>
+    ${topTeachers.length ? `
+    <div class="card card-pad" style="margin-bottom:14px">
+      <div class="card-head"><h3>🏆 En Başarılı Öğretmenler</h3><span class="hint">Ortalama net (branş)</span></div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap">
+        ${topTeachers.map((r, i) => `
+          <div class="card stat-card ${i === 0 ? "tone-accent" : i === 1 ? "tone-strong" : "tone-weak"}" style="text-align:center;flex:1;min-width:150px">
+            <p style="font-size:28px;margin:0 0 4px">${medal[i]}</p>
+            <p style="font-weight:700;font-size:13px;margin:0 0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.teacher.name}</p>
+            <p class="stat-sub" style="margin:2px 0 0">${r.teacher.subject} · ${r.stats.avgNet} net</p>
+          </div>
+        `).join("")}
+      </div>
+    </div>` : ""}
     <div class="grid cols-2" style="margin-bottom:14px">
       <div class="card card-pad">
         <div class="card-head"><h3>Öğretmen Bazlı Ortalama Net (Branş)</h3><span class="hint">${withNet.length} öğretmen</span></div>
