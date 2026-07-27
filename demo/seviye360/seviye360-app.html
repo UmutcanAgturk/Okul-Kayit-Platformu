@@ -1987,6 +1987,7 @@ function hydrateState() {
       if (!Array.isArray(b.dekontlar)) b.dekontlar = d.dekontlar;
       if (typeof b.dekontSeq !== "number") b.dekontSeq = d.dekontSeq;
       if (!Array.isArray(b.senetler)) b.senetler = d.senetler;
+      if (!Array.isArray(b.salaryPayments)) b.salaryPayments = d.salaryPayments;
       if (typeof b.senetSeq !== "number") b.senetSeq = d.senetSeq;
       if (!b.taxSettings || typeof b.taxSettings !== "object") b.taxSettings = d.taxSettings;
       if (typeof b.taxSettings.kiraStopajOrani !== "number") b.taxSettings.kiraStopajOrani = 20;
@@ -2897,6 +2898,7 @@ function emptyBranchData() {
     studentAttendance: {},
     paymentReceipts: [], paymentReceiptSeq: 1,
     invoices: [], invoiceSeq: 1, dekontlar: [], dekontSeq: 1, senetler: [], senetSeq: 1,
+    salaryPayments: [],
     taxSettings: { kdvRate: 20, defaultTaxNo: "", defaultTaxOffice: "", kiraStopajOrani: 20 },
     mentorAssignments: [],
     clubs: [], clubSeq: 1,
@@ -11545,6 +11547,34 @@ function simplifiedPayroll(gross) {
   return { gross, sgkKesintisi, issizlikKesintisi, gelirVergisiMatrahi, gelirVergisi, damgaVergisi, netMaas };
 }
 
+// Bu ay (YYYY-MM) için maaş ödemesi zaten yapılmış mı — aynı personele aynı
+// ay içinde iki kez ödeme girilmesini engeller.
+function salaryPaidForMonth(branch, staffId, month) {
+  return (branch.salaryPayments || []).some(p => p.staffId === staffId && p.month === month);
+}
+
+function salaryMonthLabel(month) {
+  return new Date(month + "-01").toLocaleDateString("tr-TR", { month: "long", year: "numeric" });
+}
+
+// Personelin brüt maaşından basitleştirilmiş bordro hesabıyla net maaşını
+// çıkarır, Kayıt Defteri'ne gider (brüt maliyet) yazar, otomatik bir Ödeme
+// Dekontu (net tutar) oluşturur ve ödeme geçmişine ekler — "Tahsilat Al"
+// akışıyla aynı iki taraflı (defter + dekont) mantık.
+function paySalary(staffId, month, b = CURRENT_BRANCH) {
+  const staff = b.staff.find(s => s.id === staffId);
+  if (!staff || salaryPaidForMonth(b, staffId, month)) return null;
+  const p = simplifiedPayroll(staff.salary || 0);
+  b.ledger.push({ type: "GIDER", category: "Personel Maaşı", amount: p.gross, date: todayStr() });
+  const dekont = createDekont({
+    type: "ODEME", personName: staff.name, amount: p.netMaas, method: "BANKA_HAVALESI",
+    description: `${salaryMonthLabel(month)} maaş ödemesi (net)`, date: todayStr(),
+  }, b);
+  const payment = { id: Date.now() + Math.floor(Math.random() * 1000), staffId, staffName: staff.name, month, ...p, dekontId: dekont.id, date: todayStr() };
+  b.salaryPayments.unshift(payment);
+  return payment;
+}
+
 function ledgerMonthlyTrend() {
   const map = {};
   muhasebeLedgerEntries().forEach(e => {
@@ -12030,34 +12060,71 @@ function renderBelgelerBody() {
           <div>Toplam brüt maaş: <b>₺${totalGross.toLocaleString("tr-TR")}</b></div>
           <div>Toplam kesinti (SGK/gelir vergisi/damga vergisi): <b>₺${(totalGross - totalNet).toLocaleString("tr-TR")}</b></div>
         </div>
-        <details style="margin-top:8px;font-size:11.5px;color:var(--ink-faint)">
-          <summary style="cursor:pointer;color:var(--ink-muted)">Personel bazında dökümü gör</summary>
-          <div style="margin-top:8px;overflow-x:auto">
-            <table style="width:100%;border-collapse:collapse;font-size:11px">
-              <thead><tr style="text-align:left;color:var(--ink-faint)"><th style="padding:3px 6px 3px 0">Personel</th><th style="padding:3px 6px">Brüt</th><th style="padding:3px 6px">SGK+İşsizlik (%15)</th><th style="padding:3px 6px">Gelir V. (%15)</th><th style="padding:3px 6px">Damga V. (‰7,59)</th><th style="padding:3px 0 3px 6px">Net</th></tr></thead>
-              <tbody>
-                ${payrolls.map(({ staff, p }) => `
-                  <tr style="border-top:1px solid var(--border)">
-                    <td style="padding:4px 6px 4px 0">${staff.name}</td>
-                    <td style="padding:4px 6px">₺${p.gross.toLocaleString("tr-TR")}</td>
-                    <td style="padding:4px 6px">₺${(p.sgkKesintisi + p.issizlikKesintisi).toLocaleString("tr-TR")}</td>
-                    <td style="padding:4px 6px">₺${p.gelirVergisi.toLocaleString("tr-TR")}</td>
-                    <td style="padding:4px 6px">₺${p.damgaVergisi.toLocaleString("tr-TR")}</td>
-                    <td style="padding:4px 0 4px 6px;font-weight:600">₺${p.netMaas.toLocaleString("tr-TR")}</td>
-                  </tr>
-                `).join("")}
-              </tbody>
-            </table>
-          </div>
-          <p style="margin:8px 0 0;line-height:1.5">SGK işçi payı %14 + işsizlik sigortası işçi payı %1 brüt maaştan düşülür; kalan tutar (matrah) üzerinden basitleştirilmiş tek dilim %15 gelir vergisi hesaplanır; damga vergisi brüt maaşın binde 7,59'udur. Gerçek bordroda kümülatif gelir vergisi dilimleri ve asgari geçim indirimi de devreye girer — burada bilinçli olarak basitleştirilmiştir.</p>
-        </details>
+        <p class="hint" style="margin:8px 0 0">Personel bazında dökümü ve ödeme aksiyonu için aşağıdaki "Maaş Ödemeleri" bölümüne bakın.</p>
       </div>
     </div>
+
+    ${renderMaasOdemeleriCard(b, payrolls)}
 
     <div class="screen-tabs" style="padding:0 0 14px">
       ${tabs.map(([id, label]) => `<button class="screen-tab belgeler-tab ${belgelerTab === id ? "active" : ""}" data-belgeler-tab="${id}" style="font-size:12.5px;padding:6px 12px">${label}</button>`).join("")}
     </div>
     <div id="belgeler-tab-body"></div>
+  `;
+}
+
+// Maaş Ödemeleri — her personel için bu ayki ödeme durumu ve "Öde" aksiyonu,
+// altında da gerçek ödeme geçmişi. paySalary() çağrıldığında hem Kayıt
+// Defteri'ne (brüt maliyet) hem otomatik bir Ödeme Dekontu'na (net tutar)
+// yansır — Tahsilat Al akışıyla simetrik bir "iki taraflı" kayıt deseni.
+function renderMaasOdemeleriCard(b, payrolls) {
+  const month = todayStr().slice(0, 7);
+  const history = (b.salaryPayments || []).slice(0, 20);
+  return `
+    <div class="card card-pad" style="margin-bottom:14px">
+      <div class="card-head"><h3>Maaş Ödemeleri</h3><span class="hint">${salaryMonthLabel(month)}</span></div>
+      <p class="hint" style="margin:-6px 0 10px">Ödeme onaylandığında Kayıt Defteri'ne brüt maliyet kadar gider, Belgeler &gt; Dekontlar'a ise net tutar kadar otomatik bir Ödeme Dekontu düşer.</p>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr style="text-align:left;color:var(--ink-faint)">
+            <th style="padding:4px 8px 4px 0">Personel</th><th style="padding:4px 8px">Brüt</th><th style="padding:4px 8px">SGK+İşsizlik (%15)</th><th style="padding:4px 8px">Gelir V. (%15)</th><th style="padding:4px 8px">Damga V. (‰7,59)</th><th style="padding:4px 8px">Net</th><th style="padding:4px 0 4px 8px">${salaryMonthLabel(month)}</th>
+          </tr></thead>
+          <tbody>
+            ${payrolls.map(({ staff, p }) => {
+              const paid = salaryPaidForMonth(b, staff.id, month);
+              return `
+                <tr style="border-top:1px solid var(--border)">
+                  <td style="padding:6px 8px 6px 0">${staff.name}</td>
+                  <td style="padding:6px 8px">₺${p.gross.toLocaleString("tr-TR")}</td>
+                  <td style="padding:6px 8px">₺${(p.sgkKesintisi + p.issizlikKesintisi).toLocaleString("tr-TR")}</td>
+                  <td style="padding:6px 8px">₺${p.gelirVergisi.toLocaleString("tr-TR")}</td>
+                  <td style="padding:6px 8px">₺${p.damgaVergisi.toLocaleString("tr-TR")}</td>
+                  <td style="padding:6px 8px;font-weight:600">₺${p.netMaas.toLocaleString("tr-TR")}</td>
+                  <td style="padding:6px 0 6px 8px">${paid ? `<span class="chip strong">${ic("check")} Ödendi</span>` : `<button class="btn xs success solid" data-pay-salary="${staff.id}">Öde</button>`}</td>
+                </tr>
+              `;
+            }).join("")}
+          </tbody>
+        </table>
+      </div>
+      <div style="margin-top:16px">
+        <h4 style="font-size:12.5px;color:var(--ink-muted);margin:0 0 8px">Ödeme Geçmişi</h4>
+        ${history.length ? `
+          <div style="display:flex;flex-direction:column;gap:6px;max-height:240px;overflow-y:auto">
+            ${history.map(h => `
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">
+                <span>${h.staffName} · ${salaryMonthLabel(h.month)}</span>
+                <span style="color:var(--ink-faint)">₺${h.netMaas.toLocaleString("tr-TR")} net · ${new Date(h.date).toLocaleDateString("tr-TR")}</span>
+              </div>
+            `).join("")}
+          </div>
+        ` : `<p style="color:var(--ink-faint);font-size:13px;margin:0">Henüz maaş ödemesi yapılmadı.</p>`}
+      </div>
+      <details style="margin-top:10px;font-size:11.5px;color:var(--ink-faint)">
+        <summary style="cursor:pointer;color:var(--ink-muted)">Nasıl hesaplandı?</summary>
+        <p style="margin:6px 0 0;line-height:1.5">SGK işçi payı %14 + işsizlik sigortası işçi payı %1 brüt maaştan düşülür; kalan tutar (matrah) üzerinden basitleştirilmiş tek dilim %15 gelir vergisi hesaplanır; damga vergisi brüt maaşın binde 7,59'udur. Gerçek bordroda kümülatif gelir vergisi dilimleri ve asgari geçim indirimi de devreye girer — burada bilinçli olarak basitleştirilmiştir. "Öde" butonuna basıldığında brüt tutar Kayıt Defteri'ne gider, net tutar ise otomatik bir Ödeme Dekontu'na yazılır.</p>
+      </details>
+    </div>
   `;
 }
 
@@ -12451,6 +12518,18 @@ function mountBelgelerBody() {
   });
   document.querySelectorAll(".belgeler-tab").forEach(btn => {
     btn.addEventListener("click", () => { belgelerTab = btn.dataset.belgelerTab; renderBelgelerTabBody(); });
+  });
+  document.querySelectorAll("[data-pay-salary]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const staffId = Number(btn.dataset.paySalary);
+      const staff = CURRENT_BRANCH.staff.find(s => s.id === staffId);
+      const month = todayStr().slice(0, 7);
+      const payment = paySalary(staffId, month);
+      if (!payment) return;
+      persistState();
+      showToast("Maaş ödemesi kaydedildi", `${staff.name} için ${salaryMonthLabel(month)} net ₺${payment.netMaas.toLocaleString("tr-TR")} olarak ödendi, dekont oluşturuldu.`, "check");
+      renderAll();
+    });
   });
   renderBelgelerTabBody();
 }
