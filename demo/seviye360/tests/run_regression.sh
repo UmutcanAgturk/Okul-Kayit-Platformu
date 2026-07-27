@@ -34,6 +34,7 @@ TESTS=(
   t204_olcme_analytics.js
   t205_bugun_redesign.js
   t206_visual_rollout.js
+  t207_vergi_gorsellestirme.js
 )
 
 pass=0

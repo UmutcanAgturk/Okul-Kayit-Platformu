@@ -20,8 +20,10 @@ const APP = 'file://' + require('path').resolve(__dirname, '../seviye360-app.htm
   await page.click('#login-submit');
   await page.waitForTimeout(700);
 
-  // ===== Genel Bakış: Stopaj ve KDV istisnası terimlerine tooltip =====
-  await page.evaluate(() => { state.portal = 'branch'; state.screen = 'muhasebe'; muhasebeSubTab = 'genel'; renderAll(); });
+  // ===== Belgeler > Vergi Ayarları/Fatura: Stopaj ve KDV istisnası terimlerine tooltip =====
+  // Bu iki terim artık genel bir dipnotta değil, doğrudan ilgili işlevin
+  // yanında (Kira Stopaj Oranı alanı ve Fatura'daki KDV istisnası onay kutusu) görselleştiriliyor.
+  await page.evaluate(() => { state.portal = 'branch'; state.screen = 'muhasebe'; muhasebeSubTab = 'belgeler'; belgelerTab = 'fatura'; renderAll(); });
   await page.waitForTimeout(400);
   const stopajTitle = await page.locator('span[title*="Stopaj"], span[title*="stopaj" i]').first().getAttribute('title').catch(() => null);
   check('"stopajı" teriminde açıklayıcı tooltip var', !!stopajTitle && /kesinti/i.test(stopajTitle), stopajTitle);

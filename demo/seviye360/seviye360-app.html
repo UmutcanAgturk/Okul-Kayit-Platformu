@@ -74,7 +74,7 @@
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
   :root {
-    --bg: #ddecf8;
+    --bg: #ffffff;
     --surface: #ffffff;
     --surface-2: #f7f9fc;
     --surface-3: #eef1f7;
@@ -147,7 +147,7 @@
     color-scheme: dark;
   }
   :root[data-theme="light"] {
-    --bg: #ddecf8; --surface: #ffffff; --surface-2: #f7f9fc; --surface-3: #eef1f7; --surface-sunken: #eaedf4;
+    --bg: #ffffff; --surface: #ffffff; --surface-2: #f7f9fc; --surface-3: #eef1f7; --surface-sunken: #eaedf4;
     --border: #e4e8f0; --border-strong: #cdd3e0;
     --ink: #10151f; --ink-muted: #5a6478; --ink-faint: #8890a3;
     --brand: #0071ce; --brand-tint: #e7f2fc; --brand-strong: #00558f;
@@ -161,12 +161,7 @@
   * { box-sizing: border-box; }
   html { scrollbar-color: var(--border-strong) transparent; }
   body {
-    margin: 0; color: var(--ink);
-    background:
-      radial-gradient(1100px 640px at 12% -8%, color-mix(in srgb, var(--brand) 10%, transparent), transparent 60%),
-      radial-gradient(900px 620px at 100% 100%, color-mix(in srgb, var(--brand) 6%, transparent), transparent 55%),
-      var(--bg);
-    background-attachment: fixed;
+    margin: 0; background: var(--bg); color: var(--ink);
     font-family: 'Poppins', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
@@ -601,7 +596,7 @@
      :root'un koyu değerlerine düşüp beyaz zemin üzerinde görünmez olurdu — bu
      yüzden açık tema değerleri burada sabitlenir. */
   .doc-viewer-body, #print-area {
-    --bg: #ddecf8; --surface: #ffffff; --surface-2: #f7f9fc; --surface-3: #eef1f7; --surface-sunken: #eaedf4;
+    --bg: #ffffff; --surface: #ffffff; --surface-2: #f7f9fc; --surface-3: #eef1f7; --surface-sunken: #eaedf4;
     --border: #e4e8f0; --border-strong: #cdd3e0;
     --ink: #10151f; --ink-muted: #5a6478; --ink-faint: #8890a3;
     --brand: #0071ce; --brand-tint: #e7f2fc; --brand-strong: #00558f;
@@ -614,11 +609,7 @@
 
   /* ---------------- Giriş Sayfası (Login) ---------------- */
   .login-wrap {
-    min-height: 100vh; display: grid; grid-template-columns: 1.1fr 1fr;
-    background:
-      radial-gradient(1100px 640px at 12% -8%, color-mix(in srgb, var(--brand) 10%, transparent), transparent 60%),
-      radial-gradient(900px 620px at 100% 100%, color-mix(in srgb, var(--brand) 6%, transparent), transparent 55%),
-      var(--bg);
+    min-height: 100vh; display: grid; grid-template-columns: 1.1fr 1fr; background: var(--bg);
   }
   @media (max-width: 860px) { .login-wrap { grid-template-columns: 1fr; } .login-hero { display: none; } }
   .login-hero {
@@ -762,7 +753,7 @@
 
   /* ============================== MOBİL KABUK (iOS/Android) STİLLERİ ============================== */
   #mobile-shell {
-  --bg-page: #d5e8f6;
+  --bg-page: #ffffff;
   --frame: #0b1220;
   --frame-2: #1c2536;
   --surface: #ffffff;
@@ -841,7 +832,7 @@
 }
 
 #mobile-shell[data-theme="light"] {
-  --bg-page: #d5e8f6; --frame: #0b1220; --frame-2: #1c2536;
+  --bg-page: #ffffff; --frame: #0b1220; --frame-2: #1c2536;
   --surface: #ffffff; --surface-2: #f4f7fc; --surface-3: #eaf0fa; --surface-sunken: #dfe7f4;
   --border: #e1e7f2; --border-strong: #c9d3e6;
   --ink: #10182b; --ink-muted: #5b6478; --ink-faint: #939ab0;
@@ -901,10 +892,7 @@
 }
 
 #mobile-shell .phone-screen {
-  position: relative; width: 100%; height: 100%; border-radius: 40px; overflow: hidden;
-  background:
-    radial-gradient(560px 420px at 20% -6%, color-mix(in srgb, var(--brand) 12%, transparent), transparent 60%),
-    var(--bg-page);
+  position: relative; width: 100%; height: 100%; background: var(--bg-page); border-radius: 40px; overflow: hidden;
   display: flex; flex-direction: column;
 }
 
@@ -929,12 +917,7 @@
 #mobile-shell .home-indicator span { width: 120px; height: 4.5px; border-radius: 3px; background: var(--ink); opacity: .55; }
 
 @media (max-width: 480px) {
-#mobile-shell {
-  padding: 0; align-items: stretch;
-  background:
-    radial-gradient(560px 420px at 20% -6%, color-mix(in srgb, var(--brand) 12%, transparent), transparent 60%),
-    var(--bg-page);
-}
+#mobile-shell { padding: 0; align-items: stretch; background: var(--bg-page); }
 #mobile-shell .phone-frame { width: 100vw; height: 100dvh; border-radius: 0; padding: 0; box-shadow: none; }
 #mobile-shell .phone-frame::before,
 #mobile-shell .phone-frame::after { display: none; }
@@ -2006,6 +1989,7 @@ function hydrateState() {
       if (!Array.isArray(b.senetler)) b.senetler = d.senetler;
       if (typeof b.senetSeq !== "number") b.senetSeq = d.senetSeq;
       if (!b.taxSettings || typeof b.taxSettings !== "object") b.taxSettings = d.taxSettings;
+      if (typeof b.taxSettings.kiraStopajOrani !== "number") b.taxSettings.kiraStopajOrani = 20;
       if (!Array.isArray(b.mentorAssignments)) b.mentorAssignments = d.mentorAssignments;
       if (!b.managerUsername) b.managerUsername = uniqueManagerUsername(b.city);
       if (!b.managerPassword) b.managerPassword = "seviye360";
@@ -2913,7 +2897,7 @@ function emptyBranchData() {
     studentAttendance: {},
     paymentReceipts: [], paymentReceiptSeq: 1,
     invoices: [], invoiceSeq: 1, dekontlar: [], dekontSeq: 1, senetler: [], senetSeq: 1,
-    taxSettings: { kdvRate: 20, defaultTaxNo: "", defaultTaxOffice: "" },
+    taxSettings: { kdvRate: 20, defaultTaxNo: "", defaultTaxOffice: "", kiraStopajOrani: 20 },
     mentorAssignments: [],
     clubs: [], clubSeq: 1,
     busRoutes: [], busRouteSeq: 1,
@@ -11518,6 +11502,49 @@ function ledgerCategoryBreakdown(type) {
   return Object.entries(map).map(([category, amount]) => ({ category, amount })).sort((a, b) => b.amount - a.amount);
 }
 
+// Kesilen faturaların KDV özeti — 17/2-b istisnası işaretlenen faturalar
+// tabana dahil edilmez, yalnızca istisna tutarı ayrı gösterilir. Gerçek
+// veriden hesaplanır (b.invoices), sabit örnek rakam kullanılmaz.
+function kdvSummary(branch) {
+  const invoices = branch.invoices || [];
+  const istisnaTutari = invoices.filter(i => i.kdvExempt).reduce((s, i) => s + i.subtotal, 0);
+  const vergiyeTabiTaban = invoices.filter(i => !i.kdvExempt).reduce((s, i) => s + i.subtotal, 0);
+  const tahsilEdilenKdv = invoices.reduce((s, i) => s + i.kdvAmount, 0);
+  return {
+    faturaSayisi: invoices.length,
+    istisnaFaturaSayisi: invoices.filter(i => i.kdvExempt).length,
+    istisnaTutari, vergiyeTabiTaban, tahsilEdilenKdv,
+    toplamTutar: istisnaTutari + vergiyeTabiTaban,
+  };
+}
+
+// GVK md 94 kapsamında kira giderleri üzerinden kesilmesi gereken stopaj —
+// Kayıt Defteri'ndeki "Kira" kategorili GİDER kayıtlarının brüt toplamına
+// şubenin ayarladığı stopaj oranı uygulanır.
+function kiraStopajSummary(branch) {
+  const kiraGiderleri = (branch.ledger || []).filter(e => e.type === "GIDER" && e.category === "Kira");
+  const brutToplam = kiraGiderleri.reduce((s, e) => s + e.amount, 0);
+  const oran = (branch.taxSettings && branch.taxSettings.kiraStopajOrani) || 20;
+  const stopajKesintisi = Math.round(brutToplam * (oran / 100));
+  return { kayitSayisi: kiraGiderleri.length, brutToplam, oran, stopajKesintisi, netOdenecek: brutToplam - stopajKesintisi };
+}
+
+// Basitleştirilmiş bordro — gerçek personel listesindeki (b.staff) brüt
+// maaşlar üzerinden SGK+işsizlik sigortası işçi payı (%15), gelir vergisi
+// (basitleştirilmiş tek dilim %15) ve damga vergisi (binde 7,59) kesintisi.
+// Gerçek bordro hesaplaması kümülatif gelir vergisi dilimlerini, asgari
+// geçim indirimini vb. de içerir — bu, mock'ta göstermek için bilinçli
+// olarak basitleştirilmiş bir yaklaşıktır.
+function simplifiedPayroll(gross) {
+  const sgkKesintisi = Math.round(gross * 0.14);
+  const issizlikKesintisi = Math.round(gross * 0.01);
+  const gelirVergisiMatrahi = gross - sgkKesintisi - issizlikKesintisi;
+  const gelirVergisi = Math.round(gelirVergisiMatrahi * 0.15);
+  const damgaVergisi = Math.round(gross * 0.00759);
+  const netMaas = gross - sgkKesintisi - issizlikKesintisi - gelirVergisi - damgaVergisi;
+  return { gross, sgkKesintisi, issizlikKesintisi, gelirVergisiMatrahi, gelirVergisi, damgaVergisi, netMaas };
+}
+
 function ledgerMonthlyTrend() {
   const map = {};
   muhasebeLedgerEntries().forEach(e => {
@@ -11770,11 +11797,12 @@ function createInvoice(data) {
   const no = `FT-${new Date().getFullYear()}-${pad6(b.invoiceSeq)}`;
   b.invoiceSeq++;
   const subtotal = data.items.reduce((s, it) => s + it.quantity * it.unitPrice, 0);
-  const kdvAmount = Math.round(subtotal * (data.kdvRate / 100));
+  const kdvExempt = !!data.kdvExempt;
+  const kdvAmount = kdvExempt ? 0 : Math.round(subtotal * (data.kdvRate / 100));
   const total = subtotal + kdvAmount;
   const inv = {
     id: Date.now(), no, date: data.date, buyerName: data.buyerName, buyerTaxNo: data.buyerTaxNo || "",
-    buyerAddress: data.buyerAddress || "", items: data.items, kdvRate: data.kdvRate,
+    buyerAddress: data.buyerAddress || "", items: data.items, kdvRate: data.kdvRate, kdvExempt,
     subtotal, kdvAmount, total, note: data.note || "", status: "Kesildi", createdAt: new Date().toISOString(),
   };
   b.invoices.unshift(inv);
@@ -11822,10 +11850,11 @@ function printInvoice(inv) {
     </table>
     <div class="totals">
       <div><span>Ara Toplam</span><span>₺${inv.subtotal.toLocaleString("tr-TR")}</span></div>
-      <div><span>KDV (%${inv.kdvRate})</span><span>₺${inv.kdvAmount.toLocaleString("tr-TR")}</span></div>
+      <div><span>${inv.kdvExempt ? "KDV (17/2-b istisnası)" : `KDV (%${inv.kdvRate})`}</span><span>₺${inv.kdvAmount.toLocaleString("tr-TR")}</span></div>
       <div class="grand"><span>Genel Toplam</span><span>₺${inv.total.toLocaleString("tr-TR")}</span></div>
     </div>
     <p class="words">Yalnız: ${turkishNumberToWords(inv.total)} Türk Lirasıdır.</p>
+    ${inv.kdvExempt ? `<p style="font-size:12.5px;color:#555">Bu fatura, 3065 sayılı Katma Değer Vergisi Kanunu'nun 17/2-b maddesi kapsamında KDV'den istisnadır.</p>` : ""}
     ${inv.note ? `<p style="font-size:12.5px;color:#555">Not: ${inv.note}</p>` : ""}
     <div class="sign-row"><div>Düzenleyen</div><div>Kaşe / İmza</div></div>
   `);
@@ -11947,6 +11976,11 @@ function renderBelgelerBody() {
   }
   const b = CURRENT_BRANCH;
   const tabs = [["fatura", "Faturalar"], ["dekont", "Dekontlar"], ["senet", "Senetler"]];
+  const kdv = kdvSummary(b);
+  const kira = kiraStopajSummary(b);
+  const payrolls = (b.staff || []).map(s => ({ staff: s, p: simplifiedPayroll(s.salary || 0) }));
+  const totalGross = payrolls.reduce((s, r) => s + r.p.gross, 0);
+  const totalNet = payrolls.reduce((s, r) => s + r.p.netMaas, 0);
   return `
     <div class="card card-pad" style="margin-bottom:14px">
       <div class="card-head"><h3>Vergi Ayarları</h3></div>
@@ -11955,8 +11989,71 @@ function renderBelgelerBody() {
         <div class="field"><label>Vergi No</label><input id="tax-no" value="${b.taxSettings.defaultTaxNo || b.taxNo || ""}" /></div>
         <div class="field"><label>Vergi Dairesi</label><input id="tax-office" value="${b.taxSettings.defaultTaxOffice || ""}" /></div>
       </div>
+      <div class="grid cols-3" style="margin-top:10px">
+        <div class="field"><label>Kira Stopaj Oranı (%) <span title="Stopaj: Kiralama gibi bazı işlemlerde ödemeyi yapanın, ödeme sırasında kestiği ve devlet adına peşin yatırdığı vergi kesintisi." style="cursor:help">${ic("help")}</span></label><input id="tax-kira-stopaj" type="number" min="0" max="100" value="${b.taxSettings.kiraStopajOrani}" /></div>
+      </div>
       <button class="btn sm" id="tax-save" style="margin-top:10px">Vergi Ayarlarını Kaydet</button>
     </div>
+
+    <div class="grid cols-3" style="margin-bottom:14px">
+      <div class="card card-pad">
+        <div class="card-head"><h3 style="font-size:13.5px">KDV Özeti</h3></div>
+        <p class="stat-value" style="font-size:18px;margin:0 0 6px">₺${kdv.tahsilEdilenKdv.toLocaleString("tr-TR")}</p>
+        <p class="hint" style="margin:0 0 8px">Tahsil edilen toplam KDV — ${kdv.faturaSayisi} fatura</p>
+        <div style="font-size:12px;color:var(--ink-muted);line-height:1.6">
+          <div>KDV'ye tabi taban: <b>₺${kdv.vergiyeTabiTaban.toLocaleString("tr-TR")}</b></div>
+          <div>17/2-b istisna tutarı: <b>₺${kdv.istisnaTutari.toLocaleString("tr-TR")}</b> (${kdv.istisnaFaturaSayisi} fatura)</div>
+        </div>
+        <details style="margin-top:8px;font-size:11.5px;color:var(--ink-faint)">
+          <summary style="cursor:pointer;color:var(--ink-muted)">Nasıl hesaplandı?</summary>
+          <p style="margin:6px 0 0;line-height:1.5">Her fatura kesilirken "KDV'den istisna (17/2-b)" işaretlenmemişse ara toplam × KDV oranı kadar KDV hesaplanır. 3065 sayılı KDV Kanunu'nun 17/2-b maddesi, belirli eğitim/öğretim hizmetlerini KDV'den muaf tutar; bu şekilde işaretlenen faturalarda KDV tutarı ₺0 olur ve ara toplamları "istisna tutarı" olarak ayrı toplanır.</p>
+        </details>
+      </div>
+      <div class="card card-pad">
+        <div class="card-head"><h3 style="font-size:13.5px">Kira Stopajı <span title="GVK md 94: İşyeri kira ödemelerinde kiracının, ödeme sırasında kesip devlet adına beyan ettiği gelir vergisi stopajı." style="cursor:help">${ic("help")}</span></h3></div>
+        <p class="stat-value" style="font-size:18px;margin:0 0 6px">₺${kira.stopajKesintisi.toLocaleString("tr-TR")}</p>
+        <p class="hint" style="margin:0 0 8px">GVK md 94 kapsamında kesilecek stopaj</p>
+        <div style="font-size:12px;color:var(--ink-muted);line-height:1.6">
+          <div>Brüt kira gideri: <b>₺${kira.brutToplam.toLocaleString("tr-TR")}</b> (${kira.kayitSayisi} kayıt)</div>
+          <div>Net ödenecek kira: <b>₺${kira.netOdenecek.toLocaleString("tr-TR")}</b></div>
+        </div>
+        <details style="margin-top:8px;font-size:11.5px;color:var(--ink-faint)">
+          <summary style="cursor:pointer;color:var(--ink-muted)">Nasıl hesaplandı?</summary>
+          <p style="margin:6px 0 0;line-height:1.5">Kayıt Defteri'ndeki "Kira" kategorili gider kayıtlarının toplamı (₺${kira.brutToplam.toLocaleString("tr-TR")}) × Kira Stopaj Oranı (%${kira.oran}) = <b>₺${kira.stopajKesintisi.toLocaleString("tr-TR")}</b> stopaj. Mülk sahibine ödenen net tutar, brüt kiradan bu stopajın düşülmesiyle bulunur.</p>
+        </details>
+      </div>
+      <div class="card card-pad">
+        <div class="card-head"><h3 style="font-size:13.5px">Basitleştirilmiş Bordro</h3></div>
+        <p class="stat-value" style="font-size:18px;margin:0 0 6px">₺${totalNet.toLocaleString("tr-TR")}</p>
+        <p class="hint" style="margin:0 0 8px">Toplam net ödeme — ${payrolls.length} personel</p>
+        <div style="font-size:12px;color:var(--ink-muted);line-height:1.6">
+          <div>Toplam brüt maaş: <b>₺${totalGross.toLocaleString("tr-TR")}</b></div>
+          <div>Toplam kesinti (SGK/gelir vergisi/damga vergisi): <b>₺${(totalGross - totalNet).toLocaleString("tr-TR")}</b></div>
+        </div>
+        <details style="margin-top:8px;font-size:11.5px;color:var(--ink-faint)">
+          <summary style="cursor:pointer;color:var(--ink-muted)">Personel bazında dökümü gör</summary>
+          <div style="margin-top:8px;overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:11px">
+              <thead><tr style="text-align:left;color:var(--ink-faint)"><th style="padding:3px 6px 3px 0">Personel</th><th style="padding:3px 6px">Brüt</th><th style="padding:3px 6px">SGK+İşsizlik (%15)</th><th style="padding:3px 6px">Gelir V. (%15)</th><th style="padding:3px 6px">Damga V. (‰7,59)</th><th style="padding:3px 0 3px 6px">Net</th></tr></thead>
+              <tbody>
+                ${payrolls.map(({ staff, p }) => `
+                  <tr style="border-top:1px solid var(--border)">
+                    <td style="padding:4px 6px 4px 0">${staff.name}</td>
+                    <td style="padding:4px 6px">₺${p.gross.toLocaleString("tr-TR")}</td>
+                    <td style="padding:4px 6px">₺${(p.sgkKesintisi + p.issizlikKesintisi).toLocaleString("tr-TR")}</td>
+                    <td style="padding:4px 6px">₺${p.gelirVergisi.toLocaleString("tr-TR")}</td>
+                    <td style="padding:4px 6px">₺${p.damgaVergisi.toLocaleString("tr-TR")}</td>
+                    <td style="padding:4px 0 4px 6px;font-weight:600">₺${p.netMaas.toLocaleString("tr-TR")}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+          <p style="margin:8px 0 0;line-height:1.5">SGK işçi payı %14 + işsizlik sigortası işçi payı %1 brüt maaştan düşülür; kalan tutar (matrah) üzerinden basitleştirilmiş tek dilim %15 gelir vergisi hesaplanır; damga vergisi brüt maaşın binde 7,59'udur. Gerçek bordroda kümülatif gelir vergisi dilimleri ve asgari geçim indirimi de devreye girer — burada bilinçli olarak basitleştirilmiştir.</p>
+        </details>
+      </div>
+    </div>
+
     <div class="screen-tabs" style="padding:0 0 14px">
       ${tabs.map(([id, label]) => `<button class="screen-tab belgeler-tab ${belgelerTab === id ? "active" : ""}" data-belgeler-tab="${id}" style="font-size:12.5px;padding:6px 12px">${label}</button>`).join("")}
     </div>
@@ -11987,6 +12084,10 @@ function renderFaturaTab() {
             <div class="field"><label>Alıcı Vergi/T.C. No</label><input id="ft-buyer-taxno" /></div>
             <div class="field"><label>KDV Oranı (%)</label><input type="number" id="ft-kdv-rate" value="${b.taxSettings.kdvRate}" min="0" max="100" /></div>
           </div>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink-muted);cursor:pointer">
+            <input type="checkbox" id="ft-kdv-exempt" />
+            <span title="Belirli eğitim/öğretim hizmetlerini KDV'den muaf tutan yasal istisna maddesi. İşaretlenirse bu faturada KDV hesaplanmaz.">Bu fatura KDV'den istisna (3065 sayılı KDV Kanunu 17/2-b)${ic("help")}</span>
+          </label>
           <div class="field"><label>Alıcı Adresi</label><input id="ft-buyer-address" /></div>
           <div>
             <label style="font-size:12.5px;font-weight:600;color:var(--ink-muted)">Kalemler</label>
@@ -12013,8 +12114,8 @@ function renderFaturaTab() {
           ` : `
             <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
               <div>
-                <div style="font-size:12.5px;font-weight:600">${inv.no} · ${inv.buyerName}</div>
-                <div style="font-size:11px;color:var(--ink-faint)">${inv.date} · ₺${inv.total.toLocaleString("tr-TR")} (KDV dahil)</div>
+                <div style="font-size:12.5px;font-weight:600">${inv.no} · ${inv.buyerName}${inv.kdvExempt ? ` <span class="chip neutral" style="font-size:9.5px;vertical-align:middle">KDV İstisnası</span>` : ""}</div>
+                <div style="font-size:11px;color:var(--ink-faint)">${inv.date} · ₺${inv.total.toLocaleString("tr-TR")} ${inv.kdvExempt ? "(KDV'siz)" : "(KDV dahil)"}</div>
               </div>
               <div style="display:flex;gap:6px;flex-shrink:0">
                 <button class="btn xs" data-ft-print="${inv.id}" >Göster</button>
@@ -12057,6 +12158,9 @@ function wireFaturaTab() {
   });
   const buyerNameInp = document.getElementById("ft-buyer-name");
   buyerNameInp.addEventListener("input", () => { buyerNameInp.classList.remove("invalid"); document.getElementById("ft-buyer-name-error").textContent = ""; });
+  const kdvExemptChk = document.getElementById("ft-kdv-exempt");
+  const kdvRateInp = document.getElementById("ft-kdv-rate");
+  kdvExemptChk.addEventListener("change", () => { kdvRateInp.disabled = kdvExemptChk.checked; });
   document.getElementById("ft-create").addEventListener("click", () => {
     const buyerName = buyerNameInp.value.trim();
     const buyerNameErr = document.getElementById("ft-buyer-name-error");
@@ -12095,6 +12199,7 @@ function wireFaturaTab() {
       buyerTaxNo: document.getElementById("ft-buyer-taxno").value.trim(),
       buyerAddress: document.getElementById("ft-buyer-address").value.trim(),
       kdvRate: Number(document.getElementById("ft-kdv-rate").value) || 0,
+      kdvExempt: kdvExemptChk.checked,
       items: validItems, note: document.getElementById("ft-note").value.trim(),
     });
     persistState();
@@ -12339,8 +12444,10 @@ function mountBelgelerBody() {
     CURRENT_BRANCH.taxSettings.kdvRate = Number(document.getElementById("tax-kdv-rate").value) || 0;
     CURRENT_BRANCH.taxSettings.defaultTaxNo = document.getElementById("tax-no").value.trim();
     CURRENT_BRANCH.taxSettings.defaultTaxOffice = document.getElementById("tax-office").value.trim();
+    CURRENT_BRANCH.taxSettings.kiraStopajOrani = Number(document.getElementById("tax-kira-stopaj").value) || 0;
     persistState();
-    showToast("Vergi ayarları kaydedildi", "KDV oranı ve varsayılan vergi bilgileri güncellendi.", "check");
+    showToast("Vergi ayarları kaydedildi", "KDV oranı, kira stopaj oranı ve varsayılan vergi bilgileri güncellendi.", "check");
+    renderAll();
   });
   document.querySelectorAll(".belgeler-tab").forEach(btn => {
     btn.addEventListener("click", () => { belgelerTab = btn.dataset.belgelerTab; renderBelgelerTabBody(); });
@@ -12386,7 +12493,6 @@ SCREENS["branch:muhasebe"] = {
     return `
       <h1>Muhasebe <span class="chip neutral" style="font-size:10.5px;vertical-align:middle" title="Bu ekrandaki veriler tarayıcınızın localStorage'ında saklanır, sunucuya gönderilmez. Aynı kavramların gerçek Postgres+RLS karşılığı: apps/web/app/api/branch/accounting-ledger (+ vat-summary), /api/branch/payment-installments/aging, /api/hq/accounting-ledger, /api/branch/payroll.">${ic("shield")} Demo Verisi — Cihazda Saklanır</span></h1>
       <p class="lede">${isHq ? "Genel Merkez, kurum bazlı tekil görünüme geçebilir ya da tüm şubeleri konsolide edip genel toplu resmi görebilir — tamamen dinamik." : ic("lock") + " Bu ekran yalnızca Şube Yöneticisi rolüne açıktır."}</p>
-      <p class="hint" style="margin:-8px 0 14px">Gerçek backend'de ayrıca: KDV oranı/özeti (<span title="Belirli eğitim/öğretim hizmetlerini KDV'den muaf tutan yasal istisna maddesi." style="cursor:help">KDV Kanunu 17/2-b istisnası${ic("help")}</span> dahil), GVK md 94 kira <span title="Stopaj: Kiralama gibi bazı işlemlerde ödemeyi yapanın, ödeme sırasında kestiği ve devlet adına peşin yatırdığı vergi kesintisi." style="cursor:help">stopajı${ic("help")}</span>, tahsilat yaşlandırma raporu ve basitleştirilmiş bordro (SGK/gelir vergisi/damga vergisi) — bu mock ekranda henüz görselleştirilmedi.</p>
       ${scopeRow}
       ${subTabRow}
       <div id="muhasebe-body">${renderMuhasebeBody()}</div>
