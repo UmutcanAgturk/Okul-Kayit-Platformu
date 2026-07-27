@@ -11888,7 +11888,7 @@ function renderDekontTab() {
   return `
     <div class="grid cols-2">
       <div class="card card-pad">
-        <div class="card-head"><h3>Yeni Dekont Oluştur</h3></div>
+        <div class="card-head"><h3>Yeni Dekont Oluştur <span title="Dekont: bir tahsilat ya da ödemenin yapıldığını gösteren makbuz niteliğindeki belge. Fatura'dan farklı olarak KDV hesaplamaz, yalnızca para hareketini kayıt altına alır." style="cursor:help;font-size:12px;font-weight:400">${ic("help")}</span></h3></div>
         <div style="display:flex;flex-direction:column;gap:10px">
           ${recentLedger.length ? `
           <div class="field"><label>Kayıt Defterinden Doldur (opsiyonel)</label>
@@ -12001,7 +12001,7 @@ function renderSenetTab() {
   return `
     <div class="grid cols-2">
       <div class="card card-pad">
-        <div class="card-head"><h3>Yeni Senet Oluştur</h3></div>
+        <div class="card-head"><h3>Yeni Senet Oluştur <span title="Senet: borçlunun (örn. velinin) belirli bir tarihte belirli bir tutarı ödeyeceğini yazılı olarak taahhüt ettiği kambiyo senedi. Burada taksitli ödeme taahhüdü için kullanılır." style="cursor:help;font-size:12px;font-weight:400">${ic("help")}</span></h3></div>
         <div style="display:flex;flex-direction:column;gap:10px">
           <div class="field"><label>Borçlu Adı Soyadı</label><input id="sn-debtor" placeholder="Örn. Levent Aksoy (Veli)" /></div>
           <div class="grid cols-2">
@@ -12142,7 +12142,7 @@ SCREENS["branch:muhasebe"] = {
     return `
       <h1>Muhasebe <span class="chip neutral" style="font-size:10.5px;vertical-align:middle" title="Bu ekrandaki veriler tarayıcınızın localStorage'ında saklanır, sunucuya gönderilmez. Aynı kavramların gerçek Postgres+RLS karşılığı: apps/web/app/api/branch/accounting-ledger (+ vat-summary), /api/branch/payment-installments/aging, /api/hq/accounting-ledger, /api/branch/payroll.">${ic("shield")} Demo Verisi — Cihazda Saklanır</span></h1>
       <p class="lede">${isHq ? "Genel Merkez, kurum bazlı tekil görünüme geçebilir ya da tüm şubeleri konsolide edip genel toplu resmi görebilir — tamamen dinamik." : ic("lock") + " Bu ekran yalnızca Şube Yöneticisi rolüne açıktır."}</p>
-      <p class="hint" style="margin:-8px 0 14px">Gerçek backend'de ayrıca: KDV oranı/özeti (KDV Kanunu 17/2-b istisnası dahil), GVK md 94 kira stopajı, tahsilat yaşlandırma raporu ve basitleştirilmiş bordro (SGK/gelir vergisi/damga vergisi) — bu mock ekranda henüz görselleştirilmedi.</p>
+      <p class="hint" style="margin:-8px 0 14px">Gerçek backend'de ayrıca: KDV oranı/özeti (<span title="Belirli eğitim/öğretim hizmetlerini KDV'den muaf tutan yasal istisna maddesi." style="cursor:help">KDV Kanunu 17/2-b istisnası${ic("help")}</span> dahil), GVK md 94 kira <span title="Stopaj: Kiralama gibi bazı işlemlerde ödemeyi yapanın, ödeme sırasında kestiği ve devlet adına peşin yatırdığı vergi kesintisi." style="cursor:help">stopajı${ic("help")}</span>, tahsilat yaşlandırma raporu ve basitleştirilmiş bordro (SGK/gelir vergisi/damga vergisi) — bu mock ekranda henüz görselleştirilmedi.</p>
       ${scopeRow}
       ${subTabRow}
       <div id="muhasebe-body">${renderMuhasebeBody()}</div>

@@ -25,6 +25,7 @@ TESTS=(
   t194_muhasebe_ux.js
   t195_belgeler_delete_confirm.js
   t196_tahsilat_confirm_dekont.js
+  t197_muhasebe_glossary.js
 )
 
 pass=0
