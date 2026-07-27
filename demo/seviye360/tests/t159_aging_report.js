@@ -67,6 +67,24 @@ const APP = 'file://' + require('path').resolve(__dirname, '../seviye360-app.htm
   const amountLabels = await agingCard.locator('.stat-card .stat-sub').allInnerTexts();
   check('Her aralık kartının altında ₺ tutarı gösteriliyor', amountLabels.length === 4 && amountLabels.every(t => t.includes('₺')), amountLabels.join(' | '));
 
+  // ===== Arama: Tahsilat Yaşlandırma + Öğrenci Tahsilat Durumu tablolarını filtreler =====
+  const searchTarget = injected[0];
+  await page.fill('#tahsilat-search', searchTarget.name);
+  await page.waitForTimeout(300);
+  const agingTextFiltered = await page.locator('#aging-report-card').innerText();
+  check('Arama sonrası yaşlandırma tablosunda yalnızca aranan öğrenci var', agingTextFiltered.includes(searchTarget.name), agingTextFiltered.includes(searchTarget.name));
+  for (const p of injected) {
+    if (p.name === searchTarget.name) continue;
+    check(`Arama sonrası yaşlandırma tablosunda ${p.name} artık görünmüyor`, !agingTextFiltered.includes(p.name));
+  }
+  const rosterTextFiltered = await page.locator('.card-pad:has-text("Öğrenci Tahsilat Durumu")').innerText();
+  check('Arama sonrası Öğrenci Tahsilat Durumu tablosunda yalnızca aranan öğrenci var', rosterTextFiltered.includes(searchTarget.name));
+
+  await page.fill('#tahsilat-search', '');
+  await page.waitForTimeout(300);
+  const agingTextCleared = await page.locator('#aging-report-card').innerText();
+  check('Arama temizlenince tüm öğrenciler yeniden görünüyor', injected.every(p => agingTextCleared.includes(p.name)));
+
   // Boş durum: enjekte ettiğimiz öğrencileri "Ödendi" yapınca liste boşalmalı.
   await page.evaluate(() => {
     STUDENT_DIRECTORY.forEach(s => {

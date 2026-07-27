@@ -11282,6 +11282,7 @@ let ledgerFilterType = "ALL";
 let ledgerSearchQuery = "";
 let tahsilatConfirmingId = null;
 let tahsilatConfirmingAmount = 0;
+let tahsilatSearchQuery = "";
 // Genel Merkez'in Muhasebe'de görüntülediği kapsam: "ALL" (tüm kurumlar,
 // konsolide) ya da tek bir kurumun id'si. Şube portalı bu değeri yok sayar,
 // her zaman SADECE kendi kurumunu (CURRENT_BRANCH) görür.
@@ -12233,6 +12234,7 @@ function renderMuhasebeBody() {
 
   if (muhasebeSubTab === "tahsilat") {
     const roster = STUDENT_DIRECTORY.filter(s => scopeBranchIds.includes(s.branchId));
+    const filteredRoster = roster.filter(s => !tahsilatSearchQuery || s.name.toLowerCase().includes(tahsilatSearchQuery.toLowerCase()) || (s.guardian || "").toLowerCase().includes(tahsilatSearchQuery.toLowerCase()));
     const overdue = roster.filter(s => s.paymentStatus === "Gecikmiş ödeme var");
     const upcoming = roster.filter(s => s.paymentStatus === "1 taksit yaklaşıyor");
     const guncel = roster.filter(s => s.paymentStatus === "Güncel");
@@ -12269,8 +12271,11 @@ function renderMuhasebeBody() {
         <p class="stat-value" style="margin:0">₺${expectedInstallmentIncome().toLocaleString("tr-TR")}</p>
         <p style="font-size:12px;color:var(--ink-muted);margin:6px 0 0">Normal Kayıt'ta girilen toplam ücret ve taksit sayısına göre hesaplanır — Beklentiler sekmesindeki senaryo tahminlerine otomatik dahil edilir.</p>
       </div>
+      <div class="field" style="margin-bottom:14px">
+        <input id="tahsilat-search" value="${tahsilatSearchQuery}" placeholder="Öğrenci veya veli adına göre ara…" style="padding:8px 11px;border-radius:8px;border:1px solid var(--border-strong);background:var(--surface);color:var(--ink);font-size:13px" />
+      </div>
       ${(() => {
-        const agingRows = agingReportRows(roster);
+        const agingRows = agingReportRows(filteredRoster);
         const agingSummary = agingBucketSummary(agingRows);
         return `
       <div class="card card-pad" id="aging-report-card" style="margin-bottom:14px">
@@ -12304,11 +12309,11 @@ function renderMuhasebeBody() {
         `;
       })()}
       <div class="card card-pad">
-        <div class="card-head"><h3>Öğrenci Tahsilat Durumu</h3><span class="hint">${roster.length} öğrenci</span></div>
+        <div class="card-head"><h3>Öğrenci Tahsilat Durumu</h3><span class="hint">${filteredRoster.length}${filteredRoster.length !== roster.length ? ` / ${roster.length}` : ""} öğrenci</span></div>
         <div class="table-wrap"><table class="data">
           <thead><tr>${isConsolidated ? "<th>Şube</th>" : ""}<th>Öğrenci</th><th>Veli</th><th>Durum</th><th>Kalan Taksit</th><th>Tahsilat İşle</th></tr></thead>
           <tbody>
-            ${roster.length ? roster.map(s => {
+            ${filteredRoster.length ? filteredRoster.map(s => {
               const hasPlan = s.installmentAmount > 0;
               const remaining = hasPlan ? s.installmentCount - s.paidInstallments : 0;
               return `
@@ -12589,6 +12594,14 @@ function mountMuhasebeBody() {
         showToast("Tahsilat alındı", `₺${amount.toLocaleString("tr-TR")} tahsil edildi. Dekont oluşturuldu, Belgeler sekmesinden görüntüleyebilirsiniz.`, "check");
         refreshMuhasebeBody();
       });
+    });
+    const tahsilatSearchInp = document.getElementById("tahsilat-search");
+    if (tahsilatSearchInp) tahsilatSearchInp.addEventListener("input", () => {
+      tahsilatSearchQuery = tahsilatSearchInp.value;
+      const caret = tahsilatSearchInp.selectionStart;
+      refreshMuhasebeBody();
+      const newInp = document.getElementById("tahsilat-search");
+      if (newInp) { newInp.focus(); newInp.setSelectionRange(caret, caret); }
     });
     return;
   }
