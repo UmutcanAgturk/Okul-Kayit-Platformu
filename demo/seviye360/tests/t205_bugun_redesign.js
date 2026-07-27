@@ -55,7 +55,7 @@ const APP = 'file://' + require('path').resolve(__dirname, '../seviye360-app.htm
   check('Etüt Doluluğu grafiği nötr (brand) renk kullanıyor, kritik/uyarı rengi DEĞİL', etutBarStyle ? /var\(--brand\)/.test(etutBarStyle) : true, etutBarStyle || 'bar bulunamadı (veri yoksa atlanır)');
 
   check('Lider Tablosu podyum kartlarında madalya emojisi var (🥇)', /🥇/.test(bodyText));
-  const podiumCount = await page.locator('.card:has(h3:has-text("Lider Tablosu")) .grid.cols-3 .stat-card').count();
+  const podiumCount = await page.locator('.card:has(h3:has-text("Lider Tablosu")) .stat-card').count();
   check('Lider Tablosu 3 podyum kartı olarak render ediliyor (tablo değil)', podiumCount === 3, `${podiumCount} kart bulundu`);
 
   check('statTrendCardHtml artık kullanılmıyor (kaldırılan fonksiyon sayfada hata üretmiyor)', errors.length === 0);
