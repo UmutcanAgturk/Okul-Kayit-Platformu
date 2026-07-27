@@ -2530,31 +2530,6 @@ function sparklineSvg(values, opts) {
     </svg>
   `;
 }
-// Stat-kartı + trend: mevcut .stat-card görsel dilini korur, altına gerçek
-// veriden bir sparkline ve imzalı bir delta rozeti (yön × "yukarı iyi mi?") ekler.
-function statTrendCardHtml(opts) {
-  const { label, value, tone, values, deltaGood, unit } = opts;
-  const hasTrend = values && values.length >= 2;
-  let deltaHtml = "";
-  if (hasTrend) {
-    const delta = Number((values[values.length - 1] - values[0]).toFixed(1));
-    const isUp = delta > 0, isFlat = delta === 0;
-    const good = isFlat ? null : (deltaGood === "up" ? isUp : !isUp);
-    const arrow = isFlat ? "→" : isUp ? "↑" : "↓";
-    const cls = isFlat ? "" : good ? "up" : "down";
-    deltaHtml = `<span class="stat-sub ${cls}" style="display:inline-flex;align-items:center;gap:3px;font-weight:700">${arrow} ${isFlat ? "Değişim yok" : (isUp ? "+" : "") + delta + (unit || "")}</span>`;
-  }
-  const accent = tone === "critical" ? "var(--critical)" : tone === "weak" ? "var(--weak)" : tone === "strong" ? "var(--strong)" : "var(--brand)";
-  return `
-    <div class="card stat-card ${tone ? "tone-" + tone : ""}">
-      <p class="stat-label">${label}</p>
-      <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:10px">
-        <div><p class="stat-value">${value}</p>${deltaHtml}</div>
-        ${hasTrend ? sparklineSvg(values, { accent }) : ""}
-      </div>
-    </div>
-  `;
-}
 // Bir şubenin son N gerçek yoklama gününde ölçülen genel devam oranı — hayali
 // veri değil, CURRENT_BRANCH.studentAttendance'ta o gün gerçekten "_taken"
 // işaretlenmiş sınıflardan hesaplanır.
@@ -7051,11 +7026,15 @@ SCREENS["branch:aktivite"] = {
 SCREENS["branch:bugun"] = {
   html: () => {
     const today = todayStr();
+    const hour = new Date().getHours();
+    const greeting = hour < 6 ? "İyi geceler 🌙" : hour < 12 ? "Günaydın ☀️" : hour < 18 ? "İyi günler 👋" : "İyi akşamlar 🌆";
     const classrooms = CURRENT_BRANCH.classrooms;
     const takenToday = classrooms.filter(c => isAttendanceTaken(today, c.code)).length;
     const overdue = overduePaymentRows();
     const upcoming = upcomingPaymentRows();
+    const paymentComp = paymentStatusComposition();
     const etutToday = todayEtutOccupancy();
+    const maxEtutPct = etutToday.length ? Math.max(...etutToday.map(e => e.pct), 1) : 1;
     const ptaToday = PTA_REQUESTS.filter(r => r.branchId === CURRENT_BRANCH.id && r.slotDate === today && r.status !== "REDDEDILDI");
     const pendingPta = PTA_REQUESTS.filter(r => r.branchId === CURRENT_BRANCH.id && r.status === "BEKLIYOR").length;
     const pendingEtut = ETUT_REQUESTS.filter(r => r.branchId === CURRENT_BRANCH.id && r.status === "BEKLIYOR").length;
@@ -7064,32 +7043,47 @@ SCREENS["branch:bugun"] = {
     const recentActivity = ACTIVITY_LOG.filter(a => a.branchId === CURRENT_BRANCH.id).slice(0, 6);
     const attTrend = branchAttendanceTrend(CURRENT_BRANCH, 10);
     const netTrend = branchAvgNetTrend(CURRENT_BRANCH);
+    const attPoints = attTrend.map(p => ({ label: new Date(p.date + "T00:00:00").toLocaleDateString("tr-TR", { day: "2-digit", month: "2-digit" }), value: p.rate }));
+    const netPoints = netTrend.map(p => ({ label: p.name.length > 10 ? p.name.slice(0, 10) + "…" : p.name, value: p.avg }));
+    const medal = ["🥇", "🥈", "🥉"];
     return `
     <h1>Bugün</h1>
-    <p class="lede">${new Date(today + "T00:00:00").toLocaleDateString("tr-TR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })} — ${CURRENT_BRANCH.name} için tek bakışta özet.</p>
+    <p class="lede">${greeting} — ${new Date(today + "T00:00:00").toLocaleDateString("tr-TR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })} · ${CURRENT_BRANCH.name} için tek bakışta özet.</p>
     ${hqBranchSelectorHtml("bugun-branch-select")}
     <div class="grid cols-4" style="margin-bottom:16px">
       <div class="card stat-card ${takenToday === classrooms.length && classrooms.length ? "tone-strong" : "tone-weak"}">
-        <p class="stat-label">Yoklaması Alınan Sınıf</p><p class="stat-value">${takenToday}/${classrooms.length}</p>
+        <p class="stat-label"><span>Yoklaması Alınan Sınıf</span><span style="margin-left:auto;color:var(--ink-faint);opacity:.7">${ic("check")}</span></p><p class="stat-value">${takenToday}/${classrooms.length}</p>
       </div>
-      <div class="card stat-card tone-critical"><p class="stat-label">Vadesi Geçen Ödeme</p><p class="stat-value">${overdue.length}</p></div>
-      <div class="card stat-card tone-weak"><p class="stat-label">Yaklaşan Ödeme (7 gün)</p><p class="stat-value">${upcoming.length}</p></div>
-      <div class="card stat-card"><p class="stat-label">Bekleyen Onay</p><p class="stat-value">${pendingEtut + pendingPta}</p><p class="stat-sub">${pendingEtut} etüt · ${pendingPta} veli görüşmesi</p></div>
+      <div class="card stat-card tone-critical"><p class="stat-label"><span>Vadesi Geçen Ödeme</span><span style="margin-left:auto;color:var(--ink-faint);opacity:.7">${ic("bell")}</span></p><p class="stat-value">${overdue.length}</p></div>
+      <div class="card stat-card tone-weak"><p class="stat-label"><span>Yaklaşan Ödeme (7 gün)</span><span style="margin-left:auto;color:var(--ink-faint);opacity:.7">${ic("wallet")}</span></p><p class="stat-value">${upcoming.length}</p></div>
+      <div class="card stat-card"><p class="stat-label"><span>Bekleyen Onay</span><span style="margin-left:auto;color:var(--ink-faint);opacity:.7">${ic("clock")}</span></p><p class="stat-value">${pendingEtut + pendingPta}</p><p class="stat-sub">${pendingEtut} etüt · ${pendingPta} veli görüşmesi</p></div>
     </div>
-    ${attTrend.length >= 2 || netTrend.length >= 2 ? `
-    <div class="grid cols-2" style="margin-bottom:16px">
-      ${attTrend.length >= 2 ? statTrendCardHtml({ label: "Devam Oranı Trendi (son " + attTrend.length + " gün)", value: "%" + attTrend[attTrend.length - 1].rate, values: attTrend.map(p => p.rate), deltaGood: "up", unit: " puan" }) : ""}
-      ${netTrend.length >= 2 ? statTrendCardHtml({ label: "Ortalama Net Trendi (" + netTrend.length + " sınav)", value: netTrend[netTrend.length - 1].avg, values: netTrend.map(p => p.avg), deltaGood: "up", unit: " net" }) : ""}
+    ${attPoints.length >= 2 || netPoints.length >= 2 || paymentComp.total ? `
+    <div class="grid cols-3" style="margin-bottom:16px">
+      ${attPoints.length >= 2 ? `
+      <div class="card card-pad">
+        <div class="card-head"><h3>Devam Oranı Trendi</h3><span class="hint">Son ${attPoints.length} gün</span></div>
+        ${svgLineChart(attPoints, { color: "var(--brand)", height: 150, unit: "%" })}
+      </div>` : ""}
+      ${netPoints.length >= 2 ? `
+      <div class="card card-pad">
+        <div class="card-head"><h3>Ortalama Net Trendi</h3><span class="hint">${netPoints.length} sınav</span></div>
+        ${svgLineChart(netPoints, { color: "var(--strong)", height: 150, unit: " net" })}
+      </div>` : ""}
+      ${paymentComp.total ? `
+      <div class="card card-pad">
+        <div class="card-head"><h3>Ödeme Durumu Dağılımı</h3><span class="hint">${paymentComp.total} öğrenci</span></div>
+        ${compositionBarHtml([
+          { label: "Güncel", pct: Math.round((paymentComp.current / paymentComp.total) * 100), color: "var(--strong)" },
+          { label: "Yaklaşan", pct: Math.round((paymentComp.upcoming / paymentComp.total) * 100), color: "var(--weak)", ink: "var(--weak-ink)" },
+          { label: "Vadesi Geçen", pct: Math.round((paymentComp.overdue / paymentComp.total) * 100), color: "var(--critical)" },
+        ])}
+      </div>` : ""}
     </div>` : ""}
     <div class="grid cols-2" style="margin-bottom:16px">
       <div class="card card-pad">
         <div class="card-head"><h3>Bugünkü Etüt Doluluğu</h3></div>
-        ${etutToday.length ? etutToday.map(e => `
-          <div style="margin-bottom:10px">
-            <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px"><span>${e.label}</span><span style="color:var(--ink-faint)">%${e.pct}</span></div>
-            <div class="progress-track"><div class="progress-fill" style="width:${e.pct}%"></div></div>
-          </div>
-        `).join("") : `<p class="lede" style="margin:0">Bugün için etüt talebi yok.</p>`}
+        ${etutToday.length ? svgHBarChart(etutToday.map(e => ({ label: e.label, value: e.pct })), { max: 100, unit: "%" }) : `<p class="lede" style="margin:0">Bugün için etüt talebi yok.</p>`}
       </div>
       <div class="card card-pad">
         <div class="card-head"><h3>Bugünkü Veli Görüşmeleri</h3><span class="hint">${ptaToday.length}</span></div>
@@ -7101,14 +7095,18 @@ SCREENS["branch:bugun"] = {
     </div>
     <div class="grid cols-2" style="margin-bottom:16px">
       <div class="card card-pad">
-        <div class="card-head"><h3>Lider Tablosu Öne Çıkanlar</h3></div>
+        <div class="card-head"><h3>🏆 Lider Tablosu Öne Çıkanlar</h3></div>
         ${topStudents.length ? `
-          <div class="table-wrap"><table class="data">
-            <thead><tr><th></th><th>Öğrenci</th><th>Seviye</th><th>XP</th></tr></thead>
-            <tbody>${topStudents.map((r, i) => `
-              <tr><td style="font-size:15px">${i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"}</td><td><b>${r.student.name}</b></td><td><span class="chip strong">Seviye ${r.level}</span></td><td>${r.xp} XP</td></tr>
-            `).join("")}</tbody>
-          </table></div>
+          <div class="grid cols-3">
+            ${topStudents.map((r, i) => `
+              <div class="card stat-card ${i === 0 ? "tone-accent" : i === 1 ? "tone-strong" : "tone-weak"}" style="text-align:center">
+                <p style="font-size:28px;margin:0 0 4px">${medal[i]}</p>
+                <p style="font-weight:700;font-size:13px;margin:0 0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.student.name}</p>
+                <span class="chip strong" style="margin-bottom:4px;display:inline-block">Seviye ${r.level}</span>
+                <p class="stat-sub" style="margin:2px 0 0">${r.xp} XP</p>
+              </div>
+            `).join("")}
+          </div>
         ` : `<p class="lede" style="margin:0">Henüz öğrenci verisi yok.</p>`}
       </div>
       <div class="card card-pad">
@@ -8230,6 +8228,22 @@ function upcomingPaymentRows() {
     if (next) rows.push({ student: s, installment: next });
   });
   return rows.sort((a, b) => a.installment.dueDate.localeCompare(b.installment.dueDate));
+}
+
+// "Bugün" ekranındaki ödeme durumu dağılımı — her öğrenci EN KÖTÜ durumuna göre
+// tek bir kovaya (vadesi geçen > yaklaşan > güncel) sayılır; overduePaymentRows/
+// upcomingPaymentRows'un aksine (liste), burada oransal bir özet için toplam sayı üretilir.
+function paymentStatusComposition() {
+  const today = new Date();
+  const in7 = new Date(today.getTime() + 7 * 24 * 3600 * 1000);
+  const roster = branchStudentsWithSchedule();
+  let overdue = 0, upcoming = 0, current = 0;
+  roster.forEach(s => {
+    if (s.installmentSchedule.some(r => r.status !== "Ödendi" && new Date(r.dueDate) < today)) { overdue++; return; }
+    if (s.installmentSchedule.some(r => r.status !== "Ödendi" && new Date(r.dueDate) >= today && new Date(r.dueDate) <= in7)) { upcoming++; return; }
+    current++;
+  });
+  return { overdue, upcoming, current, total: roster.length };
 }
 
 const AGING_BUCKETS = [

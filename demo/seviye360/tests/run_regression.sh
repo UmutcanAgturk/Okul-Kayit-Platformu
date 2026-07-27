@@ -32,6 +32,7 @@ TESTS=(
   t201_mobile_muhasebe_crud.js
   t202_chart_consistency.js
   t204_olcme_analytics.js
+  t205_bugun_redesign.js
 )
 
 pass=0
