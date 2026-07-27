@@ -12045,7 +12045,7 @@ function mountBelgelerBody() {
     CURRENT_BRANCH.taxSettings.defaultTaxNo = document.getElementById("tax-no").value.trim();
     CURRENT_BRANCH.taxSettings.defaultTaxOffice = document.getElementById("tax-office").value.trim();
     persistState();
-    alert("Vergi ayarları kaydedildi.");
+    showToast("Vergi ayarları kaydedildi", "KDV oranı ve varsayılan vergi bilgileri güncellendi.", "check");
   });
   document.querySelectorAll(".belgeler-tab").forEach(btn => {
     btn.addEventListener("click", () => { belgelerTab = btn.dataset.belgelerTab; renderBelgelerTabBody(); });
@@ -12089,7 +12089,7 @@ SCREENS["branch:muhasebe"] = {
     ` : "";
 
     return `
-      <h1>Muhasebe <span class="chip strong" style="font-size:10.5px;vertical-align:middle" title="apps/web/app/api/branch/accounting-ledger (+ vat-summary), /api/branch/payment-installments/aging, /api/hq/accounting-ledger, /api/branch/payroll — gerçek Postgres + RLS + oturum tabanlı kimlik">${ic("shield")} Gerçek Backend'de Doğrulandı</span></h1>
+      <h1>Muhasebe <span class="chip neutral" style="font-size:10.5px;vertical-align:middle" title="Bu ekrandaki veriler tarayıcınızın localStorage'ında saklanır, sunucuya gönderilmez. Aynı kavramların gerçek Postgres+RLS karşılığı: apps/web/app/api/branch/accounting-ledger (+ vat-summary), /api/branch/payment-installments/aging, /api/hq/accounting-ledger, /api/branch/payroll.">${ic("shield")} Demo Verisi — Cihazda Saklanır</span></h1>
       <p class="lede">${isHq ? "Genel Merkez, kurum bazlı tekil görünüme geçebilir ya da tüm şubeleri konsolide edip genel toplu resmi görebilir — tamamen dinamik." : ic("lock") + " Bu ekran yalnızca Şube Yöneticisi rolüne açıktır."}</p>
       <p class="hint" style="margin:-8px 0 14px">Gerçek backend'de ayrıca: KDV oranı/özeti (KDV Kanunu 17/2-b istisnası dahil), GVK md 94 kira stopajı, tahsilat yaşlandırma raporu ve basitleştirilmiş bordro (SGK/gelir vergisi/damga vergisi) — bu mock ekranda henüz görselleştirilmedi.</p>
       ${scopeRow}
@@ -12335,14 +12335,19 @@ function renderMuhasebeBody() {
       </div>
       <div class="table-wrap"><table class="data" id="ledger-table">
         <thead><tr>${isConsolidated ? "<th>Kurum</th>" : ""}<th>Tarih</th><th>Kategori</th><th>Tutar</th><th></th></tr></thead>
-        <tbody id="ledger-tbody">${renderLedgerRows(filtered, isConsolidated)}</tbody>
+        <tbody id="ledger-tbody">${renderLedgerRows(filtered, isConsolidated, ledgerEntries.length)}</tbody>
       </table></div>
     </div>
   `;
 }
 
-function renderLedgerRows(filtered, showBranchCol) {
-  if (!filtered.length) return `<tr><td colspan="${showBranchCol ? 5 : 4}">${emptyRow("Kayıt bulunamadı.")}</td></tr>`;
+function renderLedgerRows(filtered, showBranchCol, totalCount = filtered.length) {
+  if (!filtered.length) {
+    const msg = totalCount === 0
+      ? "Henüz gelir/gider kaydı yok. Sağdaki \"Yeni Kayıt Ekle\" formundan ilk kaydınızı ekleyin."
+      : "Arama/filtreye uyan kayıt bulunamadı.";
+    return `<tr><td colspan="${showBranchCol ? 5 : 4}">${emptyRow(msg, "ledger")}</td></tr>`;
+  }
   return filtered.map(e => {
     const key = `${e.branchId}:${e._idx}`;
     if (ledgerDeletingIndex === key) return `
@@ -12395,7 +12400,7 @@ function renderLedgerTable() {
     (!ledgerSearchQuery || e.category.toLowerCase().includes(ledgerSearchQuery.toLowerCase()))
   );
   if (countHint) countHint.textContent = `${ledgerEntries.length} kayıt${filtered.length !== ledgerEntries.length ? ` (${filtered.length} gösteriliyor)` : ""}`;
-  tbody.innerHTML = renderLedgerRows(filtered, isConsolidated);
+  tbody.innerHTML = renderLedgerRows(filtered, isConsolidated, ledgerEntries.length);
   wireLedgerRowButtons();
 }
 

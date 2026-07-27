@@ -21,6 +21,8 @@ TESTS=(
   t159_aging_report.js
   t160_hub_and_buttons.js
   t161_typography_tokens.js
+  t193_btn_component_check.js
+  t194_muhasebe_ux.js
 )
 
 pass=0
