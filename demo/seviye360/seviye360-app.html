@@ -2129,7 +2129,7 @@ function seedRichDemoData(branch, opts) {
   examDefs.forEach((def, examIdx) => {
     sinavUygulamaSeq++;
     const su = {
-      id: sinavUygulamaSeq, name: def.name, type: "Deneme Sınavı",
+      id: sinavUygulamaSeq, name: def.name, examType: "Deneme Sınavı",
       date: examIdx === 0 ? "2026-06-15" : "2026-07-01",
       subjects: def.subjects.map(sd => ({
         subject: sd.subject, questionCount: sd.count,
@@ -9612,7 +9612,52 @@ function achievementAverages(scope) {
   });
 }
 
+// Genel Merkez için şubeler arası akademik karşılaştırma — her şubenin kendi
+// STUDENT_DIRECTORY alt kümesi üzerinden GERÇEK ortalama net ve ortalama sınav
+// katılımı hesaplanır (aynı examDurumRows kaynağı, yalnızca şube bazında ayrıştırılır).
+function branchOlcmeComparison() {
+  return BRANCHES.map(b => {
+    const scope = STUDENT_DIRECTORY.filter(s => s.branchId === b.id);
+    const withNet = scope.filter(s => s.net != null);
+    const rows = examDurumRows(scope);
+    return {
+      branch: b,
+      avgNet: withNet.length ? Number((withNet.reduce((a, s) => a + s.net, 0) / withNet.length).toFixed(2)) : null,
+      avgKatilim: rows.length ? Math.round(rows.reduce((a, e) => a + e.katilim, 0) / rows.length) : null,
+      examTakers: withNet.length,
+    };
+  }).filter(r => r.avgNet != null).sort((a, b) => b.avgNet - a.avgNet);
+}
+
+// Belirli bir sınav uygulamasında, kapsamdaki (scope) öğrencilerin GERÇEK
+// cevaplarından soru bazında (madde analizi) doğru/yanlış/boş sayılır — hangi
+// sorunun kapsam genelinde en çok yanlış/boş bırakıldığını gösterir. Kazanım
+// bazlı ortalamalardan (achievementAverages) farklı olarak TEK bir sınava
+// özgüdür ve soru numarası düzeyindedir.
+function examQuestionStats(suId, scope) {
+  const scopeIds = new Set(scope.map(s => s.id));
+  const byQuestion = new Map();
+  OPTIK_SONUCLAR.filter(batch => batch.sinavUygulamaId === suId).forEach(batch => {
+    batch.results.forEach(r => {
+      if (!scopeIds.has(r.studentId)) return;
+      (r.answers || []).forEach(a => {
+        if (!byQuestion.has(a.no)) byQuestion.set(a.no, { no: a.no, subject: a.subject, achievementId: a.achievementId, correct: 0, wrong: 0, blank: 0, total: 0 });
+        const q = byQuestion.get(a.no);
+        q.total++;
+        if (a.isCorrect === true) q.correct++;
+        else if (a.isCorrect === false) q.wrong++;
+        else q.blank++;
+      });
+    });
+  });
+  return Array.from(byQuestion.values())
+    .map(q => ({ ...q, wrongPct: q.total ? Math.round(((q.wrong + q.blank) / q.total) * 100) : 0 }))
+    .sort((a, b) => a.no - b.no);
+}
+
 let olcmeSubTab = "durum";
+let durumSelectedExamId = null;
+let kazanimRiskFilter = "ALL";
 
 // Kazanım Yükleme (ders bazlı kazanım taksonomisi yönetimi) yalnızca Genel
 // Merkez veya Şube Yöneticisi'ne açıktır — Öğretmen/Öğrenci sadece kazanımları
@@ -9648,7 +9693,7 @@ function renderOlcmeShell(title, lede) {
 }
 
 let _olcmeScopeCache = [];
-function mountOlcmeShell(scope) {
+function mountOlcmeShell(scope, isHq) {
   _olcmeScopeCache = scope;
   if ((olcmeSubTab === "kazanimYukle" || olcmeSubTab === "sinavUygulama") && !kazanimYuklemeAllowed()) olcmeSubTab = "durum";
   document.querySelectorAll(".olcme-subtab").forEach(btn => {
@@ -9660,7 +9705,7 @@ function mountOlcmeShell(scope) {
   else if (olcmeSubTab === "ai") { el.innerHTML = renderAiTab(scope); mountAiTab(scope); }
   else if (olcmeSubTab === "kazanimYukle" && kazanimYuklemeAllowed()) { el.innerHTML = renderKazanimYuklemeTab(); mountKazanimYuklemeTab(); }
   else if (olcmeSubTab === "sinavUygulama" && kazanimYuklemeAllowed()) { el.innerHTML = renderSinavUygulamaTab(); mountSinavUygulamaTab(); }
-  else { el.innerHTML = renderDurumTab(scope); mountDurumTab(); }
+  else { el.innerHTML = renderDurumTab(scope, !!isHq); mountDurumTab(scope); }
 }
 
 let kazanimYuklemeMode = "tekli"; // "tekli" | "toplu" | "yonetim"
@@ -10117,7 +10162,7 @@ function mountKazanimYonetim() {
   renderKazanimYonetimRows();
 }
 
-function renderDurumTab(scope) {
+function renderDurumTab(scope, isHq) {
   const rows = examDurumRows(scope);
   const last5 = rows.slice(-5);
   const lastExam = rows[rows.length - 1];
@@ -10131,6 +10176,17 @@ function renderDurumTab(scope) {
   const answerComp = scopeAnswerComposition(scope);
   const trendPoints = rows.map(e => ({ label: e.name.length > 10 ? e.name.slice(0, 10) + "…" : e.name, value: e.ortNet }));
   const katilimPoints = rows.map(e => ({ label: e.name.length > 10 ? e.name.slice(0, 10) + "…" : e.name, value: e.katilim }));
+  const branchRows = isHq ? branchOlcmeComparison() : [];
+  const maxBranchNet = branchRows.length ? Math.max(...branchRows.map(r => r.avgNet), 1) : 1;
+  // <select> değeri her zaman string döner (sel.value); SINAV_UYGULAMALARI id'leri
+  // seed verisinde sayısal, çalışma zamanında oluşturulanlarda "su"+n string
+  // olabildiğinden karşılaştırma String() ile normalize edilir, ama seçilen id
+  // rows'taki ORİJİNAL tipiyle kullanılır (examQuestionStats'ın OPTIK_SONUCLAR
+  // karşılaştırmasıyla tip uyuşmazlığı yaşamaması için).
+  const matchedExamRow = rows.find(r => String(r.id) === String(durumSelectedExamId));
+  const selectedExamId = matchedExamRow ? matchedExamRow.id : (lastExam ? lastExam.id : null);
+  const qStats = selectedExamId ? examQuestionStats(selectedExamId, scope).sort((a, b) => b.wrongPct - a.wrongPct).slice(0, 12) : [];
+  const maxWrongPct = qStats.length ? Math.max(...qStats.map(q => q.wrongPct), 1) : 1;
   return `
     <div class="grid cols-4" style="margin-bottom:16px">
       <div class="card stat-card tone-accent"><p class="stat-label">Son Sınav Katılımı</p><p class="stat-value">${lastExam ? "%" + lastExam.katilim : "—"}</p></div>
@@ -10190,12 +10246,35 @@ function renderDurumTab(scope) {
         tone: r.avgNet / maxSubjectNet >= 0.7 ? "strong" : r.avgNet / maxSubjectNet >= 0.4 ? "weak" : "critical",
       })), { max: maxSubjectNet, unit: " net" }) : `<p style="color:var(--ink-faint);font-size:13px;margin:0">Henüz sınav sonucu yok.</p>`}
     </div>
+    ${isHq ? `
+    <div class="card card-pad" style="margin-top:16px">
+      <div class="card-head"><h3>Şubeler Arası Karşılaştırmalı Net Sıralaması</h3><span class="hint">${branchRows.length} şube</span></div>
+      ${branchRows.length ? svgHBarChart(branchRows.map(r => ({
+        label: r.branch.name, value: r.avgNet, sub: r.examTakers + " öğrenci" + (r.avgKatilim != null ? " · %" + r.avgKatilim + " katılım" : ""),
+        tone: r.avgNet / maxBranchNet >= 0.7 ? "strong" : r.avgNet / maxBranchNet >= 0.4 ? "weak" : "critical",
+      })), { max: maxBranchNet, unit: " net" }) : `<p style="color:var(--ink-faint);font-size:13px;margin:0">Henüz hiçbir şubede sınav sonucu yok.</p>`}
+    </div>
+    ` : ""}
+    <div class="card card-pad" style="margin-top:16px">
+      <div class="card-head">
+        <h3>Sınav Bazlı Soru/Madde Analizi</h3>
+        ${rows.length ? `<select id="durum-exam-select" style="font-size:12px;padding:4px 8px;border-radius:7px;border:1px solid var(--border-strong);background:var(--surface);color:var(--ink)">${rows.slice().reverse().map(r => `<option value="${r.id}" ${r.id === selectedExamId ? "selected" : ""}>${r.name} (${new Date(r.date).toLocaleDateString("tr-TR")})</option>`).join("")}</select>` : `<span class="hint">Veri yok</span>`}
+      </div>
+      <p style="font-size:11.5px;color:var(--ink-faint);margin:0 0 10px">Seçili sınavda kapsam genelinde en çok yanlış/boş bırakılan sorular — madde bazlı zorluk analizi.</p>
+      ${qStats.length ? svgHBarChart(qStats.map(q => ({
+        label: "Soru " + q.no + (q.subject ? " · " + q.subject : ""), value: q.wrongPct, sub: q.achievementId ? achLabel(q.achievementId) : undefined,
+        tone: q.wrongPct >= 60 ? "critical" : q.wrongPct >= 35 ? "weak" : "strong",
+      })), { max: 100, unit: "%" }) : `<p style="color:var(--ink-faint);font-size:13px;margin:0">Bu sınav için henüz soru bazlı sonuç yok.</p>`}
+    </div>
     ${renderAiDurumInsight(scope, rows)}
   `;
 }
-function mountDurumTab() {
+function mountDurumTab(scope) {
   // Sınav Genel Durumu artık SVG tabanlı çizimler kullanıyor (svgLineChart /
-  // svgHBarChart / compositionBarHtml) — canvas'a ayrı bir çizim adımı gerekmiyor.
+  // svgHBarChart / compositionBarHtml) — canvas'a ayrı bir çizim adımı gerekmiyor,
+  // yalnızca "Sınav Bazlı Soru/Madde Analizi" kartındaki sınav seçici dinleniyor.
+  const sel = document.getElementById("durum-exam-select");
+  if (sel) sel.addEventListener("change", () => { durumSelectedExamId = sel.value; renderAll(); });
 }
 
 function renderKazanimTab(scope) {
@@ -10263,6 +10342,29 @@ function renderKazanimTab(scope) {
     subjectMastery[a.subject][c.mastery]++;
     subjectMastery[a.subject].total++;
   }));
+  // Müfredat kapsama: ACHIEVEMENTS taksonomisindeki her ders için, bu kapsamda
+  // en az bir öğrenciye GERÇEKTEN sorulmuş (sampleSize>0, yani allAverages'ta
+  // yer alan) kazanım oranı — hiç test edilmemiş kazanımları görünür kılar.
+  const coverageBySubject = {};
+  ACHIEVEMENTS.forEach(a => {
+    if (!coverageBySubject[a.subject]) coverageBySubject[a.subject] = { total: 0, covered: 0 };
+    coverageBySubject[a.subject].total++;
+  });
+  allAverages.forEach(({ achievement }) => { coverageBySubject[achievement.subject].covered++; });
+  const coverageRows = Object.entries(coverageBySubject)
+    .map(([subject, d]) => ({ subject, pct: d.total ? Math.round((d.covered / d.total) * 100) : 0, covered: d.covered, total: d.total }))
+    .sort((a, b) => a.pct - b.pct);
+  // Risk filtresi: "Desteğe İhtiyaç Duyan Öğrenciler" tablosunu TEK bir kritik
+  // kazanıma göre daraltır — öğretmenin "bu kazanımda kim zayıf?" sorusuna
+  // doğrudan cevap vermesi için (aksi halde yalnızca öğrenci→kazanımlar yönünde
+  // taranabiliyordu, tersi yön eksikti).
+  const criticalCounts = new Map();
+  atRisk.forEach(s => s.cells.filter(c => c.mastery === "critical").forEach(c => {
+    criticalCounts.set(c.achievementId, (criticalCounts.get(c.achievementId) || 0) + 1);
+  }));
+  if (kazanimRiskFilter !== "ALL" && !criticalCounts.has(kazanimRiskFilter)) kazanimRiskFilter = "ALL";
+  const riskFilterOptions = Array.from(criticalCounts.entries()).sort((a, b) => b[1] - a[1]);
+  const filteredAtRisk = kazanimRiskFilter === "ALL" ? atRisk : atRisk.filter(s => s.cells.some(c => c.achievementId === kazanimRiskFilter && c.mastery === "critical"));
   return `
     <div class="grid cols-2" style="margin-bottom:14px">
       <div class="card card-pad">
@@ -10293,18 +10395,32 @@ function renderKazanimTab(scope) {
         </div>
       `).join("")}</div>` : `<p style="color:var(--ink-faint);font-size:13px;margin:0">Bu kapsamda henüz kazanım verisi yok.</p>`}
     </div>
+    <div class="card card-pad" style="margin-bottom:14px">
+      <div class="card-head"><h3>Müfredat Kapsama Oranı</h3><span class="hint">${coverageRows.length} ders</span></div>
+      <p style="font-size:11.5px;color:var(--ink-faint);margin:0 0 10px">Bu dersin kazanım taksonomisindeki kazanımların yüzde kaçı en az bir sınavda GERÇEKTEN soruldu — düşük oran, o dersten yeterince soru sorulmadığını gösterir.</p>
+      ${coverageRows.length ? svgHBarChart(coverageRows.map(r => ({
+        label: r.subject, value: r.pct, sub: r.covered + "/" + r.total + " kazanım soruldu",
+        tone: r.pct >= 70 ? "strong" : r.pct >= 40 ? "weak" : "critical",
+      })), { max: 100, unit: "%" }) : `<p style="color:var(--ink-faint);font-size:13px;margin:0">Henüz kazanım taksonomisi tanımlanmadı.</p>`}
+    </div>
     <div class="card card-pad">
-      <div class="card-head"><h3>Desteğe İhtiyaç Duyan Öğrenciler</h3><span class="hint">${atRisk.length} öğrenci</span></div>
+      <div class="card-head">
+        <h3>Desteğe İhtiyaç Duyan Öğrenciler</h3>
+        ${riskFilterOptions.length ? `<select id="kazanim-risk-filter" style="font-size:12px;padding:4px 8px;border-radius:7px;border:1px solid var(--border-strong);background:var(--surface);color:var(--ink)">
+          <option value="ALL" ${kazanimRiskFilter === "ALL" ? "selected" : ""}>Tüm kritik kazanımlar (${atRisk.length})</option>
+          ${riskFilterOptions.map(([id, count]) => `<option value="${id}" ${id === kazanimRiskFilter ? "selected" : ""}>${achLabel(id)} (${count} öğrenci)</option>`).join("")}
+        </select>` : `<span class="hint">${atRisk.length} öğrenci</span>`}
+      </div>
       <div class="table-wrap" style="max-height:300px;overflow-y:auto"><table class="data">
         <thead><tr><th>Öğrenci</th><th>Sınıf</th><th>Kritik Kazanımlar</th></tr></thead>
         <tbody>
-          ${atRisk.length ? atRisk.map(s => `
+          ${filteredAtRisk.length ? filteredAtRisk.map(s => `
             <tr class="row-clickable" data-student-id="${s.id}">
               <td><b>${s.name}</b></td>
               <td>${s.classroom || "—"}</td>
-              <td>${s.cells.filter(c => c.mastery === "critical").map(c => `<span class="chip critical" style="margin:2px">${achLabel(c.achievementId)}</span>`).join("")}</td>
+              <td>${s.cells.filter(c => c.mastery === "critical").map(c => `<span class="chip critical" style="margin:2px${c.achievementId === kazanimRiskFilter ? ";outline:2px solid var(--critical)" : ""}">${achLabel(c.achievementId)}</span>`).join("")}</td>
             </tr>
-          `).join("") : `<tr><td colspan="3">${emptyRow("Kritik eksik tespit edilmedi.")}</td></tr>`}
+          `).join("") : `<tr><td colspan="3">${emptyRow(kazanimRiskFilter === "ALL" ? "Kritik eksik tespit edilmedi." : "Bu kazanımda kritik seviyede öğrenci yok.")}</td></tr>`}
         </tbody>
       </table></div>
     </div>
@@ -10315,6 +10431,8 @@ function mountKazanimTab(scope) {
   document.querySelectorAll("#olcme-body [data-student-id]").forEach(tr => {
     tr.addEventListener("click", () => openStudentDetail(Number(tr.dataset.studentId)));
   });
+  const riskFilterSel = document.getElementById("kazanim-risk-filter");
+  if (riskFilterSel) riskFilterSel.addEventListener("change", () => { kazanimRiskFilter = riskFilterSel.value; renderAll(); });
 }
 
 /* ============================== SINAV UYGULAMASI ==============================
@@ -10646,6 +10764,53 @@ function mountSinavUygulamaMapping() {
   });
 }
 
+function suCardHtml(su) {
+  const exam = EXAMS.find(x => x.id === su.linkedExamId);
+  if (sinavUygulamaDeletingId === su.id) return `
+    <div class="card card-pad" style="border-color:var(--critical)">
+      <p style="font-size:13px;color:var(--critical);margin:0 0 10px"><b>${su.name}</b> silinsin mi? Genel Sınav Merkezi'ndeki bağlantılı sınav kaydı da silinir.</p>
+      <button class="btn sm danger solid" data-su-confirm-delete="${su.id}" >Evet, Sil</button>
+      <button class="btn sm" data-su-cancel-delete >Vazgeç</button>
+    </div>
+  `;
+  if (sinavUygulamaEditingId === su.id) return `
+    <div class="card card-pad">
+      <div class="grid cols-2">
+        <div class="field"><label>Sınav Uygulaması Adı</label><input data-su-edit-name="${su.id}" value="${su.name}" /></div>
+        <div class="field"><label>Sınav Türü</label><select data-su-edit-type="${su.id}">${SINAV_TURU_OPTIONS.map(t => `<option ${t === su.examType ? "selected" : ""}>${t}</option>`).join("")}</select></div>
+      </div>
+      <div class="field" style="max-width:260px;margin-top:10px"><label>Tarih</label><input type="date" data-su-edit-date="${su.id}" value="${su.date}" /></div>
+      <p style="font-size:11.5px;color:var(--ink-faint);margin:10px 0 0">Ders/soru/kazanım eşleştirmesini değiştirmek için sınavı silip yeniden oluşturun.</p>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn primary" data-su-save-edit="${su.id}" style="padding:6px 12px;font-size:12.5px">Kaydet</button>
+        <button class="btn sm" data-su-cancel-edit >Vazgeç</button>
+      </div>
+    </div>
+  `;
+  const achCount = sinavUygulamaAchievementIds(su).length;
+  const totalQ = sinavUygulamaTotalQuestions(su);
+  const answeredCount = su.subjects.reduce((sum, s) => sum + s.questions.filter(q => q.correctAnswer).length, 0);
+  return `
+    <div class="card card-pad">
+      <div class="card-head"><h3>${su.name}</h3><span class="hint">${su.examType} · ${su.date}</span></div>
+      <div class="grid cols-4" style="margin-bottom:10px">
+        <div class="card stat-card" style="padding:10px 12px"><p class="stat-label">Ders Sayısı</p><p class="stat-value" style="font-size:16px">${su.subjects.length}</p></div>
+        <div class="card stat-card" style="padding:10px 12px"><p class="stat-label">Toplam Soru</p><p class="stat-value" style="font-size:16px">${totalQ}</p></div>
+        <div class="card stat-card" style="padding:10px 12px"><p class="stat-label">Eşleştirilen Kazanım</p><p class="stat-value" style="font-size:16px">${achCount}</p></div>
+        <div class="card stat-card tone-accent" style="padding:10px 12px"><p class="stat-label">Sınav Merkezi Kapsamı</p><p class="stat-value" style="font-size:16px">${exam ? exam.branchIds.length + " şube" : "—"}</p></div>
+      </div>
+      <p style="font-size:11.5px;color:var(--ink-faint);margin:0 0 6px">Cevap Anahtarı: <b style="color:${answeredCount === totalQ ? "var(--strong)" : "var(--weak)"}">${answeredCount}/${totalQ} soru</b> girildi${answeredCount < totalQ ? " — doğru/yanlış oranı yalnızca cevap anahtarı girilen sorulardan hesaplanır." : "."}</p>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+        ${su.subjects.map(s => `<span class="chip neutral">${s.subject} · ${s.questionCount} soru</span>`).join("")}
+      </div>
+      <p style="font-size:11.5px;color:var(--ink-faint);margin:0 0 10px">${ic("check")} Genel Sınav Merkezi'nde otomatik tanımlı${exam ? ` — ${examTotalStudents(exam)} öğrenci, ${examTotalOptics(exam)} optik form.` : "."}</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn sm" data-su-edit="${su.id}" >Düzenle</button>
+        <button class="btn sm danger" data-su-delete="${su.id}" >Sil</button>
+      </div>
+    </div>
+  `;
+}
 function renderSinavUygulamaList() {
   const el = document.getElementById("su-list");
   if (!el) return;
@@ -10653,53 +10818,18 @@ function renderSinavUygulamaList() {
     const exam = EXAMS.find(x => x.id === su.linkedExamId);
     return exam && exam.branchIds.includes(CURRENT_BRANCH.id);
   });
-  el.innerHTML = visible.length ? visible.map(su => {
-    const exam = EXAMS.find(x => x.id === su.linkedExamId);
-    if (sinavUygulamaDeletingId === su.id) return `
-      <div class="card card-pad" style="border-color:var(--critical)">
-        <p style="font-size:13px;color:var(--critical);margin:0 0 10px"><b>${su.name}</b> silinsin mi? Genel Sınav Merkezi'ndeki bağlantılı sınav kaydı da silinir.</p>
-        <button class="btn sm danger solid" data-su-confirm-delete="${su.id}" >Evet, Sil</button>
-        <button class="btn sm" data-su-cancel-delete >Vazgeç</button>
-      </div>
-    `;
-    if (sinavUygulamaEditingId === su.id) return `
-      <div class="card card-pad">
-        <div class="grid cols-2">
-          <div class="field"><label>Sınav Uygulaması Adı</label><input data-su-edit-name="${su.id}" value="${su.name}" /></div>
-          <div class="field"><label>Sınav Türü</label><select data-su-edit-type="${su.id}">${SINAV_TURU_OPTIONS.map(t => `<option ${t === su.examType ? "selected" : ""}>${t}</option>`).join("")}</select></div>
-        </div>
-        <div class="field" style="max-width:260px;margin-top:10px"><label>Tarih</label><input type="date" data-su-edit-date="${su.id}" value="${su.date}" /></div>
-        <p style="font-size:11.5px;color:var(--ink-faint);margin:10px 0 0">Ders/soru/kazanım eşleştirmesini değiştirmek için sınavı silip yeniden oluşturun.</p>
-        <div style="display:flex;gap:8px;margin-top:12px">
-          <button class="btn primary" data-su-save-edit="${su.id}" style="padding:6px 12px;font-size:12.5px">Kaydet</button>
-          <button class="btn sm" data-su-cancel-edit >Vazgeç</button>
-        </div>
-      </div>
-    `;
-    const achCount = sinavUygulamaAchievementIds(su).length;
-    const totalQ = sinavUygulamaTotalQuestions(su);
-    const answeredCount = su.subjects.reduce((sum, s) => sum + s.questions.filter(q => q.correctAnswer).length, 0);
-    return `
-      <div class="card card-pad">
-        <div class="card-head"><h3>${su.name}</h3><span class="hint">${su.examType} · ${su.date}</span></div>
-        <div class="grid cols-4" style="margin-bottom:10px">
-          <div class="card stat-card" style="padding:10px 12px"><p class="stat-label">Ders Sayısı</p><p class="stat-value" style="font-size:16px">${su.subjects.length}</p></div>
-          <div class="card stat-card" style="padding:10px 12px"><p class="stat-label">Toplam Soru</p><p class="stat-value" style="font-size:16px">${totalQ}</p></div>
-          <div class="card stat-card" style="padding:10px 12px"><p class="stat-label">Eşleştirilen Kazanım</p><p class="stat-value" style="font-size:16px">${achCount}</p></div>
-          <div class="card stat-card tone-accent" style="padding:10px 12px"><p class="stat-label">Sınav Merkezi Kapsamı</p><p class="stat-value" style="font-size:16px">${exam ? exam.branchIds.length + " şube" : "—"}</p></div>
-        </div>
-        <p style="font-size:11.5px;color:var(--ink-faint);margin:0 0 6px">Cevap Anahtarı: <b style="color:${answeredCount === totalQ ? "var(--strong)" : "var(--weak)"}">${answeredCount}/${totalQ} soru</b> girildi${answeredCount < totalQ ? " — doğru/yanlış oranı yalnızca cevap anahtarı girilen sorulardan hesaplanır." : "."}</p>
-        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
-          ${su.subjects.map(s => `<span class="chip neutral">${s.subject} · ${s.questionCount} soru</span>`).join("")}
-        </div>
-        <p style="font-size:11.5px;color:var(--ink-faint);margin:0 0 10px">${ic("check")} Genel Sınav Merkezi'nde otomatik tanımlı${exam ? ` — ${examTotalStudents(exam)} öğrenci, ${examTotalOptics(exam)} optik form.` : "."}</p>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn sm" data-su-edit="${su.id}" >Düzenle</button>
-          <button class="btn sm danger" data-su-delete="${su.id}" >Sil</button>
-        </div>
-      </div>
-    `;
-  }).join("") : `<p style="color:var(--ink-faint);font-size:13px">Henüz sınav uygulaması tanımlanmadı.</p>`;
+  // Sınav takvimi: yaklaşan sınavlar tarihe göre artan (en yakın önce), geçmiş
+  // sınavlar azalan (en son yapılan önce) sırayla iki ayrı bölümde gösterilir —
+  // eskiden tek liste insertion-order'a (en yeni eklenen en üstte) göre sıralıydı,
+  // bu da onlarca sınav birikince "sırada ne var" sorusunu cevaplamıyordu.
+  const today = todayStr();
+  const upcoming = visible.filter(su => su.date >= today).sort((a, b) => a.date.localeCompare(b.date));
+  const past = visible.filter(su => su.date < today).sort((a, b) => b.date.localeCompare(a.date));
+  const sectionLabel = (text, count) => `<p style="font-size:11px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.04em;margin:0 0 8px">${text} (${count})</p>`;
+  el.innerHTML = visible.length ? `
+    ${upcoming.length ? `${sectionLabel("Yaklaşan Sınavlar", upcoming.length)}<div class="stack" style="gap:12px;margin-bottom:18px">${upcoming.map(suCardHtml).join("")}</div>` : ""}
+    ${past.length ? `${sectionLabel("Geçmiş Sınavlar", past.length)}<div class="stack" style="gap:12px">${past.map(suCardHtml).join("")}</div>` : ""}
+  ` : `<p style="color:var(--ink-faint);font-size:13px">Henüz sınav uygulaması tanımlanmadı.</p>`;
 
   el.querySelectorAll("[data-su-delete]").forEach(btn => {
     btn.addEventListener("click", () => { sinavUygulamaDeletingId = btn.dataset.suDelete; sinavUygulamaEditingId = null; renderSinavUygulamaList(); });
@@ -11239,7 +11369,7 @@ SCREENS["branch:olcme"] = {
   mount: () => {
     const isHq = state.portal === "hq";
     const scope = isHq ? STUDENT_DIRECTORY : STUDENT_DIRECTORY.filter(s => s.branchId === CURRENT_BRANCH.id);
-    mountOlcmeShell(scope);
+    mountOlcmeShell(scope, isHq);
   }
 };
 
