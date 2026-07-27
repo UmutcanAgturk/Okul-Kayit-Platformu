@@ -11734,7 +11734,12 @@ let snDeletingId = null;
 function renderBelgelerBody() {
   const isHq = state.portal === "hq";
   if (isHq && muhasebeScopeId === "ALL") {
-    return `<div class="card card-pad" style="text-align:center;padding:40px 20px"><p style="font-size:13px;color:var(--ink-muted);margin:0">Belge oluşturmak için lütfen yukarıdan <b>tek bir kurum</b> seçin — fatura/dekont/senet her zaman tek bir kuruma ait olmalıdır.</p></div>`;
+    return `
+      <div class="card card-pad" style="text-align:center;padding:40px 20px">
+        <p style="font-size:13px;color:var(--ink-muted);margin:0 0 12px">Belge oluşturmak için lütfen yukarıdan <b>tek bir kurum</b> seçin — fatura/dekont/senet her zaman tek bir kuruma ait olmalıdır.</p>
+        <button class="btn primary" id="belgeler-goto-scope" style="margin:0 auto">Kurum Seç</button>
+      </div>
+    `;
   }
   const b = CURRENT_BRANCH;
   const tabs = [["fatura", "Faturalar"], ["dekont", "Dekontlar"], ["senet", "Senetler"]];
@@ -12117,7 +12122,14 @@ function wireSenetTab() {
 
 function mountBelgelerBody() {
   const isHq = state.portal === "hq";
-  if (isHq && muhasebeScopeId === "ALL") return;
+  if (isHq && muhasebeScopeId === "ALL") {
+    const gotoScopeBtn = document.getElementById("belgeler-goto-scope");
+    if (gotoScopeBtn) gotoScopeBtn.addEventListener("click", () => {
+      const scopeSel = document.getElementById("muhasebe-scope-select");
+      if (scopeSel) { scopeSel.scrollIntoView({ behavior: "smooth", block: "center" }); scopeSel.focus(); }
+    });
+    return;
+  }
   const taxSaveBtn = document.getElementById("tax-save");
   if (taxSaveBtn) taxSaveBtn.addEventListener("click", () => {
     CURRENT_BRANCH.taxSettings.kdvRate = Number(document.getElementById("tax-kdv-rate").value) || 0;

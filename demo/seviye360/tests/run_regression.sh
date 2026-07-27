@@ -27,6 +27,7 @@ TESTS=(
   t196_tahsilat_confirm_dekont.js
   t197_muhasebe_glossary.js
   t198_fatura_field_validation.js
+  t199_scope_cta.js
 )
 
 pass=0
