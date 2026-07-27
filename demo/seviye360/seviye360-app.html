@@ -2580,7 +2580,12 @@ function branchAttendanceTrend(branch, maxDays) {
 // noktalarda doğrudan etiket (rapor kartı/karnede kullanılır, print-uyumlu SVG).
 function examNetTrendSvg(history) {
   if (!history || history.length < 2) return null;
-  const w = 100, h = 100, padL = 6, padR = 6, padT = 14, padB = 16;
+  // viewBox genişliği kasıtlı olarak yüksekliğin katı kadar (kare değil) —
+  // bu kartlar gerçekte hep dar/uzun (geniş × kısa) render edilir;
+  // preserveAspectRatio="none" ile kare bir viewBox kullanmak yatay eksende
+  // aşırı, dikeyde az bir ölçekleme farkına (anisotropi) yol açıp metin/
+  // noktaları yamultup (gerçekte olduğundan büyük/genişlemiş) gösterirdi.
+  const w = 400, h = 100, padL = 24, padR = 24, padT = 14, padB = 16;
   const nets = history.map(h => h.result.net);
   const min = Math.min(0, Math.min(...nets)), max = Math.max(...nets);
   const range = (max - min) || 1;
@@ -2633,7 +2638,8 @@ function branchAvgNetTrend(branch) {
 function svgLineChart(points, opts) {
   opts = opts || {};
   if (!points || points.length < 2) return `<p style="color:var(--ink-faint);font-size:12.5px;margin:0">Trend çizilebilmesi için en az 2 gerçek veri noktası gerekir.</p>`;
-  const w = 100, h = 100, padL = 6, padR = 6, padT = 14, padB = 18;
+  // viewBox genişliği yüksekliğin katı (kare değil) — bkz. examNetTrendSvg'deki not.
+  const w = 400, h = 100, padL = 24, padR = 24, padT = 14, padB = 18;
   const vals = points.map(p => p.value);
   const min = opts.zeroBase ? Math.min(0, ...vals) : Math.min(...vals);
   const max = Math.max(...vals);
@@ -2704,7 +2710,8 @@ function compositionBarHtml(segments, opts) {
 function svgDualLineChart(points, opts) {
   opts = opts || {};
   if (!points || points.length < 2) return `<p style="color:var(--ink-faint);font-size:12.5px;margin:0">Trend çizilebilmesi için en az 2 gerçek veri noktası gerekir.</p>`;
-  const w = 100, h = 100, padL = 6, padR = 6, padT = 14, padB = 18;
+  // viewBox genişliği yüksekliğin katı (kare değil) — bkz. examNetTrendSvg'deki not.
+  const w = 400, h = 100, padL = 24, padR = 24, padT = 14, padB = 18;
   const allVals = points.flatMap(p => [p.a, p.b]);
   const min = Math.min(0, ...allVals), max = Math.max(...allVals);
   const range = (max - min) || 1;
