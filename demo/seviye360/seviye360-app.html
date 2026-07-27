@@ -161,7 +161,12 @@
   * { box-sizing: border-box; }
   html { scrollbar-color: var(--border-strong) transparent; }
   body {
-    margin: 0; background: var(--bg); color: var(--ink);
+    margin: 0; color: var(--ink);
+    background:
+      radial-gradient(1100px 640px at 12% -8%, color-mix(in srgb, var(--brand) 10%, transparent), transparent 60%),
+      radial-gradient(900px 620px at 100% 100%, color-mix(in srgb, var(--brand) 6%, transparent), transparent 55%),
+      var(--bg);
+    background-attachment: fixed;
     font-family: 'Poppins', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
@@ -609,7 +614,11 @@
 
   /* ---------------- Giriş Sayfası (Login) ---------------- */
   .login-wrap {
-    min-height: 100vh; display: grid; grid-template-columns: 1.1fr 1fr; background: var(--bg);
+    min-height: 100vh; display: grid; grid-template-columns: 1.1fr 1fr;
+    background:
+      radial-gradient(1100px 640px at 12% -8%, color-mix(in srgb, var(--brand) 10%, transparent), transparent 60%),
+      radial-gradient(900px 620px at 100% 100%, color-mix(in srgb, var(--brand) 6%, transparent), transparent 55%),
+      var(--bg);
   }
   @media (max-width: 860px) { .login-wrap { grid-template-columns: 1fr; } .login-hero { display: none; } }
   .login-hero {
@@ -892,7 +901,10 @@
 }
 
 #mobile-shell .phone-screen {
-  position: relative; width: 100%; height: 100%; background: var(--bg-page); border-radius: 40px; overflow: hidden;
+  position: relative; width: 100%; height: 100%; border-radius: 40px; overflow: hidden;
+  background:
+    radial-gradient(560px 420px at 20% -6%, color-mix(in srgb, var(--brand) 12%, transparent), transparent 60%),
+    var(--bg-page);
   display: flex; flex-direction: column;
 }
 
@@ -917,7 +929,12 @@
 #mobile-shell .home-indicator span { width: 120px; height: 4.5px; border-radius: 3px; background: var(--ink); opacity: .55; }
 
 @media (max-width: 480px) {
-#mobile-shell { padding: 0; align-items: stretch; background: var(--bg-page); }
+#mobile-shell {
+  padding: 0; align-items: stretch;
+  background:
+    radial-gradient(560px 420px at 20% -6%, color-mix(in srgb, var(--brand) 12%, transparent), transparent 60%),
+    var(--bg-page);
+}
 #mobile-shell .phone-frame { width: 100vw; height: 100dvh; border-radius: 0; padding: 0; box-shadow: none; }
 #mobile-shell .phone-frame::before,
 #mobile-shell .phone-frame::after { display: none; }
