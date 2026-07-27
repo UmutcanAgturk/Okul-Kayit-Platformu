@@ -349,6 +349,17 @@
   .btn:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
   .btn:disabled { opacity: .5; cursor: default; transform: none; }
 
+  .btn.sm { padding: 6px 12px; font-size: 12.5px; }
+  .btn.xs { padding: 4px 9px; font-size: 11.5px; }
+
+  .btn.danger { color: var(--critical); }
+  .btn.danger:hover { background: var(--critical-bg); border-color: var(--critical); }
+  .btn.danger.solid { background: var(--critical); color: var(--critical-ink); border-color: transparent; box-shadow: 0 2px 4px rgba(16,21,31,.08), 0 10px 22px -10px color-mix(in srgb, var(--critical) 70%, transparent); }
+  .btn.danger.solid:hover { background: color-mix(in srgb, var(--critical) 85%, black); border-color: transparent; transform: translateY(-1px); }
+
+  .btn.success { color: var(--strong); }
+  .btn.success:hover { background: var(--strong-bg); border-color: var(--strong); }
+
   .field { display: flex; flex-direction: column; gap: 5px; }
   .field label { font-size: 12px; font-weight: 600; color: var(--ink-muted); }
   .field input, .field select {
@@ -3934,7 +3945,7 @@ function renderIletisimSentList() {
               <td>${renderChannelChips(m.channels)}</td>
               <td>${m.recipientCount}</td>
               <td>${m.attachments.length ? ic("attach") + " " + m.attachments.length : "—"}</td>
-              <td style="white-space:nowrap"><button class="btn" data-il-view="${m.id}" style="padding:4px 10px;font-size:11.5px">Görüntüle</button> <button class="btn" data-il-delete-sent="${m.id}" style="padding:4px 10px;font-size:11.5px;color:var(--critical)">Sil</button></td>
+              <td style="white-space:nowrap"><button class="btn" data-il-view="${m.id}" style="padding:4px 10px;font-size:11.5px">Görüntüle</button> <button class="btn danger" data-il-delete-sent="${m.id}" style="padding:4px 10px;font-size:11.5px">Sil</button></td>
             </tr>
           `).join("")}
         </tbody>
@@ -3961,7 +3972,7 @@ function renderIletisimInboxList(list, selfKey) {
               <td>${m.title}</td>
               <td>${renderChannelChips(m.channels)}</td>
               <td>${m.attachments.length ? ic("attach") + " " + m.attachments.length : "—"}</td>
-              <td style="white-space:nowrap"><button class="btn" data-il-view="${m.id}" style="padding:4px 10px;font-size:11.5px">Aç</button> <button class="btn" data-il-delete-inbox="${m.id}" style="padding:4px 10px;font-size:11.5px;color:var(--critical)">Sil</button></td>
+              <td style="white-space:nowrap"><button class="btn" data-il-view="${m.id}" style="padding:4px 10px;font-size:11.5px">Aç</button> <button class="btn danger" data-il-delete-inbox="${m.id}" style="padding:4px 10px;font-size:11.5px">Sil</button></td>
             </tr>
           `).join("")}
         </tbody>
@@ -4016,7 +4027,7 @@ function renderIletisimTemplates() {
             </div>
             <div style="display:flex;gap:4px;flex-shrink:0">
               <button class="btn" data-il-tpl-edit="${t.id}" style="padding:4px 8px;font-size:11px">Düzenle</button>
-              <button class="btn" data-il-tpl-delete="${t.id}" style="padding:4px 8px;font-size:11px;color:var(--critical)">Sil</button>
+              <button class="btn danger" data-il-tpl-delete="${t.id}" style="padding:4px 8px;font-size:11px">Sil</button>
             </div>
           </div>
         `;
@@ -4108,7 +4119,7 @@ function renderIletisimAttachList() {
   el.innerHTML = iletisimAttachments.map((a, i) => `
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;border:1px solid var(--border);border-radius:7px;padding:6px 9px;font-size:12px">
       <span>${a.kind === "pdf" ? "📄" : a.kind === "image" ? "🖼️" : a.kind === "audio" ? "🎵" : "📎"} ${a.name} <span style="color:var(--ink-faint)">(${Math.round(a.dataUrl.length / 1024)} KB)</span></span>
-      <button class="btn" data-il-attach-remove="${i}" style="padding:3px 8px;font-size:11px;color:var(--critical)">Kaldır</button>
+      <button class="btn danger" data-il-attach-remove="${i}" style="padding:3px 8px;font-size:11px">Kaldır</button>
     </div>
   `).join("");
   el.querySelectorAll("[data-il-attach-remove]").forEach(btn => {
@@ -4670,8 +4681,8 @@ function renderKurumPanel() {
       <div class="card-head"><h3>Kurum Detayı</h3><span class="hint">${b.name}</span></div>
       <p style="font-size:13px;color:var(--critical);margin:0 0 12px"><b>${b.name}</b> silinsin mi? Bu kuruma kayıtlı tüm öğrenci kayıtları da kaldırılır. Bu işlem geri alınamaz.</p>
       <div style="display:flex;gap:8px">
-        <button class="btn" id="ku-confirm-delete" style="padding:6px 12px;font-size:12.5px;background:var(--critical);color:#fff;border-color:transparent" ${BRANCHES.length <= 1 ? "disabled title=\"En az bir kurum kalmalı\"" : ""}>Evet, Sil</button>
-        <button class="btn" id="ku-cancel-delete" style="padding:6px 12px;font-size:12.5px">Vazgeç</button>
+        <button class="btn sm danger solid" id="ku-confirm-delete" ${BRANCHES.length <= 1 ? "disabled title=\"En az bir kurum kalmalı\"" : ""}>Evet, Sil</button>
+        <button class="btn sm" id="ku-cancel-delete" >Vazgeç</button>
       </div>
     `;
     document.getElementById("ku-confirm-delete").addEventListener("click", () => {
@@ -4777,8 +4788,8 @@ function renderKurumPanel() {
     </div>
     <div style="display:flex;gap:8px;margin-top:18px;flex-wrap:wrap">
       <button class="btn primary" id="ku-goto-btn" style="padding:6px 12px;font-size:12.5px" ${CURRENT_BRANCH.id === b.id ? "disabled title=\"Zaten bu kurumdasınız\"" : ""}>Kuruma Geç</button>
-      <button class="btn" id="ku-edit-btn" style="padding:6px 12px;font-size:12.5px">Düzenle</button>
-      <button class="btn" id="ku-delete-btn" style="padding:6px 12px;font-size:12.5px;color:var(--critical)" ${BRANCHES.length <= 1 ? "disabled title=\"En az bir kurum kalmalı\"" : ""}>Sil</button>
+      <button class="btn sm" id="ku-edit-btn" >Düzenle</button>
+      <button class="btn sm danger" id="ku-delete-btn" ${BRANCHES.length <= 1 ? "disabled title=\"En az bir kurum kalmalı\"" : ""}>Sil</button>
     </div>
   `;
   document.getElementById("ku-goto-btn").addEventListener("click", () => {
@@ -4933,8 +4944,8 @@ function renderExamList() {
       return `
         <div class="card card-pad" style="border-color:var(--critical)">
           <p style="font-size:13px;color:var(--critical);margin:0 0 10px"><b>${exam.name}</b> silinsin mi? Bu işlem geri alınamaz.</p>
-          <button class="btn" data-exam-confirm-delete="${exam.id}" style="padding:6px 12px;font-size:12.5px;background:var(--critical);color:#fff;border-color:transparent">Evet, Sil</button>
-          <button class="btn" data-exam-cancel-delete style="padding:6px 12px;font-size:12.5px">Vazgeç</button>
+          <button class="btn sm danger solid" data-exam-confirm-delete="${exam.id}" >Evet, Sil</button>
+          <button class="btn sm" data-exam-cancel-delete >Vazgeç</button>
         </div>
       `;
     }
@@ -4953,7 +4964,7 @@ function renderExamList() {
           <p style="font-size:11.5px;color:var(--ink-faint);margin:10px 0 0">Kapsam (şube/sınıf düzeyi) değişikliği için sınavı silip yeniden tanımlayın.</p>
           <div style="display:flex;gap:8px;margin-top:12px">
             <button class="btn primary" data-exam-save="${exam.id}" style="padding:6px 12px;font-size:12.5px">Kaydet</button>
-            <button class="btn" data-exam-cancel-edit style="padding:6px 12px;font-size:12.5px">Vazgeç</button>
+            <button class="btn sm" data-exam-cancel-edit >Vazgeç</button>
           </div>
         </div>
       `;
@@ -4992,8 +5003,8 @@ function renderExamList() {
         </div>
         <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
           <button class="btn primary" data-exam-export="${exam.id}" style="padding:6px 12px;font-size:12.5px">${ic("send")} Logo Tiger Fatura Formatına Aktar (CSV)</button>
-          <button class="btn" data-exam-edit="${exam.id}" style="padding:6px 12px;font-size:12.5px">Düzenle</button>
-          <button class="btn" data-exam-delete="${exam.id}" style="padding:6px 12px;font-size:12.5px;color:var(--critical)">Sil</button>
+          <button class="btn sm" data-exam-edit="${exam.id}" >Düzenle</button>
+          <button class="btn sm danger" data-exam-delete="${exam.id}" >Sil</button>
         </div>
       </div>
     `;
@@ -5188,7 +5199,7 @@ function openStudentDetail(id) {
       </div>
       <div style="display:flex;gap:8px;margin-top:16px">
         <button class="btn primary" id="student-edit-save" style="padding:6px 12px;font-size:12.5px">Kaydet</button>
-        <button class="btn" id="student-edit-cancel" style="padding:6px 12px;font-size:12.5px">Vazgeç</button>
+        <button class="btn sm" id="student-edit-cancel" >Vazgeç</button>
       </div>
     `;
     document.getElementById("student-scrim").classList.add("open");
@@ -5249,11 +5260,11 @@ function openStudentDetail(id) {
       <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap">
         ${studentDeleteArmedId === s.id ? `
           <p style="font-size:12.5px;color:var(--critical);margin:0 0 8px;width:100%">Bu öğrenci kaydı kalıcı olarak silinsin mi? Bu işlem geri alınamaz.</p>
-          <button class="btn" id="student-delete-confirm" style="padding:6px 12px;font-size:12.5px;background:var(--critical);color:#fff;border-color:transparent">Evet, Kaydı Sil</button>
-          <button class="btn" id="student-delete-cancel" style="padding:6px 12px;font-size:12.5px">Vazgeç</button>
+          <button class="btn sm danger solid" id="student-delete-confirm" >Evet, Kaydı Sil</button>
+          <button class="btn sm" id="student-delete-cancel" >Vazgeç</button>
         ` : `
-          <button class="btn" id="student-edit-btn" style="padding:6px 12px;font-size:12.5px">Öğrenciyi Düzenle</button>
-          <button class="btn" id="student-delete-btn" style="padding:6px 12px;font-size:12.5px;color:var(--critical)">Öğrenci Kaydını Sil</button>
+          <button class="btn sm" id="student-edit-btn" >Öğrenciyi Düzenle</button>
+          <button class="btn sm danger" id="student-delete-btn" >Öğrenci Kaydını Sil</button>
         `}
       </div>
     ` : ""}
@@ -5358,7 +5369,7 @@ function renderKanban() {
               <div class="kanban-card" data-id="${c.id}">
                 <div class="name" style="color:var(--critical)">${c.name} silinsin mi?</div>
                 <div style="display:flex;gap:6px;margin-top:8px">
-                  <button class="btn" data-crm-confirm-delete="${c.id}" style="padding:4px 8px;font-size:11.5px;background:var(--critical);color:#fff;border-color:transparent">Evet, Sil</button>
+                  <button class="btn danger solid" data-crm-confirm-delete="${c.id}" style="padding:4px 8px;font-size:11.5px">Evet, Sil</button>
                   <button class="btn" data-crm-cancel-delete style="padding:4px 8px;font-size:11.5px">Vazgeç</button>
                 </div>
               </div>
@@ -5611,8 +5622,8 @@ function renderClassroomList() {
       <div style="border:1px solid var(--critical);border-radius:9px;padding:10px 12px;font-size:12.5px;color:var(--critical)">
         <b>${c.code}</b> silinsin mi?
         <div style="display:flex;gap:6px;margin-top:8px">
-          <button class="btn" data-cls-confirm-delete="${c.id}" style="padding:4px 9px;font-size:11.5px;background:var(--critical);color:#fff;border-color:transparent">Evet, Sil</button>
-          <button class="btn" data-cls-cancel-delete style="padding:4px 9px;font-size:11.5px">Vazgeç</button>
+          <button class="btn xs danger solid" data-cls-confirm-delete="${c.id}" >Evet, Sil</button>
+          <button class="btn xs" data-cls-cancel-delete >Vazgeç</button>
         </div>
       </div>
     `;
@@ -5636,8 +5647,8 @@ function renderClassroomList() {
         <div class="progress-track" style="margin-bottom:8px"><div class="progress-fill" style="width:${Math.min(pct, 100)}%;background:${pct >= 100 ? "var(--critical)" : pct >= 80 ? "var(--weak)" : "var(--strong)"}"></div></div>
         <div style="display:flex;gap:6px">
           <button class="btn primary" data-cls-enter="${c.id}" style="padding:4px 9px;font-size:11.5px">Sınıfa Gir</button>
-          <button class="btn" data-cls-edit="${c.id}" style="padding:4px 9px;font-size:11.5px">Düzenle</button>
-          <button class="btn" data-cls-delete="${c.id}" style="padding:4px 9px;font-size:11.5px" ${occ > 0 ? `disabled title="Sınıfta öğrenci varken silinemez"` : ""}>Sil</button>
+          <button class="btn xs" data-cls-edit="${c.id}" >Düzenle</button>
+          <button class="btn xs" data-cls-delete="${c.id}" ${occ > 0 ? `disabled title="Sınıfta öğrenci varken silinemez"` : ""}>Sil</button>
         </div>
       </div>
     `;
@@ -6754,8 +6765,8 @@ SCREENS["teacher:veligorusme"] = {
         <tbody>${pending.length ? pending.map(r => ptaRequestRowHtml(r, {
           showTeacher: false,
           actions: (row) => `
-            <button class="btn" data-pta-approve="${row.id}" style="padding:4px 10px;font-size:11.5px;color:var(--strong)">Onayla</button>
-            <button class="btn" data-pta-reject="${row.id}" style="padding:4px 10px;font-size:11.5px;color:var(--critical)">Reddet</button>
+            <button class="btn success" data-pta-approve="${row.id}" style="padding:4px 10px;font-size:11.5px">Onayla</button>
+            <button class="btn danger" data-pta-reject="${row.id}" style="padding:4px 10px;font-size:11.5px">Reddet</button>
           `,
         })).join("") : `<tr><td colspan="5">${emptyRow("Bekleyen talep yok.")}</td></tr>`}</tbody>
       </table></div>
@@ -7773,8 +7784,8 @@ function renderStaffPanel() {
       <div class="card-head"><h3>Personel Detayı</h3><span class="hint">${s.name}</span></div>
       <p style="font-size:13px;color:var(--critical);margin:0 0 12px"><b>${s.name}</b> personel kaydından tamamen silinsin mi? Bu işlem geri alınamaz.</p>
       <div style="display:flex;gap:8px">
-        <button class="btn" id="st-confirm-delete" style="padding:6px 12px;font-size:12.5px;background:var(--critical);color:#fff;border-color:transparent">Evet, Sil</button>
-        <button class="btn" id="st-cancel-delete" style="padding:6px 12px;font-size:12.5px">Vazgeç</button>
+        <button class="btn sm danger solid" id="st-confirm-delete" >Evet, Sil</button>
+        <button class="btn sm" id="st-cancel-delete" >Vazgeç</button>
       </div>
     `;
     document.getElementById("st-confirm-delete").addEventListener("click", () => {
@@ -7851,8 +7862,8 @@ function renderStaffPanel() {
       </div>
     ` : ""}
     <div style="display:flex;gap:8px;margin-top:18px">
-      <button class="btn" id="st-edit-btn" style="padding:6px 12px;font-size:12.5px">Düzenle</button>
-      <button class="btn" id="st-delete-btn" style="padding:6px 12px;font-size:12.5px;color:var(--critical)">Sil</button>
+      <button class="btn sm" id="st-edit-btn" >Düzenle</button>
+      <button class="btn sm danger" id="st-delete-btn" >Sil</button>
     </div>
   `;
   document.getElementById("st-edit-btn").addEventListener("click", () => { staffEditingId = s.id; renderStaffPanel(); });
@@ -8350,7 +8361,7 @@ function refreshOpsBody() {
                 <div style="font-size:11px;color:var(--ink-faint)">${r.student.name} · ₺${r.installment.amount.toLocaleString("tr-TR")}</div>
                 <div style="font-size:10.5px;color:var(--ink-muted)">Vade: ${r.installment.dueDate}</div>
               </div>
-              <button class="btn" data-collect="${r.student.id}" data-collect-no="${r.installment.no}" style="padding:4px 9px;font-size:11.5px;flex-shrink:0">Erken Tahsil</button>
+              <button class="btn xs" data-collect="${r.student.id}" data-collect-no="${r.installment.no}" style="flex-shrink:0">Erken Tahsil</button>
             </div>
           `).join("") : `<p style="color:var(--ink-faint);font-size:13px">Önümüzdeki 7 gün içinde vadesi gelen taksit yok.</p>`}
         </div>
@@ -8468,7 +8479,7 @@ function renderOnKayitTable() {
           <tr>
             <td colspan="4" style="color:var(--critical)"><b>${c.name}</b> silinsin mi?</td>
             <td style="white-space:nowrap">
-              <button class="btn" data-ok-confirm-delete="${c.id}" style="padding:5px 9px;font-size:12px;background:var(--critical);color:#fff;border-color:transparent">Evet, Sil</button>
+              <button class="btn danger solid" data-ok-confirm-delete="${c.id}" style="padding:5px 9px;font-size:12px">Evet, Sil</button>
               <button class="btn" data-ok-cancel-delete style="padding:5px 9px;font-size:12px">Vazgeç</button>
             </td>
           </tr>
@@ -8690,7 +8701,7 @@ function renderNormalKayitBulkPreviewBody() {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
       <label style="display:flex;align-items:center;gap:6px;font-size:12.5px"><input type="checkbox" id="nkt-preview-all" ${selectable.length && selectedCount === selectable.length ? "checked" : ""}/> Geçerli Satırların Tümünü Seç (${selectedCount}/${selectable.length})</label>
       <div style="display:flex;gap:8px">
-        <button class="btn" id="nkt-preview-clear" style="padding:6px 12px;font-size:12.5px">Önizlemeyi Temizle</button>
+        <button class="btn sm" id="nkt-preview-clear" >Önizlemeyi Temizle</button>
         <button class="btn primary" id="nkt-preview-import" style="padding:6px 12px;font-size:12.5px">Seçilenleri İçe Aktar (${selectedCount})</button>
       </div>
     </div>
@@ -9387,7 +9398,7 @@ function renderPaymentMethods() {
       <div style="display:flex;align-items:center;justify-content:space-between;border:1px solid var(--critical);border-radius:9px;padding:12px 14px">
         <span style="font-size:13px;color:var(--critical)"><b>${m.label}</b> silinsin mi?</span>
         <div style="display:flex;gap:6px">
-          <button class="btn" data-pm-confirm-delete="${m.id}" style="padding:5px 10px;font-size:12px;background:var(--critical);color:#fff;border-color:transparent">Evet, Sil</button>
+          <button class="btn danger solid" data-pm-confirm-delete="${m.id}" style="padding:5px 10px;font-size:12px">Evet, Sil</button>
           <button class="btn" data-pm-cancel-delete style="padding:5px 10px;font-size:12px">Vazgeç</button>
         </div>
       </div>
@@ -9706,7 +9717,7 @@ function renderKazanimTekli() {
             ${items.length ? items.map(a => `
               <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;border:1px solid var(--border);border-radius:7px;padding:7px 10px">
                 <span style="font-size:12.5px"><code style="font-size:11px;color:var(--ink-faint)">${a.code}</code>${a.gradeLevel ? ` · ${a.gradeLevel}` : ""}<br>${a.label}</span>
-                <button class="btn" data-kazanim-delete="${a.id}" style="padding:4px 8px;font-size:11px;color:var(--critical);flex-shrink:0">Sil</button>
+                <button class="btn danger" data-kazanim-delete="${a.id}" style="padding:4px 8px;font-size:11px;flex-shrink:0">Sil</button>
               </div>
             `).join("") : `<p style="color:var(--ink-faint);font-size:12.5px;margin:0">Henüz kazanım eklenmedi.</p>`}
           </div>
@@ -9816,7 +9827,7 @@ function renderBulkPreviewBody() {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
       <label style="display:flex;align-items:center;gap:6px;font-size:12.5px"><input type="checkbox" id="ky-preview-all" ${selectedCount === bulkImportPreview.length ? "checked" : ""}/> Tümünü Seç (${selectedCount}/${bulkImportPreview.length})</label>
       <div style="display:flex;gap:8px">
-        <button class="btn" id="ky-preview-clear" style="padding:6px 12px;font-size:12.5px">Önizlemeyi Temizle</button>
+        <button class="btn sm" id="ky-preview-clear" >Önizlemeyi Temizle</button>
         <button class="btn primary" id="ky-preview-import" style="padding:6px 12px;font-size:12.5px">Seçilenleri İçe Aktar (${selectedCount})</button>
       </div>
     </div>
@@ -10004,12 +10015,12 @@ function renderKazanimYonetimBulkBar() {
           ${GRADE_LEVELS.map(g => `<option value="${g}">${g}</option>`).join("")}
         </select>
         <button class="btn" id="kyz-bulk-grade-apply" style="padding:5px 10px;font-size:12px">Uygula</button>
-        <button class="btn" id="kyz-bulk-delete" style="padding:5px 10px;font-size:12px;color:var(--critical);margin-left:auto">Seçilenleri Sil (${n})</button>
+        <button class="btn danger" id="kyz-bulk-delete" style="padding:5px 10px;font-size:12px;margin-left:auto">Seçilenleri Sil (${n})</button>
       </div>
       <p id="kyz-bulk-delete-confirm" style="display:none;font-size:12px;color:var(--critical);margin:10px 0 0">
         ${n} kazanım kalıcı olarak silinsin mi?
-        <button class="btn" id="kyz-bulk-delete-yes" style="padding:4px 9px;font-size:11.5px;margin-left:8px;background:var(--critical);color:#fff;border-color:transparent">Evet, Sil</button>
-        <button class="btn" id="kyz-bulk-delete-no" style="padding:4px 9px;font-size:11.5px">Vazgeç</button>
+        <button class="btn xs danger solid" id="kyz-bulk-delete-yes" style="margin-left:8px">Evet, Sil</button>
+        <button class="btn xs" id="kyz-bulk-delete-no" >Vazgeç</button>
       </p>
     </div>
   `;
@@ -10634,8 +10645,8 @@ function renderSinavUygulamaList() {
     if (sinavUygulamaDeletingId === su.id) return `
       <div class="card card-pad" style="border-color:var(--critical)">
         <p style="font-size:13px;color:var(--critical);margin:0 0 10px"><b>${su.name}</b> silinsin mi? Genel Sınav Merkezi'ndeki bağlantılı sınav kaydı da silinir.</p>
-        <button class="btn" data-su-confirm-delete="${su.id}" style="padding:6px 12px;font-size:12.5px;background:var(--critical);color:#fff;border-color:transparent">Evet, Sil</button>
-        <button class="btn" data-su-cancel-delete style="padding:6px 12px;font-size:12.5px">Vazgeç</button>
+        <button class="btn sm danger solid" data-su-confirm-delete="${su.id}" >Evet, Sil</button>
+        <button class="btn sm" data-su-cancel-delete >Vazgeç</button>
       </div>
     `;
     if (sinavUygulamaEditingId === su.id) return `
@@ -10648,7 +10659,7 @@ function renderSinavUygulamaList() {
         <p style="font-size:11.5px;color:var(--ink-faint);margin:10px 0 0">Ders/soru/kazanım eşleştirmesini değiştirmek için sınavı silip yeniden oluşturun.</p>
         <div style="display:flex;gap:8px;margin-top:12px">
           <button class="btn primary" data-su-save-edit="${su.id}" style="padding:6px 12px;font-size:12.5px">Kaydet</button>
-          <button class="btn" data-su-cancel-edit style="padding:6px 12px;font-size:12.5px">Vazgeç</button>
+          <button class="btn sm" data-su-cancel-edit >Vazgeç</button>
         </div>
       </div>
     `;
@@ -10670,8 +10681,8 @@ function renderSinavUygulamaList() {
         </div>
         <p style="font-size:11.5px;color:var(--ink-faint);margin:0 0 10px">${ic("check")} Genel Sınav Merkezi'nde otomatik tanımlı${exam ? ` — ${examTotalStudents(exam)} öğrenci, ${examTotalOptics(exam)} optik form.` : "."}</p>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn" data-su-edit="${su.id}" style="padding:6px 12px;font-size:12.5px">Düzenle</button>
-          <button class="btn" data-su-delete="${su.id}" style="padding:6px 12px;font-size:12.5px;color:var(--critical)">Sil</button>
+          <button class="btn sm" data-su-edit="${su.id}" >Düzenle</button>
+          <button class="btn sm danger" data-su-delete="${su.id}" >Sil</button>
         </div>
       </div>
     `;
@@ -11383,7 +11394,7 @@ function renderEtutTable() {
         const student = STUDENT_DIRECTORY.find(s => s.id === r.studentId);
         const branch = BRANCHES.find(b => b.id === r.branchId);
         if (etutDeletingId === r.id) {
-          return `<tr><td colspan="${isHq ? 6 : 5}" style="color:var(--critical)">Bu etüt talebi silinsin mi? <button class="btn" data-etut-confirm-delete="${r.id}" style="padding:4px 9px;font-size:11.5px;margin-left:8px;background:var(--critical);color:#fff;border-color:transparent">Evet, Sil</button> <button class="btn" data-etut-cancel-delete style="padding:4px 9px;font-size:11.5px">Vazgeç</button></td></tr>`;
+          return `<tr><td colspan="${isHq ? 6 : 5}" style="color:var(--critical)">Bu etüt talebi silinsin mi? <button class="btn xs danger solid" data-etut-confirm-delete="${r.id}" style="margin-left:8px">Evet, Sil</button> <button class="btn xs" data-etut-cancel-delete >Vazgeç</button></td></tr>`;
         }
         return `
         <tr>
@@ -11715,7 +11726,7 @@ function renderBelgelerBody() {
         <div class="field"><label>Vergi No</label><input id="tax-no" value="${b.taxSettings.defaultTaxNo || b.taxNo || ""}" /></div>
         <div class="field"><label>Vergi Dairesi</label><input id="tax-office" value="${b.taxSettings.defaultTaxOffice || ""}" /></div>
       </div>
-      <button class="btn" id="tax-save" style="margin-top:10px;padding:6px 12px;font-size:12.5px">Vergi Ayarlarını Kaydet</button>
+      <button class="btn sm" id="tax-save" style="margin-top:10px">Vergi Ayarlarını Kaydet</button>
     </div>
     <div class="screen-tabs" style="padding:0 0 14px">
       ${tabs.map(([id, label]) => `<button class="screen-tab belgeler-tab ${belgelerTab === id ? "active" : ""}" data-belgeler-tab="${id}" style="font-size:12.5px;padding:6px 12px">${label}</button>`).join("")}
@@ -11768,8 +11779,8 @@ function renderFaturaTab() {
                 <div style="font-size:11px;color:var(--ink-faint)">${inv.date} · ₺${inv.total.toLocaleString("tr-TR")} (KDV dahil)</div>
               </div>
               <div style="display:flex;gap:6px;flex-shrink:0">
-                <button class="btn" data-ft-print="${inv.id}" style="padding:4px 9px;font-size:11.5px">Göster</button>
-                <button class="btn" data-ft-delete="${inv.id}" style="padding:4px 9px;font-size:11.5px">Sil</button>
+                <button class="btn xs" data-ft-print="${inv.id}" >Göster</button>
+                <button class="btn xs" data-ft-delete="${inv.id}" >Sil</button>
               </div>
             </div>
           `).join("") : `<p style="color:var(--ink-faint);font-size:13px">Henüz fatura kesilmedi.</p>`}
@@ -11881,8 +11892,8 @@ function renderDekontTab() {
                 <div style="font-size:11px;color:var(--ink-faint)">${d.date} · <span class="chip ${d.type === "TAHSILAT" ? "strong" : "critical"}" style="font-size:10px">${d.type === "TAHSILAT" ? "Tahsilat" : "Ödeme"}</span> ₺${d.amount.toLocaleString("tr-TR")}</div>
               </div>
               <div style="display:flex;gap:6px;flex-shrink:0">
-                <button class="btn" data-dk-print="${d.id}" style="padding:4px 9px;font-size:11.5px">Göster</button>
-                <button class="btn" data-dk-delete="${d.id}" style="padding:4px 9px;font-size:11.5px">Sil</button>
+                <button class="btn xs" data-dk-print="${d.id}" >Göster</button>
+                <button class="btn xs" data-dk-delete="${d.id}" >Sil</button>
               </div>
             </div>
           `).join("") : `<p style="color:var(--ink-faint);font-size:13px">Henüz dekont oluşturulmadı.</p>`}
@@ -11962,9 +11973,9 @@ function renderSenetTab() {
                 <div style="font-size:11px;color:var(--ink-faint)">Vade: ${s.dueDate} · ₺${s.amount.toLocaleString("tr-TR")} · <span class="chip ${SENET_STATUS_TONE[s.status]}" style="font-size:10px">${SENET_STATUS_LABEL[s.status]}</span></div>
               </div>
               <div style="display:flex;gap:6px;flex-shrink:0">
-                ${s.status === "ODENMEDI" ? `<button class="btn" data-sn-paid="${s.id}" style="padding:4px 9px;font-size:11.5px">Ödendi İşaretle</button>` : ""}
-                <button class="btn" data-sn-print="${s.id}" style="padding:4px 9px;font-size:11.5px">Göster</button>
-                <button class="btn" data-sn-delete="${s.id}" style="padding:4px 9px;font-size:11.5px">Sil</button>
+                ${s.status === "ODENMEDI" ? `<button class="btn xs" data-sn-paid="${s.id}" >Ödendi İşaretle</button>` : ""}
+                <button class="btn xs" data-sn-print="${s.id}" >Göster</button>
+                <button class="btn xs" data-sn-delete="${s.id}" >Sil</button>
               </div>
             </div>
           `).join("") : `<p style="color:var(--ink-faint);font-size:13px">Henüz senet oluşturulmadı.</p>`}
@@ -12322,7 +12333,7 @@ function renderLedgerRows(filtered, showBranchCol) {
       <tr>
         <td colspan="${showBranchCol ? 4 : 3}" style="color:var(--critical)"><b>${e.category}</b> (${new Date(e.date).toLocaleDateString("tr-TR")}${showBranchCol ? " · " + e.branchName : ""}) silinsin mi?</td>
         <td style="white-space:nowrap">
-          <button class="btn" data-ledger-confirm-delete="${key}" style="padding:5px 9px;font-size:12px;background:var(--critical);color:#fff;border-color:transparent">Evet, Sil</button>
+          <button class="btn danger solid" data-ledger-confirm-delete="${key}" style="padding:5px 9px;font-size:12px">Evet, Sil</button>
           <button class="btn" data-ledger-cancel-delete style="padding:5px 9px;font-size:12px">Vazgeç</button>
         </td>
       </tr>
@@ -12801,7 +12812,7 @@ function renderMentorPendingList() {
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0">
         <button class="btn primary" data-mentor-approve="${r.id}" style="padding:4px 9px;font-size:11.5px">Onayla</button>
-        <button class="btn" data-mentor-reject="${r.id}" style="padding:4px 9px;font-size:11.5px">Reddet</button>
+        <button class="btn xs" data-mentor-reject="${r.id}" >Reddet</button>
       </div>
     </div>
   `;
@@ -13042,7 +13053,7 @@ function renderGuardianPayFlow() {
         <button class="btn ${guardianPayMethod === "KART" ? "primary" : ""}" data-gp-method="KART" style="padding:6px 12px;font-size:12.5px">${ic("cardIcon")} Kredi Kartı</button>
         <button class="btn ${guardianPayMethod === "HAVALE" ? "primary" : ""}" data-gp-method="HAVALE" style="padding:6px 12px;font-size:12.5px">${ic("bank")} Banka Havalesi</button>
         <button class="btn ${guardianPayMethod === "NAKIT" ? "primary" : ""}" data-gp-method="NAKIT" style="padding:6px 12px;font-size:12.5px">${ic("cash")} Nakit</button>
-        <button class="btn" data-gp-cancel style="padding:6px 12px;font-size:12.5px;margin-left:auto">Vazgeç</button>
+        <button class="btn sm" data-gp-cancel style="margin-left:auto">Vazgeç</button>
       </div>
       <div id="gp-method-body"></div>
     </div>
