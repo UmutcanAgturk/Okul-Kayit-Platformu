@@ -33,6 +33,7 @@ TESTS=(
   t202_chart_consistency.js
   t204_olcme_analytics.js
   t205_bugun_redesign.js
+  t206_visual_rollout.js
 )
 
 pass=0
