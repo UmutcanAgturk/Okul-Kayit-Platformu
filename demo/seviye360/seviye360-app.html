@@ -342,7 +342,7 @@
     background-size: 160% 160%; background-position: 0% 0%;
     transition: background-color .2s var(--ease), background-position .5s var(--ease), border-color .2s var(--ease), transform .15s var(--ease), box-shadow .25s var(--ease), color .2s var(--ease);
   }
-  .btn:hover { background: var(--surface-2); border-color: var(--ink-faint); }
+  .btn:hover { background-image: linear-gradient(135deg, var(--surface-2) 0%, var(--surface-3) 100%); background-position: 100% 100%; border-color: var(--ink-faint); }
   .btn:active { transform: translateY(1px); }
   .btn.primary {
     background-image: linear-gradient(135deg, var(--brand) 0%, var(--brand-strong) 55%, var(--brand) 100%);
@@ -358,7 +358,7 @@
   .btn.xs { padding: 4px 9px; font-size: 11.5px; }
 
   .btn.danger { color: var(--critical); }
-  .btn.danger:hover { background: var(--critical-bg); border-color: var(--critical); }
+  .btn.danger:hover { background-image: linear-gradient(135deg, var(--critical-bg) 0%, color-mix(in srgb, var(--critical) 22%, var(--critical-bg)) 100%); background-position: 100% 100%; border-color: var(--critical); }
   .btn.danger.solid {
     background-image: linear-gradient(135deg, var(--critical) 0%, color-mix(in srgb, var(--critical) 70%, black) 55%, var(--critical) 100%);
     color: var(--critical-ink); border-color: transparent;
@@ -367,7 +367,7 @@
   .btn.danger.solid:hover { background-position: 100% 100%; border-color: transparent; transform: translateY(-1px); }
 
   .btn.success { color: var(--strong); }
-  .btn.success:hover { background: var(--strong-bg); border-color: var(--strong); }
+  .btn.success:hover { background-image: linear-gradient(135deg, var(--strong-bg) 0%, color-mix(in srgb, var(--strong) 22%, var(--strong-bg)) 100%); background-position: 100% 100%; border-color: var(--strong); }
   .btn.success.solid {
     background-image: linear-gradient(135deg, var(--strong) 0%, color-mix(in srgb, var(--strong) 70%, black) 55%, var(--strong) 100%);
     color: var(--strong-ink); border-color: transparent;
@@ -655,7 +655,7 @@
 
   /* ---------------- Giriş Öncesi Tanıtım (Landing) Sayfası ---------------- */
   .btn.ghost { background: rgba(255,255,255,.12); color: #fff; border-color: rgba(255,255,255,.45); }
-  .btn.ghost:hover { background: rgba(255,255,255,.22); }
+  .btn.ghost:hover { background-image: linear-gradient(135deg, rgba(255,255,255,.22) 0%, rgba(255,255,255,.32) 100%); background-position: 100% 100%; }
   .landing-nav {
     position: sticky; top: 0; z-index: 6; display: flex; align-items: center; justify-content: space-between;
     padding: 16px 40px; background: color-mix(in srgb, var(--surface) 88%, transparent);
@@ -1075,18 +1075,19 @@
 .m-btn {
   border: none; border-radius: 13px; padding: 12px 18px; font-family: inherit; font-size: 13.8px; font-weight: 700;
   cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 7px;
-  transition: transform .1s var(--ease), opacity .15s var(--ease);
+  background-size: 160% 160%; background-position: 0% 0%;
+  transition: transform .1s var(--ease), opacity .15s var(--ease), background-position .4s var(--ease);
 }
 
-#mobile-shell .m-btn:active { transform: scale(.97); }
+#mobile-shell .m-btn:active { transform: scale(.97); background-position: 100% 100%; }
 
-#mobile-shell .m-btn.primary { background: var(--brand); color: #fff; box-shadow: 0 8px 20px -8px color-mix(in srgb, var(--brand) 65%, transparent); }
+#mobile-shell .m-btn.primary { background-image: linear-gradient(135deg, var(--brand) 0%, var(--brand-strong) 55%, var(--brand) 100%); color: #fff; box-shadow: 0 8px 20px -8px color-mix(in srgb, var(--brand) 65%, transparent); }
 
 #mobile-shell .m-btn.block { width: 100%; }
 
 #mobile-shell .m-btn.ghost { background: var(--surface-2); color: var(--ink); border: 1px solid var(--border-strong); }
 
-#mobile-shell .m-btn.danger { background: var(--critical-tint); color: var(--critical); }
+#mobile-shell .m-btn.danger { background-image: linear-gradient(135deg, var(--critical-tint) 0%, color-mix(in srgb, var(--critical) 18%, var(--critical-tint)) 100%); color: var(--critical); }
 
 #mobile-shell .m-btn.sm { padding: 7px 13px; font-size: 12px; border-radius: 10px; }
 
