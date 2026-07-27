@@ -24,6 +24,7 @@ TESTS=(
   t193_btn_component_check.js
   t194_muhasebe_ux.js
   t195_belgeler_delete_confirm.js
+  t196_tahsilat_confirm_dekont.js
 )
 
 pass=0

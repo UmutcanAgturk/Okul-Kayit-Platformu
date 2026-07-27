@@ -127,6 +127,10 @@ const APP = 'file://' + require('path').resolve(__dirname, '../seviye360-app.htm
     row.scrollIntoView();
   }, paymentTargetId);
   await page.click(`[data-tahsilat-al="${paymentTargetId}"]`);
+  await page.waitForTimeout(300);
+  // Tahsilat Al artık iki adımlı onay istiyor (Faz 3, UX geçişi) — önce onay satırı görünür,
+  // gerçek mutasyon yalnızca "Evet, Tahsil Et" tıklanınca gerçekleşir.
+  await page.click(`[data-tahsilat-confirm="${paymentTargetId}"]`);
   await page.waitForTimeout(400);
   const gelirAfterWeb = await page.evaluate(() => BRANCHES.reduce((a, b) => a + (b.ledger || []).filter(r => r.type === "GELIR").reduce((s, r) => s + r.amount, 0), 0));
   check('Web: tahsilat işlendi, toplam gelir arttı', gelirAfterWeb > gelirBefore, `${gelirBefore} -> ${gelirAfterWeb}`);
