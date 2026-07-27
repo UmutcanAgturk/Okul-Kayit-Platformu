@@ -15176,6 +15176,18 @@ function renderMuhasebeScreen(b) {
           <button class="m-btn primary sm" data-m-tahsilat="${s.id}">Tahsil Et</button>
         </div>`).join("")}
     </div>` : ""}
+    ${(b.staff || []).length ? `
+    <p class="section-title">Maaş Ödemeleri (${salaryMonthLabel(todayStr().slice(0, 7))})</p>
+    <div class="stack" style="margin-bottom:14px">
+      ${b.staff.map(s => {
+        const paid = salaryPaidForMonth(b, s.id, todayStr().slice(0, 7));
+        return `
+          <div class="list-row" style="cursor:default"><div class="row-icon ${paid ? "success" : "accent"}">${ic("wallet")}</div>
+            <div class="row-main"><div class="row-title">${s.name}</div><div class="row-sub">${s.role} · Brüt ${tl(s.salary || 0)}</div></div>
+            ${paid ? `<span class="chip strong">Ödendi</span>` : `<button class="m-btn primary sm" data-m-pay-salary="${s.id}">Öde</button>`}
+          </div>`;
+      }).join("")}
+    </div>` : ""}
     <p class="section-title">Son Hareketler</p>
     <div class="stack">
       ${recent.length ? recent.map((r, i) => `
@@ -15234,6 +15246,33 @@ function mountMuhasebeScreen(b) {
         persistState();
         closeSheet();
         showSnackbar(`₺${amount.toLocaleString("tr-TR")} tahsil edildi, Dekont oluşturuldu.`);
+        renderContent();
+      });
+    });
+  });
+  document.querySelectorAll('[data-m-pay-salary]').forEach(btn => {
+    btn.addEventListener("click", () => {
+      const staff = b.staff.find(s => s.id === Number(btn.dataset.mPaySalary));
+      if (!staff) return;
+      const month = todayStr().slice(0, 7);
+      const p = simplifiedPayroll(staff.salary || 0);
+      openSheet("Maaş Öde", `
+        <p style="font-size:13px;color:var(--ink-muted);margin:0 0 12px"><b>${staff.name}</b> · ${staff.role} · ${salaryMonthLabel(month)}</p>
+        <div class="m-field"><label>Brüt Maaş</label><p style="margin:4px 0;font-weight:700">${tl(p.gross)}</p></div>
+        <div style="font-size:12px;color:var(--ink-muted);line-height:1.6;margin-bottom:10px">
+          <div>SGK+İşsizlik (%15): ${tl(p.sgkKesintisi + p.issizlikKesintisi)}</div>
+          <div>Gelir Vergisi (%15): ${tl(p.gelirVergisi)}</div>
+          <div>Damga Vergisi (‰7,59): ${tl(p.damgaVergisi)}</div>
+        </div>
+        <div class="m-field"><label>Net Ödenecek</label><p style="margin:4px 0;font-weight:700;color:var(--success)">${tl(p.netMaas)}</p></div>
+        <button class="m-btn primary block" id="m-salary-pay-confirm">Onayla ve Dekont Oluştur</button>
+      `);
+      document.getElementById("m-salary-pay-confirm").addEventListener("click", () => {
+        const payment = paySalary(staff.id, month, b);
+        if (!payment) { showSnackbar("Bu personel için bu ay zaten ödeme yapılmış.", "error"); return; }
+        persistState();
+        closeSheet();
+        showSnackbar(`${staff.name} için net ${tl(payment.netMaas)} ödendi, dekont oluşturuldu.`);
         renderContent();
       });
     });

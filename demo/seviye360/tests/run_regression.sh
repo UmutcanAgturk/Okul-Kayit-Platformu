@@ -36,6 +36,7 @@ TESTS=(
   t206_visual_rollout.js
   t207_vergi_gorsellestirme.js
   t208_maas_odeme.js
+  t209_mobil_maas_odeme.js
 )
 
 pass=0
