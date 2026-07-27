@@ -14749,13 +14749,14 @@ function wireStudentListScreen() {
 }
 
 /* ---- ŞUBE: Muhasebe ---- */
-SCREENS_M["sube:muhasebe"] = { html: () => renderMuhasebeScreen(CURRENT_BRANCH), mount: () => {} };
+SCREENS_M["sube:muhasebe"] = { html: () => renderMuhasebeScreen(CURRENT_BRANCH), mount: () => mountMuhasebeScreen(CURRENT_BRANCH) };
 SCREENS_M["merkez:muhasebe"] = { html: () => renderMuhasebeGenelScreen(), mount: () => wireBranchRows() };
 function renderMuhasebeScreen(b) {
   const gelir = (b.ledger || []).filter(r => r.type === "GELIR").reduce((a, r) => a + r.amount, 0);
   const gider = (b.ledger || []).filter(r => r.type === "GIDER").reduce((a, r) => a + r.amount, 0);
   const tahsilat = branchTahsilatOrani(b);
   const recent = (b.ledger || []).slice(0, 10);
+  const pending = STUDENT_DIRECTORY.filter(s => s.branchId === b.id && s.paymentStatus !== "Güncel");
   return `
     <div class="grid-2" style="margin-bottom:12px">
       <div class="m-card kpi-card"><p class="kpi-label">Gelir</p><p class="kpi-value" style="color:var(--success)">${tl(gelir)}</p></div>
@@ -14763,15 +14764,98 @@ function renderMuhasebeScreen(b) {
       <div class="m-card kpi-card"><p class="kpi-label">Net</p><p class="kpi-value">${tl(gelir - gider)}</p></div>
       <div class="m-card kpi-card"><p class="kpi-label">Tahsilat Oranı</p><p class="kpi-value">%${tahsilat}</p></div>
     </div>
+    <button class="m-btn primary block" id="m-ledger-add" style="margin-bottom:14px">${ic("wallet")}Yeni Kayıt Ekle</button>
+    ${pending.length ? `
+    <p class="section-title">Tahsilat Bekleyen (${pending.length})</p>
+    <div class="stack" style="margin-bottom:14px">
+      ${pending.map(s => `
+        <div class="list-row" style="cursor:default"><div class="row-icon critical">${ic("wallet")}</div>
+          <div class="row-main"><div class="row-title">${s.name}</div><div class="row-sub">${s.paymentStatus}${s.installmentAmount ? " · " + tl(s.installmentAmount) + "/taksit" : ""}</div></div>
+          <button class="m-btn primary sm" data-m-tahsilat="${s.id}">Tahsil Et</button>
+        </div>`).join("")}
+    </div>` : ""}
     <p class="section-title">Son Hareketler</p>
     <div class="stack">
-      ${recent.length ? recent.map(r => `
+      ${recent.length ? recent.map((r, i) => `
         <div class="list-row" style="cursor:default"><div class="row-icon ${r.type === "GELIR" ? "success" : "critical"}">${ic("wallet")}</div>
           <div class="row-main"><div class="row-title">${r.category}</div><div class="row-sub">${r.date}</div></div>
           <div class="row-trail" style="color:${r.type === "GELIR" ? "var(--success)" : "var(--critical)"}">${r.type === "GELIR" ? "+" : "-"}${tl(r.amount)}</div>
-        </div>`).join("") : `<div class="empty-state">${ic("inbox")}<p>Kayıt yok.</p></div>`}
+          <button class="m-btn ghost sm" data-m-ledger-delete="${i}" aria-label="Sil" style="margin-left:8px;padding:6px 9px">${ic("x")}</button>
+        </div>`).join("") : `<div class="empty-state">${ic("inbox")}<p>Henüz gelir/gider kaydı yok. Yukarıdaki "Yeni Kayıt Ekle" ile ilk kaydınızı ekleyin.</p></div>`}
     </div>
   `;
+}
+function mountMuhasebeScreen(b) {
+  const addBtn = document.getElementById("m-ledger-add");
+  if (addBtn) addBtn.addEventListener("click", () => {
+    openSheet("Yeni Kayıt Ekle", `
+      <div class="m-field"><label>Tür</label><select id="m-ledger-type"><option value="GELIR">Gelir</option><option value="GIDER">Gider</option></select></div>
+      <div class="m-field"><label>Tarih</label><input type="date" id="m-ledger-date" value="${todayStr()}" /></div>
+      <div class="m-field"><label>Kategori</label><input id="m-ledger-category" placeholder="Örn. Taksit Tahsilatı" /></div>
+      <div class="m-field"><label>Tutar (₺)</label><input type="number" min="0" id="m-ledger-amount" placeholder="0" /></div>
+      <button class="m-btn primary block" id="m-ledger-save">Kaydı Ekle</button>
+    `);
+    document.getElementById("m-ledger-save").addEventListener("click", () => {
+      const category = document.getElementById("m-ledger-category").value.trim();
+      const amount = Number(document.getElementById("m-ledger-amount").value);
+      const type = document.getElementById("m-ledger-type").value;
+      const date = document.getElementById("m-ledger-date").value || todayStr();
+      if (!category || !amount) { showSnackbar("Lütfen kategori ve tutar alanlarını doldurun.", "error"); return; }
+      b.ledger.unshift({ type, category, amount, date });
+      persistState();
+      closeSheet();
+      showSnackbar("Kayıt eklendi.");
+      renderContent();
+    });
+  });
+  document.querySelectorAll('[data-m-tahsilat]').forEach(btn => {
+    btn.addEventListener("click", () => {
+      const student = STUDENT_DIRECTORY.find(s => s.id === Number(btn.dataset.mTahsilat));
+      if (!student) return;
+      openSheet("Tahsilat İşle", `
+        <p style="font-size:13px;color:var(--ink-muted);margin:0 0 12px"><b>${student.name}</b> · ${student.guardian}</p>
+        <div class="m-field"><label>Tutar (₺)</label><input type="number" min="0" id="m-tahsilat-amount" value="${student.installmentAmount || ""}" /></div>
+        <button class="m-btn primary block" id="m-tahsilat-confirm">Onayla ve Dekont Oluştur</button>
+      `);
+      document.getElementById("m-tahsilat-confirm").addEventListener("click", () => {
+        const amount = Number(document.getElementById("m-tahsilat-amount").value);
+        if (!amount) { showSnackbar("Lütfen geçerli bir tutar girin.", "error"); return; }
+        b.ledger.unshift({ type: "GELIR", category: "Taksit Tahsilatı", amount, date: todayStr() });
+        createDekont({
+          type: "TAHSILAT", date: todayStr(), personName: student.guardian || student.name,
+          amount, method: "NAKIT", description: `${student.name} — Taksit Tahsilatı`,
+        }, b);
+        if (student.installmentAmount > 0 && student.paidInstallments < student.installmentCount) {
+          student.paidInstallments += 1;
+        }
+        student.paymentStatus = (student.installmentAmount > 0 && student.paidInstallments < student.installmentCount) ? "1 taksit yaklaşıyor" : "Güncel";
+        persistState();
+        closeSheet();
+        showSnackbar(`₺${amount.toLocaleString("tr-TR")} tahsil edildi, Dekont oluşturuldu.`);
+        renderContent();
+      });
+    });
+  });
+  document.querySelectorAll('[data-m-ledger-delete]').forEach(btn => {
+    btn.addEventListener("click", () => {
+      const idx = Number(btn.dataset.mLedgerDelete);
+      const entry = b.ledger[idx];
+      if (!entry) return;
+      openSheet("Kaydı Sil", `
+        <p style="font-size:13px;color:var(--ink-muted);margin:0 0 16px"><b>${entry.category}</b> (${entry.date}, ${entry.type === "GELIR" ? "+" : "-"}${tl(entry.amount)}) silinsin mi? Bu işlem geri alınamaz.</p>
+        <button class="m-btn danger block" id="m-ledger-delete-confirm" style="margin-bottom:8px">Evet, Sil</button>
+        <button class="m-btn ghost block" id="m-ledger-delete-cancel">Vazgeç</button>
+      `);
+      document.getElementById("m-ledger-delete-confirm").addEventListener("click", () => {
+        b.ledger.splice(idx, 1);
+        persistState();
+        closeSheet();
+        showSnackbar("Kayıt silindi.");
+        renderContent();
+      });
+      document.getElementById("m-ledger-delete-cancel").addEventListener("click", closeSheet);
+    });
+  });
 }
 function renderMuhasebeGenelScreen() {
   const totalGelir = BRANCHES.reduce((a, b) => a + (b.ledger || []).filter(r => r.type === "GELIR").reduce((s, r) => s + r.amount, 0), 0);

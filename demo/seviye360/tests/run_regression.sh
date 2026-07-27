@@ -29,6 +29,7 @@ TESTS=(
   t198_fatura_field_validation.js
   t199_scope_cta.js
   t200_forecast_explainer.js
+  t201_mobile_muhasebe_crud.js
 )
 
 pass=0
