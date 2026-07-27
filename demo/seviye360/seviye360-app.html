@@ -12352,7 +12352,7 @@ function renderMuhasebeBody() {
     const scenarioNets = FORECAST_SCENARIOS.map(s => {
       const beklenenGelir = Math.round(gelir / months * (s.tahsilat / 85) + s.yeniKayit * 1500 + bekleyenTaksit * (s.tahsilat / 100));
       const beklenenGider = Math.round(gider / months);
-      return { s, net: beklenenGelir - beklenenGider };
+      return { s, net: beklenenGelir - beklenenGider, beklenenGelir, beklenenGider };
     });
     const maxNet = Math.max(...scenarioNets.map(r => Math.abs(r.net)), 1);
     return `
@@ -12362,7 +12362,7 @@ function renderMuhasebeBody() {
         <p class="stat-value" style="margin:0">₺${bekleyenTaksit.toLocaleString("tr-TR")}</p>
       </div>
       <div class="grid cols-3">
-        ${scenarioNets.map(({ s, net }) => `
+        ${scenarioNets.map(({ s, net, beklenenGelir, beklenenGider }) => `
           <div class="card stat-card tone-${s.tone}">
             <p class="stat-label">${s.label} Senaryo</p>
             <p class="stat-value">₺${net.toLocaleString("tr-TR")}</p>
@@ -12372,6 +12372,14 @@ function renderMuhasebeBody() {
               <div>Yeni kayıt varsayımı: <b>${s.yeniKayit}</b></div>
               <div>Bekleyen taksitten tahsil edilecek: <b>₺${Math.round(bekleyenTaksit * (s.tahsilat / 100)).toLocaleString("tr-TR")}</b></div>
               <p style="margin:8px 0 0">${s.aciklama}</p>
+              <details style="margin-top:8px;font-size:11.5px;color:var(--ink-faint)">
+                <summary style="cursor:pointer;color:var(--ink-muted)">Nasıl hesaplandı?</summary>
+                <p style="margin:6px 0 0;line-height:1.5">
+                  Beklenen Gelir = (Aylık ortalama gelir ₺${Math.round(gelir / months).toLocaleString("tr-TR")} × tahsilat oranı çarpanı %${s.tahsilat}/85) + (${s.yeniKayit} yeni kayıt × ₺1.500 varsayılan kayıt geliri) + (bekleyen ₺${bekleyenTaksit.toLocaleString("tr-TR")} taksitten bu senaryoda tahsil edilecek ₺${Math.round(bekleyenTaksit * (s.tahsilat / 100)).toLocaleString("tr-TR")}) = <b>₺${beklenenGelir.toLocaleString("tr-TR")}</b><br>
+                  Beklenen Gider = son ${months} ayın ortalama gideri = <b>₺${beklenenGider.toLocaleString("tr-TR")}</b><br>
+                  Net Kâr = ₺${beklenenGelir.toLocaleString("tr-TR")} − ₺${beklenenGider.toLocaleString("tr-TR")} = <b>₺${net.toLocaleString("tr-TR")}</b>
+                </p>
+              </details>
             </div>
           </div>
         `).join("")}
