@@ -30,6 +30,7 @@ TESTS=(
   t199_scope_cta.js
   t200_forecast_explainer.js
   t201_mobile_muhasebe_crud.js
+  t202_chart_consistency.js
 )
 
 pass=0

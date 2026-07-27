@@ -590,6 +590,21 @@
   .doc-body-content .clause { font-size: 13px; line-height: 1.7; margin: 10px 0; text-align: justify; }
   .doc-body-content .clause-title { font-weight: 700; font-size: 13.5px; margin: 16px 0 4px; }
 
+  /* Belgeler her zaman yazdırılabilir/açık temada görünmeli — grafik bileşenleri
+     (svgLineChart/svgDualLineChart/compositionBarHtml vb.) var(--ink)/var(--border)
+     gibi tema değişkenlerini kullanır; uygulama karanlık modaydayken bunlar
+     :root'un koyu değerlerine düşüp beyaz zemin üzerinde görünmez olurdu — bu
+     yüzden açık tema değerleri burada sabitlenir. */
+  .doc-viewer-body, #print-area {
+    --bg: #f4f6fa; --surface: #ffffff; --surface-2: #f7f9fc; --surface-3: #eef1f7; --surface-sunken: #eaedf4;
+    --border: #e4e8f0; --border-strong: #cdd3e0;
+    --ink: #10151f; --ink-muted: #5a6478; --ink-faint: #8890a3;
+    --brand: #0071ce; --brand-tint: #e7f2fc; --brand-strong: #00558f;
+    --critical: #e30613; --critical-bg: #fce8ea; --critical-ink: #ffffff;
+    --weak: #b3831f; --weak-bg: #fdf3e0; --weak-ink: #2a2109;
+    --strong: #2f7a5c; --strong-bg: #e8f4ef; --strong-ink: #ffffff;
+  }
+
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 
   /* ---------------- Giriş Sayfası (Login) ---------------- */
@@ -755,10 +770,21 @@
   --brand-tint: #e8f2fd;
   --critical: #e0263a;
   --critical-tint: #fdeaec;
+  --critical-bg: #fdeaec;
+  --critical-ink: #ffffff;
   --success: #1f9d6b;
   --success-tint: #e7f6ef;
   --warning: #c98a1c;
   --warning-tint: #fbf1de;
+  /* Paylaşılan grafik bileşenleri (svgHBarChart/compositionBarHtml vb.) web ve
+     mobilde ortak — --strong/--weak tonlarını mobilin kendi başarı/uyarı
+     paletine eşleyerek aynı ekranda iki farklı yeşil/amber görünmesini önler. */
+  --strong: #1f9d6b;
+  --strong-bg: #e7f6ef;
+  --strong-ink: #ffffff;
+  --weak: #c98a1c;
+  --weak-bg: #fbf1de;
+  --weak-ink: #2a2109;
   --shadow-sm: 0 2px 8px -4px rgba(16,24,43,.16);
   --shadow: 0 10px 30px -12px rgba(16,24,43,.20);
   --shadow-lg: 0 22px 50px -18px rgba(16,24,43,.32);
@@ -776,9 +802,11 @@
     --border: #262f42; --border-strong: #37415a;
     --ink: #eef1f8; --ink-muted: #a2aac0; --ink-faint: #6b7389;
     --brand: #4da3e0; --brand-deep: #8cc7ec; --brand-tint: #132840;
-    --critical: #f2555c; --critical-tint: #341216;
+    --critical: #f2555c; --critical-tint: #341216; --critical-bg: #341216; --critical-ink: #1f0a08;
     --success: #4fcf9c; --success-tint: #123024;
     --warning: #e6b055; --warning-tint: #2e2410;
+    --strong: #4fcf9c; --strong-bg: #123024; --strong-ink: #06140d;
+    --weak: #e6b055; --weak-bg: #2e2410; --weak-ink: #201804;
     --shadow-sm: 0 2px 10px -4px rgba(0,0,0,.5);
     --shadow: 0 10px 30px -12px rgba(0,0,0,.55);
     --shadow-lg: 0 22px 50px -18px rgba(0,0,0,.6);
@@ -792,9 +820,11 @@
   --border: #262f42; --border-strong: #37415a;
   --ink: #eef1f8; --ink-muted: #a2aac0; --ink-faint: #6b7389;
   --brand: #4da3e0; --brand-deep: #8cc7ec; --brand-tint: #132840;
-  --critical: #f2555c; --critical-tint: #341216;
+  --critical: #f2555c; --critical-tint: #341216; --critical-bg: #341216; --critical-ink: #1f0a08;
   --success: #4fcf9c; --success-tint: #123024;
   --warning: #e6b055; --warning-tint: #2e2410;
+  --strong: #4fcf9c; --strong-bg: #123024; --strong-ink: #06140d;
+  --weak: #e6b055; --weak-bg: #2e2410; --weak-ink: #201804;
   --shadow-sm: 0 2px 10px -4px rgba(0,0,0,.5);
   --shadow: 0 10px 30px -12px rgba(0,0,0,.55);
   --shadow-lg: 0 22px 50px -18px rgba(0,0,0,.6);
@@ -807,9 +837,11 @@
   --border: #e1e7f2; --border-strong: #c9d3e6;
   --ink: #10182b; --ink-muted: #5b6478; --ink-faint: #939ab0;
   --brand: #0071ce; --brand-deep: #00538f; --brand-tint: #e8f2fd;
-  --critical: #e0263a; --critical-tint: #fdeaec;
+  --critical: #e0263a; --critical-tint: #fdeaec; --critical-bg: #fdeaec; --critical-ink: #ffffff;
   --success: #1f9d6b; --success-tint: #e7f6ef;
   --warning: #c98a1c; --warning-tint: #fbf1de;
+  --strong: #1f9d6b; --strong-bg: #e7f6ef; --strong-ink: #ffffff;
+  --weak: #c98a1c; --weak-bg: #fbf1de; --weak-ink: #2a2109;
   --shadow-sm: 0 2px 8px -4px rgba(16,24,43,.16);
   --shadow: 0 10px 30px -12px rgba(16,24,43,.20);
   --shadow-lg: 0 22px 50px -18px rgba(16,24,43,.32);
@@ -2463,7 +2495,6 @@ function updateThemeToggleIcons() {
 }
 
 /* ============================== CHART HELPERS ============================== */
-function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 
 /* ---------------- SVG trend/sparkline bileşenleri ----------------
  * Stat-tile trend sözleşmesi: label · value · delta (yön × "yukarı iyi mi?"e göre
@@ -2708,43 +2739,6 @@ function svgDualLineChart(points, opts) {
       <span><span class="swatch" style="background:${colorB};width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:5px"></span>${opts.labelB || "B"}</span>
     </div>
   `;
-}
-
-function drawBarChart(canvas, labels, values, color) {
-  const ctx = canvas.getContext("2d");
-  const dpr = window.devicePixelRatio || 1;
-  const w = canvas.clientWidth, h = canvas.clientHeight;
-  canvas.width = w * dpr; canvas.height = h * dpr;
-  ctx.scale(dpr, dpr);
-  ctx.clearRect(0, 0, w, h);
-  const pad = { top: 14, right: 10, bottom: 26, left: 30 };
-  let max = values.length ? Math.max(...values) * 1.15 : 0;
-  if (!isFinite(max) || max <= 0) max = 1;
-  const innerW = w - pad.left - pad.right, innerH = h - pad.top - pad.bottom;
-  const gridColor = cssVar("--border");
-  ctx.strokeStyle = gridColor; ctx.lineWidth = 1; ctx.font = "10.5px -apple-system, sans-serif"; ctx.fillStyle = cssVar("--ink-faint");
-  for (let i = 0; i <= 3; i++) {
-    const y = pad.top + innerH - (innerH * i) / 3;
-    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(w - pad.right, y); ctx.stroke();
-    ctx.fillText(Math.round((max * i) / 3).toString(), 2, y + 3);
-  }
-  const bw = innerW / labels.length;
-  labels.forEach((label, i) => {
-    const bh = (values[i] / max) * innerH;
-    const x = pad.left + i * bw + bw * 0.22;
-    const barW = bw * 0.56;
-    const y = pad.top + innerH - bh;
-    const grad = ctx.createLinearGradient(0, y, 0, y + bh);
-    grad.addColorStop(0, color); grad.addColorStop(1, color + "99");
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.roundRect(x, y, barW, bh, [4, 4, 0, 0]);
-    ctx.fill();
-    ctx.fillStyle = cssVar("--ink-muted");
-    ctx.textAlign = "center";
-    ctx.fillText(label, x + barW / 2, h - 8);
-  });
-  ctx.textAlign = "left";
 }
 
 /* ============================== SINIF DÜZEYİ TAKSONOMİSİ ============================== */
@@ -5500,6 +5494,8 @@ SCREENS["branch:students"] = {
     const roster = STUDENT_DIRECTORY.filter(s => s.branchId === CURRENT_BRANCH.id);
     const gradeCounts = {};
     roster.forEach(s => { gradeCounts[s.gradeLevel] = (gradeCounts[s.gradeLevel] || 0) + 1; });
+    const gradeEntries = Object.entries(gradeCounts).sort((a, b) => b[1] - a[1]).slice(0, 6);
+    const maxGrade = gradeEntries.length ? Math.max(...gradeEntries.map(([, c]) => c), 1) : 1;
     return `
     <h1>Öğrenciler — ${CURRENT_BRANCH.city}</h1>
     <p class="lede">Şube Yönetimi yalnızca kendi şubesinin öğrencilerini görür (Genel Merkez'in aksine diğer şubelere erişemez). Aşağıda hem toplam sayı hem her öğrenci tek tek listelenir.</p>
@@ -5510,7 +5506,7 @@ SCREENS["branch:students"] = {
     </div>
     <div class="card card-pad" style="margin-bottom:14px">
       <div class="card-head"><h3>Sınıf Düzeyi Dağılımı</h3><span class="hint">${CURRENT_BRANCH.city}</span></div>
-      <canvas id="branch-grade-canvas" style="width:100%;height:200px"></canvas>
+      ${svgHBarChart(gradeEntries.map(([g, c]) => ({ label: g, value: c, tone: "strong" })), { max: maxGrade, unit: " öğrenci" })}
     </div>
     <div class="card card-pad">
       <div class="card-head"><h3>Öğrenciler — Tek Tek Liste</h3><span class="hint" id="branch-students-count"></span></div>
@@ -5533,13 +5529,6 @@ SCREENS["branch:students"] = {
       const filtered = roster.filter(s => !q || s.name.toLowerCase().includes(q) || s.studentNo.toLowerCase().includes(q));
       renderStudentTable("branch-students-tbody", "branch-students-count", filtered, { showBranch: false });
     });
-
-    const gradeCounts = {};
-    roster.forEach(s => { gradeCounts[s.gradeLevel] = (gradeCounts[s.gradeLevel] || 0) + 1; });
-    const entries = Object.entries(gradeCounts).sort((a, b) => b[1] - a[1]).slice(0, 6);
-    drawBarChart(document.getElementById("branch-grade-canvas"),
-      entries.map(([g]) => g.replace(". Sınıf", "").replace("Anasınıfı ", "Ana.")),
-      entries.map(([, c]) => c), "#0071ce");
   }
 };
 
@@ -11035,7 +11024,7 @@ function renderAiResultHtml(s, comparisonScope) {
         { label: "Doğru", pct: Math.round((stats.correct / stats.total) * 100), color: "var(--strong)" },
         { label: "Yanlış", pct: Math.round((stats.wrong / stats.total) * 100), color: "var(--critical)" },
         { label: "Boş", pct: Math.round((stats.blank / stats.total) * 100), color: "var(--weak)", ink: "var(--weak-ink)" },
-      ], { height: 20 })}
+      ])}
     </div>
     ` : ""}
     ${subjectRows.length ? `
@@ -14757,6 +14746,15 @@ function renderMuhasebeScreen(b) {
   const tahsilat = branchTahsilatOrani(b);
   const recent = (b.ledger || []).slice(0, 10);
   const pending = STUDENT_DIRECTORY.filter(s => s.branchId === b.id && s.paymentStatus !== "Güncel");
+  const monthMap = {};
+  (b.ledger || []).forEach(e => {
+    const d = new Date(e.date);
+    const key = `${d.getFullYear()}-${String(d.getMonth()).padStart(2, "0")}`;
+    if (!monthMap[key]) monthMap[key] = { key, monthIdx: d.getMonth(), gelir: 0, gider: 0 };
+    monthMap[key][e.type === "GELIR" ? "gelir" : "gider"] += e.amount;
+  });
+  const trend = Object.values(monthMap).sort((x, y) => x.key.localeCompare(y.key)).slice(-6)
+    .map(m => ({ label: MONTH_NAMES_TR[m.monthIdx], a: m.gelir, b: m.gider }));
   return `
     <div class="grid-2" style="margin-bottom:12px">
       <div class="m-card kpi-card"><p class="kpi-label">Gelir</p><p class="kpi-value" style="color:var(--success)">${tl(gelir)}</p></div>
@@ -14764,6 +14762,11 @@ function renderMuhasebeScreen(b) {
       <div class="m-card kpi-card"><p class="kpi-label">Net</p><p class="kpi-value">${tl(gelir - gider)}</p></div>
       <div class="m-card kpi-card"><p class="kpi-label">Tahsilat Oranı</p><p class="kpi-value">%${tahsilat}</p></div>
     </div>
+    ${trend.length >= 2 ? `
+    <div class="m-card" style="margin-bottom:14px;padding:14px">
+      <p class="row-sub" style="margin:0 0 8px">Aylık Gelir / Gider (son ${trend.length} ay)</p>
+      ${svgDualLineChart(trend, { colorA: "var(--strong)", colorB: "var(--critical)", labelA: "Gelir", labelB: "Gider", unit: "₺", height: 130 })}
+    </div>` : ""}
     <button class="m-btn primary block" id="m-ledger-add" style="margin-bottom:14px">${ic("wallet")}Yeni Kayıt Ekle</button>
     ${pending.length ? `
     <p class="section-title">Tahsilat Bekleyen (${pending.length})</p>
@@ -15372,7 +15375,18 @@ MODULE_SCREENS_M["ops"] = { html: () => {
 /* ---- Öğretmen Performansı ---- */
 MODULE_SCREENS_M["ogretmenperf"] = { html: () => {
   const teachers = moduleBranches().flatMap(b => (b.staff || []).filter(s => s.role === "Öğretmen").map(t => ({ ...t, branchName: b.name })));
+  const perfRows = teachers.map(t => ({ teacher: t, stats: teacherPerformanceStats(t) }));
+  const withNet = perfRows.filter(r => r.stats.avgNet != null);
+  const maxNet = withNet.length ? Math.max(...withNet.map(r => r.stats.avgNet), 1) : 1;
   return `
+    ${withNet.length ? `
+    <div class="m-card" style="margin-bottom:14px">
+      <p class="row-sub" style="margin:0 0 8px">Öğretmen Bazlı Ortalama Net (Branş)</p>
+      ${svgHBarChart(withNet.map(r => ({
+        label: r.teacher.name, value: r.stats.avgNet, sub: r.teacher.subject,
+        tone: r.stats.avgNet / maxNet >= 0.7 ? "strong" : r.stats.avgNet / maxNet >= 0.4 ? "weak" : "critical",
+      })), { max: maxNet, unit: " net" })}
+    </div>` : ""}
     <div class="stack">${teachers.length ? teachers.map(t => {
       const stats = teacherPerformanceStats(t);
       return `<div class="m-card" style="margin-bottom:10px">
