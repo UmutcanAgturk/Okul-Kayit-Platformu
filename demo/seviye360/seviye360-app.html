@@ -376,6 +376,7 @@
   .btn.success.solid:hover { background-position: 100% 100%; border-color: transparent; transform: translateY(-1px); }
 
   .field { display: flex; flex-direction: column; gap: 5px; }
+  .field input.invalid, .field select.invalid, .field textarea.invalid { border-color: var(--critical); }
   .field label { font-size: 12px; font-weight: 600; color: var(--ink-muted); }
   .field input, .field select {
     padding: 11px 13px; border-radius: var(--radius-sm); border: 1px solid var(--border-strong); background: var(--surface);
@@ -11770,7 +11771,7 @@ function renderFaturaTab() {
         <div class="card-head"><h3>Yeni Fatura Oluştur</h3></div>
         <div style="display:flex;flex-direction:column;gap:10px">
           <div class="grid cols-2">
-            <div class="field"><label>Alıcı Adı / Unvanı</label><input id="ft-buyer-name" placeholder="Örn. Ahmet Yıldırım" /></div>
+            <div class="field"><label>Alıcı Adı / Unvanı</label><input id="ft-buyer-name" placeholder="Örn. Ahmet Yıldırım" /><p id="ft-buyer-name-error" style="color:var(--critical);font-size:11.5px;margin:0"></p></div>
             <div class="field"><label>Tarih</label><input type="date" id="ft-date" value="${todayStr()}" /></div>
           </div>
           <div class="grid cols-2">
@@ -11829,9 +11830,9 @@ function renderInvoiceItemsRows() {
       ${invoiceItems.length > 1 ? `<button class="btn" data-item-remove="${i}" style="padding:4px 8px;font-size:12px">✕</button>` : ""}
     </div>
   `).join("");
-  el.querySelectorAll("[data-item-desc]").forEach(inp => inp.addEventListener("input", () => { invoiceItems[Number(inp.dataset.itemDesc)].description = inp.value; }));
-  el.querySelectorAll("[data-item-qty]").forEach(inp => inp.addEventListener("input", () => { invoiceItems[Number(inp.dataset.itemQty)].quantity = Number(inp.value) || 1; }));
-  el.querySelectorAll("[data-item-price]").forEach(inp => inp.addEventListener("input", () => { invoiceItems[Number(inp.dataset.itemPrice)].unitPrice = Number(inp.value) || 0; }));
+  el.querySelectorAll("[data-item-desc]").forEach(inp => inp.addEventListener("input", () => { invoiceItems[Number(inp.dataset.itemDesc)].description = inp.value; inp.classList.remove("invalid"); }));
+  el.querySelectorAll("[data-item-qty]").forEach(inp => inp.addEventListener("input", () => { invoiceItems[Number(inp.dataset.itemQty)].quantity = Number(inp.value) || 1; inp.classList.remove("invalid"); }));
+  el.querySelectorAll("[data-item-price]").forEach(inp => inp.addEventListener("input", () => { invoiceItems[Number(inp.dataset.itemPrice)].unitPrice = Number(inp.value) || 0; inp.classList.remove("invalid"); }));
   el.querySelectorAll("[data-item-remove]").forEach(btn => btn.addEventListener("click", () => {
     invoiceItems.splice(Number(btn.dataset.itemRemove), 1);
     renderInvoiceItemsRows();
@@ -11845,14 +11846,41 @@ function wireFaturaTab() {
     invoiceItems.push({ description: "", quantity: 1, unitPrice: 0 });
     renderInvoiceItemsRows();
   });
+  const buyerNameInp = document.getElementById("ft-buyer-name");
+  buyerNameInp.addEventListener("input", () => { buyerNameInp.classList.remove("invalid"); document.getElementById("ft-buyer-name-error").textContent = ""; });
   document.getElementById("ft-create").addEventListener("click", () => {
-    const buyerName = document.getElementById("ft-buyer-name").value.trim();
+    const buyerName = buyerNameInp.value.trim();
+    const buyerNameErr = document.getElementById("ft-buyer-name-error");
     const errEl = document.getElementById("ft-error");
+    errEl.textContent = "";
+    buyerNameErr.textContent = "";
+    buyerNameInp.classList.remove("invalid");
+
+    let firstInvalidItem = -1;
+    invoiceItems.forEach((it, i) => {
+      const isValid = it.description.trim() && it.quantity > 0 && it.unitPrice > 0;
+      ["item-desc", "item-qty", "item-price"].forEach(attr => {
+        const inp = document.querySelector(`[data-${attr}="${i}"]`);
+        if (inp) inp.classList.toggle("invalid", !isValid);
+      });
+      if (!isValid && firstInvalidItem === -1) firstInvalidItem = i;
+    });
     const validItems = invoiceItems.filter(it => it.description.trim() && it.quantity > 0 && it.unitPrice > 0);
-    if (!buyerName || !validItems.length) {
-      errEl.textContent = "Alıcı adı ve en az bir geçerli kalem (açıklama, adet, birim fiyat) zorunludur.";
-      return;
+
+    let hasError = false;
+    if (!buyerName) {
+      buyerNameInp.classList.add("invalid");
+      buyerNameErr.textContent = "Alıcı adı zorunludur.";
+      hasError = true;
     }
+    if (!validItems.length) {
+      errEl.textContent = firstInvalidItem >= 0
+        ? `${firstInvalidItem + 1}. kalemde açıklama, adet veya birim fiyat eksik.`
+        : "En az bir geçerli kalem eklemelisiniz.";
+      hasError = true;
+    }
+    if (hasError) return;
+
     createInvoice({
       buyerName, date: document.getElementById("ft-date").value || todayStr(),
       buyerTaxNo: document.getElementById("ft-buyer-taxno").value.trim(),

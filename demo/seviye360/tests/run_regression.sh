@@ -26,6 +26,7 @@ TESTS=(
   t195_belgeler_delete_confirm.js
   t196_tahsilat_confirm_dekont.js
   t197_muhasebe_glossary.js
+  t198_fatura_field_validation.js
 )
 
 pass=0
