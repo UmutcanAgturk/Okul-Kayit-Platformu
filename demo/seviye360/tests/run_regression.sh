@@ -23,6 +23,7 @@ TESTS=(
   t161_typography_tokens.js
   t193_btn_component_check.js
   t194_muhasebe_ux.js
+  t195_belgeler_delete_confirm.js
 )
 
 pass=0

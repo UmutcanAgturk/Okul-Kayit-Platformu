@@ -11725,7 +11725,9 @@ function generateSenetsForStudent(student) {
 
 let belgelerTab = "fatura";
 let invoiceItems = [{ description: "", quantity: 1, unitPrice: 0 }];
-let belgeDeletingKey = null;
+let ftDeletingId = null;
+let dkDeletingId = null;
+let snDeletingId = null;
 
 function renderBelgelerBody() {
   const isHq = state.portal === "hq";
@@ -11787,8 +11789,17 @@ function renderFaturaTab() {
       </div>
       <div class="card card-pad">
         <div class="card-head"><h3>Kesilen Faturalar</h3><span class="hint">${b.invoices.length} adet</span></div>
+        <p class="hint" style="margin:-6px 0 8px">Bu belge Kayıt Defteri'nden bağımsızdır — sildiğinizde defterdeki hiçbir kayıt değişmez.</p>
         <div style="display:flex;flex-direction:column;gap:8px;max-height:520px;overflow-y:auto">
-          ${b.invoices.length ? b.invoices.map(inv => `
+          ${b.invoices.length ? b.invoices.map(inv => ftDeletingId === inv.id ? `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+              <span style="font-size:12px;color:var(--critical)"><b>${inv.no}</b> silinsin mi?</span>
+              <div style="display:flex;gap:6px;flex-shrink:0">
+                <button class="btn xs danger solid" data-ft-confirm-delete="${inv.id}">Evet, Sil</button>
+                <button class="btn xs" data-ft-cancel-delete>Vazgeç</button>
+              </div>
+            </div>
+          ` : `
             <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
               <div>
                 <div style="font-size:12.5px;font-weight:600">${inv.no} · ${inv.buyerName}</div>
@@ -11855,11 +11866,18 @@ function wireFaturaTab() {
     btn.addEventListener("click", () => printInvoice(CURRENT_BRANCH.invoices.find(i => i.id === Number(btn.dataset.ftPrint))));
   });
   document.querySelectorAll("[data-ft-delete]").forEach(btn => {
+    btn.addEventListener("click", () => { ftDeletingId = Number(btn.dataset.ftDelete); renderBelgelerTabBody(); });
+  });
+  document.querySelectorAll("[data-ft-confirm-delete]").forEach(btn => {
     btn.addEventListener("click", () => {
-      CURRENT_BRANCH.invoices = CURRENT_BRANCH.invoices.filter(i => i.id !== Number(btn.dataset.ftDelete));
+      CURRENT_BRANCH.invoices = CURRENT_BRANCH.invoices.filter(i => i.id !== Number(btn.dataset.ftConfirmDelete));
+      ftDeletingId = null;
       persistState();
       renderBelgelerTabBody();
     });
+  });
+  document.querySelectorAll("[data-ft-cancel-delete]").forEach(btn => {
+    btn.addEventListener("click", () => { ftDeletingId = null; renderBelgelerTabBody(); });
   });
 }
 
@@ -11900,8 +11918,17 @@ function renderDekontTab() {
       </div>
       <div class="card card-pad">
         <div class="card-head"><h3>Oluşturulan Dekontlar</h3><span class="hint">${b.dekontlar.length} adet</span></div>
+        <p class="hint" style="margin:-6px 0 8px">Bu belge Kayıt Defteri'nden bağımsızdır — sildiğinizde defterdeki hiçbir kayıt değişmez.</p>
         <div style="display:flex;flex-direction:column;gap:8px;max-height:520px;overflow-y:auto">
-          ${b.dekontlar.length ? b.dekontlar.map(d => `
+          ${b.dekontlar.length ? b.dekontlar.map(d => dkDeletingId === d.id ? `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+              <span style="font-size:12px;color:var(--critical)"><b>${d.no}</b> silinsin mi?</span>
+              <div style="display:flex;gap:6px;flex-shrink:0">
+                <button class="btn xs danger solid" data-dk-confirm-delete="${d.id}">Evet, Sil</button>
+                <button class="btn xs" data-dk-cancel-delete>Vazgeç</button>
+              </div>
+            </div>
+          ` : `
             <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
               <div>
                 <div style="font-size:12.5px;font-weight:600">${d.no} · ${d.personName}</div>
@@ -11950,11 +11977,18 @@ function wireDekontTab() {
     btn.addEventListener("click", () => printDekont(CURRENT_BRANCH.dekontlar.find(d => d.id === Number(btn.dataset.dkPrint))));
   });
   document.querySelectorAll("[data-dk-delete]").forEach(btn => {
+    btn.addEventListener("click", () => { dkDeletingId = Number(btn.dataset.dkDelete); renderBelgelerTabBody(); });
+  });
+  document.querySelectorAll("[data-dk-confirm-delete]").forEach(btn => {
     btn.addEventListener("click", () => {
-      CURRENT_BRANCH.dekontlar = CURRENT_BRANCH.dekontlar.filter(d => d.id !== Number(btn.dataset.dkDelete));
+      CURRENT_BRANCH.dekontlar = CURRENT_BRANCH.dekontlar.filter(d => d.id !== Number(btn.dataset.dkConfirmDelete));
+      dkDeletingId = null;
       persistState();
       renderBelgelerTabBody();
     });
+  });
+  document.querySelectorAll("[data-dk-cancel-delete]").forEach(btn => {
+    btn.addEventListener("click", () => { dkDeletingId = null; renderBelgelerTabBody(); });
   });
 }
 
@@ -11981,8 +12015,17 @@ function renderSenetTab() {
       </div>
       <div class="card card-pad">
         <div class="card-head"><h3>Oluşturulan Senetler</h3><span class="hint">${b.senetler.length} adet</span></div>
+        <p class="hint" style="margin:-6px 0 8px">Bu belge Kayıt Defteri'nden bağımsızdır — sildiğinizde defterdeki hiçbir kayıt değişmez.</p>
         <div style="display:flex;flex-direction:column;gap:8px;max-height:520px;overflow-y:auto">
-          ${b.senetler.length ? b.senetler.map(s => `
+          ${b.senetler.length ? b.senetler.map(s => snDeletingId === s.id ? `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+              <span style="font-size:12px;color:var(--critical)"><b>${s.no}</b> silinsin mi?</span>
+              <div style="display:flex;gap:6px;flex-shrink:0">
+                <button class="btn xs danger solid" data-sn-confirm-delete="${s.id}">Evet, Sil</button>
+                <button class="btn xs" data-sn-cancel-delete>Vazgeç</button>
+              </div>
+            </div>
+          ` : `
             <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
               <div>
                 <div style="font-size:12.5px;font-weight:600">${s.no} · ${s.debtorName}</div>
@@ -12028,11 +12071,18 @@ function wireSenetTab() {
     btn.addEventListener("click", () => printSenet(CURRENT_BRANCH.senetler.find(s => s.id === Number(btn.dataset.snPrint))));
   });
   document.querySelectorAll("[data-sn-delete]").forEach(btn => {
+    btn.addEventListener("click", () => { snDeletingId = Number(btn.dataset.snDelete); renderBelgelerTabBody(); });
+  });
+  document.querySelectorAll("[data-sn-confirm-delete]").forEach(btn => {
     btn.addEventListener("click", () => {
-      CURRENT_BRANCH.senetler = CURRENT_BRANCH.senetler.filter(s => s.id !== Number(btn.dataset.snDelete));
+      CURRENT_BRANCH.senetler = CURRENT_BRANCH.senetler.filter(s => s.id !== Number(btn.dataset.snConfirmDelete));
+      snDeletingId = null;
       persistState();
       renderBelgelerTabBody();
     });
+  });
+  document.querySelectorAll("[data-sn-cancel-delete]").forEach(btn => {
+    btn.addEventListener("click", () => { snDeletingId = null; renderBelgelerTabBody(); });
   });
 }
 
