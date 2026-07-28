@@ -476,6 +476,20 @@ seviye-360/
     kulüp/quiz kayıtları eklendiğinde XP ve ilgili rozetlerin doğru arttığını,
     tenant izolasyonunu (404 — bkz. prisma/rls/README.md) ve Lider
     Tablosu'nun (BRANCH_ADMIN + TEACHER) doğru sıralandığını doğrular.
+37. **Öğrenciler — Tüm Şubeler (Genel Merkez) — yirmi birinci gerçek modül**
+    (yeni bir Prisma modeli EKLEMEZ — saf agregasyon, bkz.
+    `apps/web/app/api/hq/students`, `apps/web/components/hq/HqDashboard.tsx`).
+    Demo'daki "hq:students" ekranının gerçek karşılığı: SUPERADMIN, tüm
+    tenant'lardaki her öğrenciyi (şube bazlı kısıtlama olmaksızın) isim/
+    öğrenci no ile arayıp şubeye göre filtreleyebilir; özet kartları (toplam
+    öğrenci, şube sayısı, en kalabalık şube, sınıfa atanmamış öğrenci sayısı)
+    ve öğrenci başına genel ortalama net (Raporlar/Sınav Sonuçları Özeti ile
+    aynı hesaplama) gösterir. Kurum Yönetimi ekranına yeni bir panel olarak
+    eklendi. `apps/web/scripts/test-hq-students-module.mjs` (14 kontrol)
+    SUPERADMIN-only yetkisini, `summary.totalStudents`'ın ham DB sayımıyla
+    eşleştiğini, `tenantId`/`q` filtrelerinin doğru çalıştığını ve bir
+    öğrencinin `avgNet`'inin ham `ExamResult` ortalamasıyla eşleştiğini
+    doğrular.
 
 ## Yerel Geliştirme (Veritabanı)
 
@@ -545,6 +559,7 @@ node scripts/test-hq-tenants-module.mjs      # Kurum Yönetimi: SUPERADMIN yetki
 node scripts/test-messages-module.mjs        # İletişim: gönderme yetkisi + sınıf filtreli hedefleme + okundu/kaldırma + tenant izolasyonu
 node scripts/test-mentor-module.mjs          # Seviye Mentör: havuz yetkisi + otomatik atama + aylık kota + onay/red/tamamlandı geçişleri
 node scripts/test-gamification-module.mjs    # Gamification: XP formülü + rozet eşikleri + tenant izolasyonu + Lider Tablosu
+node scripts/test-hq-students-module.mjs     # Genel Merkez Öğrenciler: SUPERADMIN yetkisi + tenant/arama filtreleri + ham DB eşleşmesi
 node scripts/test-rls-isolation.mjs          # RLS: tenant izolasyonu + Muhasebe rol kısıtlaması (ham DB seviyesinde)
 ```
 

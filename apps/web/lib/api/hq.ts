@@ -38,7 +38,37 @@ export function fetchHqAccountingSummary() {
   return apiFetch<HqLedgerSummary>("/api/hq/accounting-ledger", { cache: "no-store" });
 }
 
+export interface HqStudentRow {
+  id: string;
+  studentNo: string;
+  name: string;
+  tenantId: string;
+  tenantName: string;
+  gradeLevel: string;
+  classroomName: string | null;
+  avgNet: number | null;
+}
+
+export interface HqStudentsResponse {
+  summary: {
+    totalStudents: number;
+    branchCount: number;
+    busiestBranch: { name: string; count: number } | null;
+    unassignedCount: number;
+  };
+  students: HqStudentRow[];
+}
+
+export function fetchHqStudents(params?: { q?: string; tenantId?: string }) {
+  const search = new URLSearchParams();
+  if (params?.q) search.set("q", params.q);
+  if (params?.tenantId) search.set("tenantId", params.tenantId);
+  const qs = search.toString();
+  return apiFetch<HqStudentsResponse>(`/api/hq/students${qs ? `?${qs}` : ""}`, { cache: "no-store" });
+}
+
 export const hqKeys = {
   tenants: () => ["hq", "tenants"] as const,
   accountingSummary: () => ["hq", "accounting-summary"] as const,
+  students: (q: string, tenantId: string) => ["hq", "students", q, tenantId] as const,
 };
