@@ -380,6 +380,22 @@ seviye-360/
     (correctCount > totalCount reddi, olmayan achievementId 404), rol/tenant
     izolasyonunu ve gerçek seed kazanımının (`MAT.9.1.2.3`) listede
     görünmesini doğrular.
+32. **Raporlar / Dışa Aktarım Merkezi — on altıncı gerçek modül** (yeni bir
+    Prisma modeli EKLEMEZ — bkz. `apps/web/app/api/branch/reports/*`).
+    Beş rapor, tamamen mevcut tablolardan anlık üretilir: Öğrenci Listesi,
+    Personel Listesi, Devamsızlık Özeti ve Sınav Sonuçları Özeti CSV olarak
+    indirilir (`apps/web/lib/csv.ts`'teki RFC 4180 uyumlu `toCsv()` ile), Mali
+    Özet ise `apps/web/components/reports/ReportsDashboard.tsx`'te
+    görüntülenebilir bir tablo olarak JSON döner. Öğrenci Listesi'ndeki ödeme
+    durumu (`Taksit Yok`/`Gecikmiş`/`Planlı`/`Güncel`) `PaymentInstallment`
+    kayıtlarından, Devamsızlık Özeti'ndeki gün sayısı/oran `AttendanceRecord`'dan,
+    Mali Özet `AccountingLedgerEntry`'den (tür+kategori bazlı toplama)
+    türetilir. Tüm beş endpoint yalnızca `BRANCH_ADMIN`'e açıktır ve her
+    indirme/görüntüleme Aktivite Akışı'na ("Rapor indirildi"/"Rapor
+    görüntülendi") işlenir. `apps/web/scripts/test-reports-module.mjs`
+    (34 kontrol) rol/oturum yetkisini, dört CSV'nin başlık satırlarını,
+    Mali Özet'in `netProfit = totalIncome - totalExpense` tutarlılığını ve
+    Aktivite Akışı'na yansımayı doğrular.
 
 ## Yerel Geliştirme (Veritabanı)
 
@@ -444,6 +460,7 @@ node scripts/test-activity-log-module.mjs    # Aktivite Akışı: rol/tenant izo
 node scripts/test-today-summary-module.mjs   # Bugün Özeti: yoklama/ödeme/PTA/aktivite fixture'larının özet sayılarına yansıması
 node scripts/test-bus-routes-module.mjs      # Servis: tek-güzergah kısıtı + rol/tenant izolasyonu
 node scripts/test-quiz-module.mjs            # Quiz: doğrulama + rol/tenant izolasyonu + kazanım eşleme
+node scripts/test-reports-module.mjs         # Raporlar: 5 rapor endpoint'i + CSV başlıkları + Mali Özet tutarlılığı + Aktivite Akışı yansıması
 node scripts/test-rls-isolation.mjs          # RLS: tenant izolasyonu + Muhasebe rol kısıtlaması (ham DB seviyesinde)
 ```
 
