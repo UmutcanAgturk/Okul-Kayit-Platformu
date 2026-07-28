@@ -90,6 +90,7 @@ model Tenant {
   ptaMeetingRequests  PtaMeetingRequest[]
   clubs               Club[]
   auditLogEntries     AuditLogEntry[]
+  busRoutes           BusRoute[]
 
   @@index([parentId])
 }
@@ -205,6 +206,9 @@ model StudentProfile {
   gradeLevel  GradeLevel // kayıt sırasında belirlenir; şube ataması sonrasında da sabit kalır
   classroomId String? // "Sınıf Atama" ekranıyla doldurulur (örn. "9-A"); null ise henüz bir şubeye atanmamıştır
   classroom   Classroom? @relation(fields: [classroomId], references: [id])
+
+  busRouteId String? // Servis/Ulaşım Takibi — bir öğrenci en fazla BİR güzergaha atanabilir
+  busRoute   BusRoute? @relation(fields: [busRouteId], references: [id])
 
   targetGoal String? // örn. "Tıp Fakültesi"
   studentNo  String  @unique
@@ -609,6 +613,33 @@ model ClubMembership {
   joinedAt DateTime @default(now())
 
   @@id([clubId, studentId])
+}
+
+// Servis / Ulaşım Takibi — demo'daki CURRENT_BRANCH.busRoutes'un gerçek
+// karşılığı. Kulüpler'in aksine (çoka-çok üyelik) bir öğrenci aynı anda en
+// fazla BİR güzergaha binebilir — bu yüzden ayrı bir join tablosu yerine
+// `StudentProfile.busRouteId` (nullable tekli FK) kullanılır; bir öğrenciyi
+// bir güzergaha "Ekle" onu varsa önceki güzergahından otomatik çıkarır. Düz
+// `tenant_isolation` (Devamsızlık/Disiplin/PTA/Kulüpler ile aynı desen):
+// yalnızca BRANCH_ADMIN güzergah oluşturup öğrenci atayabilir; STUDENT/PARENT
+// yalnızca KENDİ (velisi olduğu öğrencinin) güzergahını görebilir.
+model BusRoute {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  name        String
+  driverName  String?
+  driverPhone String?
+  capacity    Int
+  stops       String[]
+
+  students StudentProfile[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
 }
 
 // Aktivite Akışı (Audit Log) — demo'daki `logActivity()`/`ACTIVITY_LOG`'un

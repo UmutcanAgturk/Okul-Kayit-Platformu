@@ -340,6 +340,24 @@ seviye-360/
     erişebilir (Aktivite Akışı ile aynı kapsam). `apps/web/scripts/test-today-summary-module.mjs`
     (14 kontrol) dört ayrı fixture'ın (yoklama, vadesi geçmiş/yaklaşan taksit,
     PTA talebi, disiplin kaydı) özet sayılarına doğru yansıdığını doğrular.
+30. **Servis / Ulaşım Takibi — on dördüncü gerçek modül** (`BusRoute` modeli
+    ve `StudentProfile.busRouteId`, bkz. `prisma/migrations/20260728130703_add_bus_routes`,
+    `apps/web/app/api/branch/bus-routes[/[routeId]/members]`,
+    `apps/web/app/api/students/[studentId]/bus-route`,
+    `apps/web/components/bus-routes/BusRoutesDashboard.tsx`). `BusRoute` düz
+    `tenant_isolation` taşır — Kulüpler ile aynı desen, ama üyelik modeli
+    KASITLI OLARAK farklı: Kulüpler çoka-çok (`ClubMembership` join tablosu)
+    iken burada bir öğrenci en fazla BİR servise binebileceği için düz bir
+    `StudentProfile.busRouteId` (nullable tekli FK) kullanılır — bir öğrenciyi
+    bir güzergaha "Ekle" onu varsa önceki güzergahından OTOMATİK çıkarır (ayrı
+    bir "çıkar" adımı gerekmez). Yalnızca `BRANCH_ADMIN` güzergah oluşturup
+    öğrenci atayabilir; `STUDENT`/`PARENT` yalnızca KENDİ (velisi olduğu
+    öğrencinin) güzergahını salt okunur görebilir — Kulüpler'in aksine
+    öğrenci/veli kendi kendine katılıp ayrılamaz (demo'daki "student:servis"
+    ekranı da salt okunur). `apps/web/scripts/test-bus-routes-module.mjs`
+    (19 kontrol) tek-güzergah kısıtını (ikinci güzergaha eklemenin birinciden
+    otomatik çıkardığını), rol/tenant izolasyonunu ve atanmamış öğrenci için
+    `route: null` döndüğünü doğrular.
 
 ## Yerel Geliştirme (Veritabanı)
 
@@ -402,6 +420,7 @@ node scripts/test-pta-module.mjs             # Veli-Öğretmen Görüşmesi: tal
 node scripts/test-clubs-module.mjs           # Kulüpler: oluşturma/üyelik toggle + çapraz-danışman/tenant izolasyonu
 node scripts/test-activity-log-module.mjs    # Aktivite Akışı: rol/tenant izolasyonu + başka modülden yansıma doğrulaması
 node scripts/test-today-summary-module.mjs   # Bugün Özeti: yoklama/ödeme/PTA/aktivite fixture'larının özet sayılarına yansıması
+node scripts/test-bus-routes-module.mjs      # Servis: tek-güzergah kısıtı + rol/tenant izolasyonu
 node scripts/test-rls-isolation.mjs          # RLS: tenant izolasyonu + Muhasebe rol kısıtlaması (ham DB seviyesinde)
 ```
 
