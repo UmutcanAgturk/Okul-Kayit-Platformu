@@ -33,6 +33,15 @@ export function generateStudentEmail(fullName: string, tenantCode: string): stri
   return `${local}.${domainTag}@ogrenci.seviye360.com`;
 }
 
+// Personel (Şube Müdürü/Ön Büro/Muhasebe/Rehber Öğretmen) için — bkz.
+// /api/branch/staff. Öğrenci e-postalarından ayrı bir alan adı kullanır ki
+// aynı isimdeki bir öğrenci ile personel e-postaları asla çakışmasın.
+export function generateStaffEmail(fullName: string, tenantCode: string): string {
+  const local = slugifyTurkish(fullName) || "personel";
+  const domainTag = slugifyTurkish(tenantCode).replace(/\./g, "-") || "sube";
+  return `${local}.${domainTag}@personel.seviye360.com`;
+}
+
 const PASSWORD_ALPHABET = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789"; // 0/O/1/l/I hariç
 
 export function generateTempPassword(length = 10): string {

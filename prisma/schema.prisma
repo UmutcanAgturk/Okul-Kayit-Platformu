@@ -81,6 +81,7 @@ model Tenant {
   paymentMethods     PaymentMethod[]
   ledgerEntries      AccountingLedgerEntry[]
   payrollRecords     PayrollRecord[]
+  staffProfiles      StaffProfile[]
 
   @@index([parentId])
 }
@@ -116,6 +117,7 @@ model User {
   updatedAt    DateTime @updatedAt
 
   teacherProfile TeacherProfile?
+  staffProfile   StaffProfile?
   studentProfile StudentProfile?
   parentProfile  ParentProfile?
   sessions       UserSession[]
@@ -152,6 +154,35 @@ model TeacherProfile {
   payrollRecords      PayrollRecord[]
 
   @@index([branch])
+}
+
+// Öğretmen dışı personel (Şube Müdürü, Ön Büro Görevlisi, Muhasebe Görevlisi,
+// Rehber Öğretmen vb.) — TeacherProfile'dan bilinçli olarak ayrı: öğretmene
+// özgü alanlar (branch/zümre, availabilitySlots, studySessions) burada
+// anlamsız olurdu. TeacherProfile'ın aksine (bkz. apps/web/app/api/branch/payroll
+// route'undaki not — o tabloda tenant'a göre RLS YOK) burada `tenantId` doğrudan
+// tutulur ve PayrollRecord/AccountingLedgerEntry ile AYNI rol-kısıtlı RLS
+// politikasını taşır — maaş içerdiği için yalnızca SUPERADMIN/BRANCH_ADMIN/
+// ACCOUNTING görebilir (bkz. prisma/rls/README.md).
+model StaffProfile {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title      String // örn. "Şube Müdürü", "Ön Büro Görevlisi", "Muhasebe Görevlisi", "Rehber Öğretmen"
+  department String? // örn. "Rehberlik", "İdari İşler"
+  startDate  DateTime
+  salary     Decimal  @db.Decimal(10, 2)
+
+  payrollRecords PayrollRecord[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
 }
 
 model StudentProfile {
@@ -565,8 +596,18 @@ model PayrollRecord {
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id])
 
-  teacherId String
-  teacher   TeacherProfile @relation(fields: [teacherId], references: [id])
+  // Tam olarak biri dolu olmalı — öğretmen için teacherId, öğretmen dışı
+  // personel (StaffProfile) için staffProfileId. Uygulama katmanında
+  // (apps/web/app/api/branch/payroll) doğrulanır VE bir Postgres CHECK
+  // constraint'iyle (bkz. bu modelin migration'ındaki
+  // "PayrollRecord_teacher_or_staff_check") veritabanı seviyesinde de
+  // garanti edilir.
+  teacherId String?
+  teacher   TeacherProfile? @relation(fields: [teacherId], references: [id])
+
+  staffProfileId String?
+  staffProfile   StaffProfile? @relation(fields: [staffProfileId], references: [id])
+
   period    String // "2026-07" (YYYY-MM)
 
   grossSalary               Decimal @db.Decimal(10, 2)
@@ -587,5 +628,6 @@ model PayrollRecord {
   createdAt       DateTime @default(now())
 
   @@unique([teacherId, period])
+  @@unique([staffProfileId, period])
   @@index([tenantId, period])
 }

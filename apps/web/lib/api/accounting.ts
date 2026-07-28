@@ -92,8 +92,10 @@ export function fetchAging() {
 export interface PayrollRecord {
   id: string;
   period: string;
-  teacherId: string;
-  teacherName: string;
+  teacherId: string | null;
+  staffProfileId: string | null;
+  personName: string;
+  personRole: "TEACHER" | "STAFF";
   grossSalary: string;
   sgkEmployeeShare: string;
   unemploymentEmployeeShare: string;
@@ -110,7 +112,7 @@ export function fetchPayroll() {
   return apiFetch<{ records: PayrollRecord[] }>("/api/branch/payroll", { cache: "no-store" });
 }
 
-export function createPayroll(input: { teacherId: string; period: string; grossSalary: number }) {
+export function createPayroll(input: { teacherId?: string; staffProfileId?: string; period: string; grossSalary: number }) {
   return apiFetch<{ record: PayrollRecord }>("/api/branch/payroll", { method: "POST", body: JSON.stringify(input) });
 }
 

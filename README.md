@@ -158,10 +158,26 @@ seviye-360/
     yerde `localStorage` kullanılmaz. Seed veriyle örnek giriş:
     `merve.aslan@seviye360.com` / `seviye360dev-pw` (bkz. "Yerel Geliştirme").
     **Bilinçli kapsam dışı (henüz taşınmadı):** Fatura/Dekont/Senet (Prisma'da
-    karşılığı yok), ve Bordro yalnızca `TeacherProfile`'ı kapsar — şemada genel
-    bir "personel" modeli (şube müdürü, ön büro, muhasebe görevlisi vb.) henüz
-    yok, bu yüzden demo/seviye360-app.html'deki "Maaş Ödemeleri" bölümünün tüm
-    personeli kapsamasından daha dar bir kapsamı var.
+    karşılığı yok).
+20. **Personel modülü (öğretmen dışı personel) — beşinci gerçek modül**
+    (`prisma/schema.prisma`'daki `StaffProfile` modeli,
+    `apps/web/app/api/branch/staff`, `apps/web/app/(branch)/personel`,
+    `apps/web/components/personel/PersonelDashboard.tsx`) — madde 19'daki
+    "Bordro yalnızca `TeacherProfile`'ı kapsar" sınırını kapatır. `StaffProfile`,
+    `TeacherProfile`'ın aksine kendi `tenantId`'sini taşır ve
+    `PayrollRecord`/`AccountingLedgerEntry` ile aynı `tenant_and_role_isolation`
+    RLS politikasına tabidir (bkz. `prisma/migrations/20260728064932_add_staff_profile`).
+    `PayrollRecord.teacherId`/`staffProfileId` artık ikisi de opsiyonel — tam
+    olarak biri dolu olmalıdır; bu hem uygulama katmanında hem de veritabanı
+    seviyesinde bir `CHECK (num_nonnulls("teacherId", "staffProfileId") = 1)`
+    kısıtıyla (`PayrollRecord_teacher_or_staff_check`) garanti edilir. Yeni
+    personel eklendiğinde (Şube Müdürü/Muhasebe Görevlisi/Rehber Öğretmen rolüyle)
+    otomatik bir kullanıcı adı/şifre üretilir (bkz. `lib/enrollment.ts`'deki
+    `generateStaffEmail`) ve yalnızca oluşturma anında düz metin olarak
+    gösterilir. Personel "silinmez", yalnızca deaktive edilir (`User.isActive=false`)
+    — bordro/defter geçmişiyle FK ilişkisi olan bir kaydı gerçekten silmek veri
+    bütünlüğünü bozar. Bordro sekmesindeki kişi seçici artık Öğretmen/Öğretmen
+    Dışı Personel arasında geçiş yapabiliyor.
 
 ## Yerel Geliştirme (Veritabanı)
 
@@ -213,6 +229,7 @@ node scripts/test-study-sessions.mjs         # etüt onay/red API'si (login + te
 node scripts/test-class-xray.mjs             # AI Sınıf Röntgeni API'si (login + tenant izolasyonu + yetki kontrolü)
 node scripts/test-accounting-ledger.mjs      # Muhasebe defteri API'si (login + tenant izolasyonu + yetki kontrolü)
 node scripts/test-muhasebe-ui-endpoints.mjs  # Muhasebe arayüzü için eklenen DELETE ledger + GET teachers
+node scripts/test-staff-module.mjs           # Personel (StaffProfile) CRUD + staffProfileId ile bordro + DB CHECK constraint
 node scripts/test-rls-isolation.mjs          # RLS: tenant izolasyonu + Muhasebe rol kısıtlaması (ham DB seviyesinde)
 ```
 

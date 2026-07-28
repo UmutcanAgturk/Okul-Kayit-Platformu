@@ -29,7 +29,10 @@ export async function GET(request: NextRequest) {
 
   const records = await withTenantContext(actor, (tx) =>
     tx.payrollRecord.findMany({
-      include: { teacher: { include: { user: true } } },
+      include: {
+        teacher: { include: { user: true } },
+        staffProfile: { include: { user: true } },
+      },
       orderBy: [{ period: "desc" }, { createdAt: "desc" }],
     }),
   );
@@ -39,7 +42,11 @@ export async function GET(request: NextRequest) {
       id: r.id,
       period: r.period,
       teacherId: r.teacherId,
-      teacherName: `${r.teacher.user.firstName} ${r.teacher.user.lastName}`,
+      staffProfileId: r.staffProfileId,
+      personName: r.teacher
+        ? `${r.teacher.user.firstName} ${r.teacher.user.lastName}`
+        : `${r.staffProfile!.user.firstName} ${r.staffProfile!.user.lastName}`,
+      personRole: r.teacher ? "TEACHER" : "STAFF",
       grossSalary: r.grossSalary,
       sgkEmployeeShare: r.sgkEmployeeShare,
       unemploymentEmployeeShare: r.unemploymentEmployeeShare,
@@ -65,28 +72,49 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => ({}));
   const teacherId = typeof body.teacherId === "string" && body.teacherId ? body.teacherId : null;
+  const staffProfileId = typeof body.staffProfileId === "string" && body.staffProfileId ? body.staffProfileId : null;
   const period = typeof body.period === "string" && /^\d{4}-\d{2}$/.test(body.period) ? body.period : null;
   const grossSalary = typeof body.grossSalary === "number" && body.grossSalary > 0 ? body.grossSalary : null;
 
-  if (!teacherId || !period || !grossSalary) {
+  if ((!teacherId && !staffProfileId) || (teacherId && staffProfileId) || !period || !grossSalary) {
     return NextResponse.json(
-      { message: "teacherId, period (YYYY-MM) ve grossSalary (>0) zorunludur" },
+      { message: "teacherId veya staffProfileId (yalnızca biri), period (YYYY-MM) ve grossSalary (>0) zorunludur" },
       { status: 400 },
     );
   }
 
   const outcome = await withTenantContext(actor, async (tx) => {
-    // TeacherProfile'ın kendisi RLS ile tenant'a scope edilmemiştir (bkz.
-    // prisma/rls/README.md) — bu yüzden "bu öğretmen gerçekten bu şubede mi"
-    // kontrolü burada, uygulama katmanında elle yapılır.
-    const teacher = await tx.teacherProfile.findUnique({ where: { id: teacherId }, include: { user: true } });
-    if (!teacher || teacher.user.tenantId !== actor.tenantId) {
-      return { kind: "not_found" as const };
-    }
+    let personName: string;
 
-    const existing = await tx.payrollRecord.findUnique({ where: { teacherId_period: { teacherId, period } } });
-    if (existing) {
-      return { kind: "duplicate" as const };
+    if (teacherId) {
+      // TeacherProfile'ın kendisi RLS ile tenant'a scope edilmemiştir (bkz.
+      // prisma/rls/README.md) — bu yüzden "bu öğretmen gerçekten bu şubede mi"
+      // kontrolü burada, uygulama katmanında elle yapılır.
+      const teacher = await tx.teacherProfile.findUnique({ where: { id: teacherId }, include: { user: true } });
+      if (!teacher || teacher.user.tenantId !== actor.tenantId) {
+        return { kind: "not_found" as const };
+      }
+      personName = `${teacher.user.firstName} ${teacher.user.lastName}`;
+
+      const existing = await tx.payrollRecord.findUnique({ where: { teacherId_period: { teacherId, period } } });
+      if (existing) {
+        return { kind: "duplicate" as const };
+      }
+    } else {
+      // StaffProfile RLS ile tenant'a scope edilmiştir (tenant_and_role_isolation) —
+      // başka bir tenant'a ait bir id burada zaten görünmez (null döner).
+      const staff = await tx.staffProfile.findUnique({ where: { id: staffProfileId! }, include: { user: true } });
+      if (!staff) {
+        return { kind: "not_found" as const };
+      }
+      personName = `${staff.user.firstName} ${staff.user.lastName}`;
+
+      const existing = await tx.payrollRecord.findUnique({
+        where: { staffProfileId_period: { staffProfileId: staffProfileId!, period } },
+      });
+      if (existing) {
+        return { kind: "duplicate" as const };
+      }
     }
 
     const breakdown = computePayroll(grossSalary);
@@ -98,7 +126,7 @@ export async function POST(request: NextRequest) {
         category: "Personel Maaşı",
         amount: breakdown.employerCost,
         entryDate: new Date(),
-        note: `${teacher.user.firstName} ${teacher.user.lastName} — ${period} bordrosu (işveren toplam maliyeti)`,
+        note: `${personName} — ${period} bordrosu (işveren toplam maliyeti)`,
         createdByUserId: actor.id,
       },
     });
@@ -106,7 +134,8 @@ export async function POST(request: NextRequest) {
     const record = await tx.payrollRecord.create({
       data: {
         tenantId: actor.tenantId!,
-        teacherId,
+        teacherId: teacherId ?? undefined,
+        staffProfileId: staffProfileId ?? undefined,
         period,
         grossSalary,
         ...breakdown,
@@ -119,10 +148,10 @@ export async function POST(request: NextRequest) {
   });
 
   if (outcome.kind === "not_found") {
-    return NextResponse.json({ message: "Öğretmen bulunamadı" }, { status: 404 });
+    return NextResponse.json({ message: teacherId ? "Öğretmen bulunamadı" : "Personel bulunamadı" }, { status: 404 });
   }
   if (outcome.kind === "duplicate") {
-    return NextResponse.json({ message: `Bu öğretmen için ${period} bordrosu zaten oluşturulmuş` }, { status: 409 });
+    return NextResponse.json({ message: `Bu kişi için ${period} bordrosu zaten oluşturulmuş` }, { status: 409 });
   }
   return NextResponse.json({ record: outcome.record }, { status: 201 });
 }

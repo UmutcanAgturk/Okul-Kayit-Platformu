@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { accountingKeys, createPayroll, fetchPayroll } from "@/lib/api/accounting";
 import { fetchTeachers, teacherKeys } from "@/lib/api/teachers";
+import { fetchStaff, staffKeys } from "@/lib/api/staff";
 import { ApiError } from "@/lib/api/client";
 
 function tl(n: number) {
@@ -15,18 +16,20 @@ function currentPeriod() {
 }
 
 /**
- * Basitleştirilmiş bordro (bkz. lib/payroll.ts) — şu an için yalnızca
- * TeacherProfile'ı olan (öğretmen) personeli kapsar; Prisma şemasında henüz
- * öğretmen dışı personel (şube müdürü, ön büro, muhasebe görevlisi vb.) için
- * genel bir Staff modeli yok — bu bilinçli bir sınır, demo/seviye360-app.html'deki
- * "Maaş Ödemeleri" bölümünün tüm personeli kapsamasından farklı.
+ * Basitleştirilmiş bordro (bkz. lib/payroll.ts) — hem TeacherProfile'ı olan
+ * öğretmenleri hem de StaffProfile'ı olan öğretmen dışı personeli (şube
+ * müdürü, ön büro, muhasebe görevlisi, rehber öğretmen vb.) kapsar (bkz.
+ * app/api/branch/staff ve PayrollRecord'daki teacherId/staffProfileId
+ * ayrımı — tam olarak biri dolu olmalıdır).
  */
 export function PayrollPanel() {
   const queryClient = useQueryClient();
   const teachersQuery = useQuery({ queryKey: teacherKeys.list(), queryFn: fetchTeachers });
+  const staffQuery = useQuery({ queryKey: staffKeys.list(), queryFn: fetchStaff });
   const payrollQuery = useQuery({ queryKey: accountingKeys.payroll(), queryFn: fetchPayroll });
 
-  const [teacherId, setTeacherId] = useState("");
+  const [personKind, setPersonKind] = useState<"TEACHER" | "STAFF">("TEACHER");
+  const [personId, setPersonId] = useState("");
   const [period, setPeriod] = useState(currentPeriod());
   const [grossSalary, setGrossSalary] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
@@ -45,14 +48,19 @@ export function PayrollPanel() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const gross = Number(grossSalary);
-    if (!teacherId || !period || !gross || gross <= 0) {
-      setFormError("Öğretmen, dönem ve pozitif bir brüt maaş zorunludur.");
+    if (!personId || !period || !gross || gross <= 0) {
+      setFormError("Kişi, dönem ve pozitif bir brüt maaş zorunludur.");
       return;
     }
-    createMutation.mutate({ teacherId, period, grossSalary: gross });
+    createMutation.mutate(
+      personKind === "TEACHER"
+        ? { teacherId: personId, period, grossSalary: gross }
+        : { staffProfileId: personId, period, grossSalary: gross },
+    );
   }
 
   const teachers = teachersQuery.data?.teachers ?? [];
+  const staff = (staffQuery.data?.staff ?? []).filter((s) => s.isActive);
   const records = payrollQuery.data?.records ?? [];
 
   return (
@@ -61,18 +69,40 @@ export function PayrollPanel() {
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Yeni Bordro Oluştur</h2>
         <form onSubmit={handleSubmit} className="mt-3 space-y-3">
           <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Öğretmen</label>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Kişi Türü</label>
             <select
-              value={teacherId}
-              onChange={(e) => setTeacherId(e.target.value)}
+              value={personKind}
+              onChange={(e) => {
+                setPersonKind(e.target.value as "TEACHER" | "STAFF");
+                setPersonId("");
+              }}
+              className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
+            >
+              <option value="TEACHER">Öğretmen</option>
+              <option value="STAFF">Öğretmen Dışı Personel</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">
+              {personKind === "TEACHER" ? "Öğretmen" : "Personel"}
+            </label>
+            <select
+              value={personId}
+              onChange={(e) => setPersonId(e.target.value)}
               className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
             >
               <option value="">— Seçin —</option>
-              {teachers.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name} ({t.branch})
-                </option>
-              ))}
+              {personKind === "TEACHER"
+                ? teachers.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name} ({t.branch})
+                    </option>
+                  ))
+                : staff.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} ({s.title})
+                    </option>
+                  ))}
             </select>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -125,7 +155,7 @@ export function PayrollPanel() {
             <div key={r.id} className="border-b border-slate-100 py-2 text-sm dark:border-slate-800">
               <div className="flex items-center justify-between">
                 <span className="font-medium text-slate-900 dark:text-slate-50">
-                  {r.teacherName} · {r.period}
+                  {r.personName} · {r.period}
                 </span>
                 <span className="font-semibold text-emerald-600 dark:text-emerald-400">{tl(Number(r.netSalary))} net</span>
               </div>

@@ -1,0 +1,41 @@
+import { apiFetch } from "./client";
+
+export type StaffUserRole = "BRANCH_ADMIN" | "ACCOUNTING" | "GUIDANCE_COORDINATOR";
+
+export interface StaffMember {
+  id: string;
+  name: string;
+  email: string;
+  role: StaffUserRole;
+  isActive: boolean;
+  title: string;
+  department: string | null;
+  startDate: string;
+  salary: string;
+}
+
+export function fetchStaff() {
+  return apiFetch<{ staff: StaffMember[] }>("/api/branch/staff", { cache: "no-store" });
+}
+
+export function createStaff(input: {
+  fullName: string;
+  role: StaffUserRole;
+  title: string;
+  department?: string;
+  startDate: string;
+  salary: number;
+}) {
+  return apiFetch<{ staff: StaffMember; credentials: { username: string; password: string } }>(
+    "/api/branch/staff",
+    { method: "POST", body: JSON.stringify(input) },
+  );
+}
+
+export function deactivateStaff(staffId: string) {
+  return apiFetch<{ ok: true }>(`/api/branch/staff/${staffId}`, { method: "DELETE" });
+}
+
+export const staffKeys = {
+  list: () => ["staff", "list"] as const,
+};
