@@ -76,6 +76,12 @@ export function MuhasebeDashboard() {
         </div>
         <div className="flex items-center gap-3">
           <a
+            href="/dashboard"
+            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+          >
+            Ana Sayfa
+          </a>
+          <a
             href="/personel"
             className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
           >

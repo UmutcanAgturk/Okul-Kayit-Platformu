@@ -178,6 +178,15 @@ seviye-360/
     — bordro/defter geçmişiyle FK ilişkisi olan bir kaydı gerçekten silmek veri
     bütünlüğünü bozar. Bordro sekmesindeki kişi seçici artık Öğretmen/Öğretmen
     Dışı Personel arasında geçiş yapabiliyor.
+21. **Giriş sonrası modül hub'ı** (`apps/web/app/dashboard`,
+    `apps/web/components/dashboard/DashboardHub.tsx`) — `/login` başarılı
+    girişten sonra artık sabit bir modüle (eskiden `/muhasebe`) değil,
+    `/dashboard`'a yönlendirir. Bu ekran `/api/me`'den dönen role göre erişilebilir
+    gerçek modülleri (şu an Muhasebe + Personel, yalnızca `BRANCH_ADMIN`/
+    `ACCOUNTING` için) kart olarak listeler; henüz gerçek bir modülü olmayan
+    roller için (`TEACHER`/`STUDENT`/`PARENT`/`SUPERADMIN`/`GUIDANCE_COORDINATOR`)
+    bunu dürüstçe belirtip demo dosyasına (`demo/seviye360/seviye360-app.html`)
+    işaret eder — sessizce boş bir ekran göstermez.
 
 ## Yerel Geliştirme (Veritabanı)
 
@@ -218,8 +227,10 @@ ENVEOF
 cd apps/web
 npm install
 npm run dev
-# Tarayıcıda http://localhost:3000/login açın — Muhasebe modülünün gerçek
-# (localStorage değil) arayüzü burada (bkz. yukarıdaki madde 19).
+# Tarayıcıda http://localhost:3000/login açın. Giriş sonrası /dashboard'a
+# yönlendirilirsiniz — buradaki modül kartları (Muhasebe, Personel) role göre
+# değişir; şu an yalnızca Şube Yöneticisi/Muhasebe rollerinin gerçek
+# (localStorage değil) bir arayüzü var (bkz. yukarıdaki madde 19-20).
 
 # 6) (ayrı bir terminalde) entegrasyon testlerini çalıştırın
 node scripts/test-auth.mjs                   # /api/auth/login ve /logout
