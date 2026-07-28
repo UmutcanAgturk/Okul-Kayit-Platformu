@@ -396,6 +396,23 @@ seviye-360/
     (34 kontrol) rol/oturum yetkisini, dört CSV'nin başlık satırlarını,
     Mali Özet'in `netProfit = totalIncome - totalExpense` tutarlılığını ve
     Aktivite Akışı'na yansımayı doğrular.
+33. **Kurum Yönetimi (Genel Merkez) — on yedinci gerçek modül, ilk SUPERADMIN
+    modülü** (yeni bir Prisma modeli EKLEMEZ — mevcut `Tenant` hiyerarşisini
+    kullanır, bkz. `apps/web/app/api/hq/tenants`). Demo'daki "hq:kurumlar"
+    ekranının SALT OKUNUR bir karşılığıdır: yeni kurum oluşturma/silme (gerçek
+    bir müdür hesabı + kimlik bilgisi üretimi gerektirir) bilinçli olarak bu
+    sürümün kapsamı dışında bırakıldı. `withTenantContext` SUPERADMIN için
+    `superadmin_role` (BYPASSRLS) bağlantısına geçtiğinden tüm tenant'lar tek
+    sorguda görülebilir (Muhasebe'nin konsolide görünümüyle aynı desen, bkz.
+    `app/api/hq/accounting-ledger`). Her kurum için gerçek öğrenci/öğretmen/
+    personel/sınıf sayıları ve şube müdürü adı `StudentProfile`/
+    `TeacherProfile`/`StaffProfile`/`Classroom`/`User` tablolarından anlık
+    hesaplanır. `apps/web/components/hq/HqDashboard.tsx`, önceden yazılmış ama
+    hiçbir frontend'i olmayan `hq/accounting-ledger` endpoint'inin de ilk
+    gerçek tüketicisidir (konsolide mali özet tablosu). `apps/web/scripts/test-hq-tenants-module.mjs`
+    (16 kontrol) rol yetkisini (yalnızca SUPERADMIN, BRANCH_ADMIN 403), seed'deki
+    3 tenant'ın (Genel Merkez, Mezitli, Çankaya) ham DB sayımıyla birebir
+    eşleşen öğrenci/sınıf sayılarını ve doğru şube müdürü adlarını doğrular.
 
 ## Yerel Geliştirme (Veritabanı)
 
@@ -461,6 +478,7 @@ node scripts/test-today-summary-module.mjs   # Bugün Özeti: yoklama/ödeme/PTA
 node scripts/test-bus-routes-module.mjs      # Servis: tek-güzergah kısıtı + rol/tenant izolasyonu
 node scripts/test-quiz-module.mjs            # Quiz: doğrulama + rol/tenant izolasyonu + kazanım eşleme
 node scripts/test-reports-module.mjs         # Raporlar: 5 rapor endpoint'i + CSV başlıkları + Mali Özet tutarlılığı + Aktivite Akışı yansıması
+node scripts/test-hq-tenants-module.mjs      # Kurum Yönetimi: SUPERADMIN yetkisi + tenant envanteri + ham DB sayım eşleşmesi
 node scripts/test-rls-isolation.mjs          # RLS: tenant izolasyonu + Muhasebe rol kısıtlaması (ham DB seviyesinde)
 ```
 

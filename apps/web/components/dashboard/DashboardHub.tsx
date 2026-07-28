@@ -34,6 +34,7 @@ const BUGUN_CARD: ModuleCard = { href: "/bugun", title: "Bugün", description: "
 const SERVIS_CARD: ModuleCard = { href: "/servis", title: "Servis", description: "Servis güzergahları, şoför bilgisi ve öğrenci ataması." };
 const QUIZ_CARD: ModuleCard = { href: "/quiz", title: "Pratik Quiz", description: "Ders bazlı hızlı pratik denemeleri ve geçmiş sonuçlar." };
 const RAPORLAR_CARD: ModuleCard = { href: "/raporlar", title: "Raporlar", description: "Öğrenci, personel, devamsızlık, sınav ve mali özet raporları." };
+const KURUMLAR_CARD: ModuleCard = { href: "/kurumlar", title: "Kurum Yönetimi", description: "Tüm şubelerin öğrenci/personel/sınıf sayıları ve konsolide mali özet." };
 
 const MODULES_BY_ROLE: Record<string, ModuleCard[]> = {
   BRANCH_ADMIN: [BUGUN_CARD, MUHASEBE_CARD, PERSONEL_CARD, DEVAMSIZLIK_CARD, DISIPLIN_CARD, VELI_GORUSME_CARD, KULUPLER_CARD, SERVIS_CARD, AKTIVITE_CARD, RAPORLAR_CARD],
@@ -42,6 +43,7 @@ const MODULES_BY_ROLE: Record<string, ModuleCard[]> = {
   TEACHER: [DEVAMSIZLIK_CARD, DISIPLIN_CARD, VELI_GORUSME_CARD, KULUPLER_CARD],
   STUDENT: [KARNE_CARD, KULUPLER_CARD, SERVIS_CARD, QUIZ_CARD],
   PARENT: [KARNE_CARD, VELI_GORUSME_CARD, SERVIS_CARD, QUIZ_CARD],
+  SUPERADMIN: [KURUMLAR_CARD],
 };
 
 /**
