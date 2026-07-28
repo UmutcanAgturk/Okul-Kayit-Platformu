@@ -282,6 +282,22 @@ seviye-360/
     izolasyonunu (bir öğretmenin başka bir öğretmene yöneltilen talebi ne
     listede görebildiğini ne de yanıtlayabildiğini), rol/tenant izolasyonunu
     ve çift-yanıt 409'unu doğrular.
+27. **Kulüpler / Sosyal Etkinlikler — on birinci gerçek modül** (`Club` ve
+    `ClubMembership` modelleri, bkz. `prisma/migrations/20260728123627_add_clubs`,
+    `apps/web/app/api/branch/clubs[/[clubId]/members]`,
+    `apps/web/app/api/teacher/clubs`, `apps/web/app/api/clubs[/[clubId]/membership]`,
+    `apps/web/components/clubs/ClubsDashboard.tsx`). `Club` düz
+    `tenant_isolation` taşır; `ClubMembership` — `StudentGuardian` ile aynı
+    desende — kendi `tenantId`'sini taşımaz ve ayrı bir RLS politikasına
+    ihtiyaç duymaz (her zaman zaten tenant'a scope edilmiş bir `Club`/
+    `StudentProfile` üzerinden erişilir). Yalnızca `BRANCH_ADMIN` kulüp
+    oluşturabilir; bir kulübün üyelerini yalnızca `BRANCH_ADMIN` veya o
+    kulübün danışmanı olan `TEACHER` ekleyip çıkarabilir (`advisorTeacherId`
+    eşleşmesiyle doğrulanır — başka bir öğretmenin kulübüne erişim 403).
+    `STUDENT` tüm kulüpleri görüp kendi üyeliğini `/api/clubs/[clubId]/membership`
+    ile açıp/kapatabilir. `apps/web/scripts/test-clubs-module.mjs`
+    (21 kontrol) çapraz-danışman izolasyonunu, rol yetkilerini, tenant
+    izolasyonunu ve üyelik toggle mantığını doğrular.
 
 ## Yerel Geliştirme (Veritabanı)
 
@@ -341,6 +357,7 @@ node scripts/test-attendance-module.mjs      # Devamsızlık: yoklama alma + ö�
 node scripts/test-report-card-module.mjs     # Karne: sınav geçmişi + ders bazlı başarı hesabı + yetki/tenant izolasyonu
 node scripts/test-discipline-module.mjs      # Disiplin: olumlu/olumsuz kayıt + otomatik puan + yetki/tenant izolasyonu
 node scripts/test-pta-module.mjs             # Veli-Öğretmen Görüşmesi: talep/onay/red + çapraz-öğretmen izolasyonu
+node scripts/test-clubs-module.mjs           # Kulüpler: oluşturma/üyelik toggle + çapraz-danışman/tenant izolasyonu
 node scripts/test-rls-isolation.mjs          # RLS: tenant izolasyonu + Muhasebe rol kısıtlaması (ham DB seviyesinde)
 ```
 

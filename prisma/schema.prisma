@@ -88,6 +88,7 @@ model Tenant {
   attendanceRecords   AttendanceRecord[]
   disciplineRecords   DisciplineRecord[]
   ptaMeetingRequests  PtaMeetingRequest[]
+  clubs               Club[]
 
   @@index([parentId])
 }
@@ -159,6 +160,7 @@ model TeacherProfile {
   studySessions      StudySession[]
   payrollRecords     PayrollRecord[]
   ptaMeetingRequests PtaMeetingRequest[]
+  advisedClubs       Club[]
 
   @@index([branch])
 }
@@ -217,6 +219,7 @@ model StudentProfile {
   attendanceRecords  AttendanceRecord[]
   disciplineRecords  DisciplineRecord[]
   ptaMeetingRequests PtaMeetingRequest[]
+  clubMemberships    ClubMembership[]
 
   @@index([classroomId])
   @@index([gradeLevel])
@@ -566,6 +569,45 @@ enum StudySessionStatus {
 enum StudySessionSource {
   AI_AUTO_ASSIGNED
   MANUAL
+}
+
+// Kulüpler / Sosyal Etkinlikler — demo'daki CURRENT_BRANCH.clubs'ın gerçek
+// karşılığı. Düz `tenant_isolation` (Devamsızlık/Disiplin/PTA ile aynı desen):
+// bir tenant'taki herkes kulüpleri görebilir (öğrenciler katılmak için
+// listeler), yalnızca BRANCH_ADMIN ve o kulübün danışmanı (advisorTeacher)
+// üye ekleyip/çıkarabilir. `ClubMembership` — StudentGuardian ile aynı
+// desende — kendi tenantId'sini TAŞIMAZ; her zaman zaten tenant'a scope
+// edilmiş bir Club/StudentProfile üzerinden erişildiği için ayrı bir RLS
+// politikasına ihtiyaç duymaz.
+model Club {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  name        String
+  description String?
+
+  advisorTeacherId String?
+  advisorTeacher   TeacherProfile? @relation(fields: [advisorTeacherId], references: [id])
+
+  members ClubMembership[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+}
+
+model ClubMembership {
+  clubId String
+  club   Club   @relation(fields: [clubId], references: [id], onDelete: Cascade)
+
+  studentId String
+  student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  joinedAt DateTime @default(now())
+
+  @@id([clubId, studentId])
 }
 
 model TeacherAvailabilitySlot {
