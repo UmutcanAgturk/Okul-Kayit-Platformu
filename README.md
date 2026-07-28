@@ -239,6 +239,28 @@ seviye-360/
     karnesini görebilir) — `apps/web/scripts/test-report-card-module.mjs`
     hem bu ayrımı hem de ders bazlı başarı hesabının seed verisindeki gerçek
     `correctRatio` değerlerinden doğru türetildiğini doğrular.
+25. **Disiplin/Davranış Takibi — dokuzuncu gerçek modül**
+    (`prisma/schema.prisma`'daki `DisciplineRecord` modeli ve `DisciplineType`
+    enum'ı, bkz. `prisma/migrations/20260728090217_add_discipline`,
+    `apps/web/app/api/branch/discipline`,
+    `apps/web/app/api/branch/classrooms/[classroomId]/students`,
+    `apps/web/app/api/students/[studentId]/discipline`,
+    `apps/web/components/discipline/DisciplineDashboard.tsx`). Devamsızlık ile
+    aynı RLS deseni: düz `tenant_isolation` (rol bazlı değil) — hangi
+    satırların görünür olduğu yine KİMLİĞE bağlıdır. `TEACHER`/`BRANCH_ADMIN`/
+    `GUIDANCE_COORDINATOR` bir sınıfın öğrenci listesini çekip (yeni roster
+    endpoint'i, tarih bağımsız — Devamsızlık'ın tarih bazlı listesinden farklı
+    olarak) olumlu/olumsuz kayıt ekleyebilir; kategori, türe göre sabit bir
+    listeden seçilmek zorundadır (bkz. `lib/discipline.ts`'deki
+    `DISCIPLINE_CATEGORIES`) ve puan (`OLUMLU` +5 / `OLUMSUZ` -5) formdan
+    alınmaz, `pointsForType()` ile otomatik hesaplanır — demo'daki
+    `createDisciplineRecord()`'un varsayılan davranışıyla birebir aynı.
+    `STUDENT` yalnızca kendi kaydını, `PARENT` yalnızca velisi olduğu
+    öğrencinin kaydını görebilir (`/api/students/[studentId]/discipline`,
+    Devamsızlık/Karne ile aynı yetki deseni) ve toplam `netPoints` (tüm
+    puanların toplamı) döner. `apps/web/scripts/test-discipline-module.mjs`
+    (22 kontrol) kategori-tür uyuşmazlığının reddedildiğini, otomatik puan
+    hesabını, yetki ayrımını ve tenant izolasyonunu doğrular.
 
 ## Yerel Geliştirme (Veritabanı)
 
@@ -296,6 +318,7 @@ node scripts/test-staff-module.mjs           # Personel (StaffProfile) CRUD + st
 node scripts/test-documents-module.mjs       # Fatura/Dekont/Senet CRUD + KDV hesabı + belge no üretimi + tenant izolasyonu
 node scripts/test-attendance-module.mjs      # Devamsızlık: yoklama alma + öğrenci/veli kendi kaydını görme + tenant izolasyonu
 node scripts/test-report-card-module.mjs     # Karne: sınav geçmişi + ders bazlı başarı hesabı + yetki/tenant izolasyonu
+node scripts/test-discipline-module.mjs      # Disiplin: olumlu/olumsuz kayıt + otomatik puan + yetki/tenant izolasyonu
 node scripts/test-rls-isolation.mjs          # RLS: tenant izolasyonu + Muhasebe rol kısıtlaması (ham DB seviyesinde)
 ```
 

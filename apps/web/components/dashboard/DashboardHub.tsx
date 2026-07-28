@@ -26,12 +26,13 @@ const MUHASEBE_CARD: ModuleCard = { href: "/muhasebe", title: "Muhasebe", descri
 const PERSONEL_CARD: ModuleCard = { href: "/personel", title: "Personel", description: "Öğretmen dışı personel (Şube Müdürü, Ön Büro, Muhasebe, Rehber Öğretmen)." };
 const DEVAMSIZLIK_CARD: ModuleCard = { href: "/devamsizlik", title: "Devamsızlık", description: "Sınıf bazlı yoklama alma ve devamsızlık geçmişi." };
 const KARNE_CARD: ModuleCard = { href: "/karne", title: "Karne", description: "Sınav geçmişi, ders bazlı başarı ve devamsızlık özeti." };
+const DISIPLIN_CARD: ModuleCard = { href: "/disiplin", title: "Disiplin", description: "Olumlu/olumsuz davranış kaydı ekleme ve geçmişi." };
 
 const MODULES_BY_ROLE: Record<string, ModuleCard[]> = {
-  BRANCH_ADMIN: [MUHASEBE_CARD, PERSONEL_CARD, DEVAMSIZLIK_CARD],
+  BRANCH_ADMIN: [MUHASEBE_CARD, PERSONEL_CARD, DEVAMSIZLIK_CARD, DISIPLIN_CARD],
   ACCOUNTING: [MUHASEBE_CARD, PERSONEL_CARD],
-  GUIDANCE_COORDINATOR: [DEVAMSIZLIK_CARD],
-  TEACHER: [DEVAMSIZLIK_CARD],
+  GUIDANCE_COORDINATOR: [DEVAMSIZLIK_CARD, DISIPLIN_CARD],
+  TEACHER: [DEVAMSIZLIK_CARD, DISIPLIN_CARD],
   STUDENT: [KARNE_CARD],
   PARENT: [KARNE_CARD],
 };

@@ -86,6 +86,7 @@ model Tenant {
   receipts            Receipt[]
   promissoryNotes     PromissoryNote[]
   attendanceRecords   AttendanceRecord[]
+  disciplineRecords   DisciplineRecord[]
 
   @@index([parentId])
 }
@@ -212,6 +213,7 @@ model StudentProfile {
   enrollment        Enrollment?
   promissoryNotes   PromissoryNote[]
   attendanceRecords AttendanceRecord[]
+  disciplineRecords DisciplineRecord[]
 
   @@index([classroomId])
   @@index([gradeLevel])
@@ -295,6 +297,42 @@ model AttendanceRecord {
   @@unique([studentId, date])
   @@index([tenantId, date])
   @@index([classroomId, date])
+}
+
+// ---------------------------------------------------------------------------
+// DİSİPLİN / DAVRANIŞ TAKİBİ
+// ---------------------------------------------------------------------------
+//
+// AttendanceRecord ile aynı desen: yalnızca `tenant_isolation` (rol bazlı
+// kısıtlama YOK) — TEACHER/BRANCH_ADMIN/GUIDANCE_COORDINATOR kayıt ekleyip
+// tüm öğrencileri görebilir, STUDENT/PARENT yalnızca KENDİ (veya velisi
+// olduğu öğrencinin) kayıtlarını görebilir; bu filtre uygulama katmanında
+// (bkz. app/api/students/[studentId]/discipline) yapılır.
+
+enum DisciplineType {
+  OLUMLU
+  OLUMSUZ
+}
+
+model DisciplineRecord {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  studentId String
+  student   StudentProfile @relation(fields: [studentId], references: [id])
+
+  type     DisciplineType
+  category String
+  note     String?
+  points   Int // OLUMLU: +5, OLUMSUZ: -5 (bkz. app/api/branch/discipline route'undaki sabit)
+
+  recordedByUserId String
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([studentId])
 }
 
 // ---------------------------------------------------------------------------
