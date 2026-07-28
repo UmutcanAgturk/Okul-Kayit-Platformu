@@ -25,12 +25,15 @@ const ROLE_LABEL: Record<string, string> = {
 const MUHASEBE_CARD: ModuleCard = { href: "/muhasebe", title: "Muhasebe", description: "Kayıt defteri, tahsilat takibi, bordro, belgeler." };
 const PERSONEL_CARD: ModuleCard = { href: "/personel", title: "Personel", description: "Öğretmen dışı personel (Şube Müdürü, Ön Büro, Muhasebe, Rehber Öğretmen)." };
 const DEVAMSIZLIK_CARD: ModuleCard = { href: "/devamsizlik", title: "Devamsızlık", description: "Sınıf bazlı yoklama alma ve devamsızlık geçmişi." };
+const KARNE_CARD: ModuleCard = { href: "/karne", title: "Karne", description: "Sınav geçmişi, ders bazlı başarı ve devamsızlık özeti." };
 
 const MODULES_BY_ROLE: Record<string, ModuleCard[]> = {
   BRANCH_ADMIN: [MUHASEBE_CARD, PERSONEL_CARD, DEVAMSIZLIK_CARD],
   ACCOUNTING: [MUHASEBE_CARD, PERSONEL_CARD],
   GUIDANCE_COORDINATOR: [DEVAMSIZLIK_CARD],
   TEACHER: [DEVAMSIZLIK_CARD],
+  STUDENT: [KARNE_CARD],
+  PARENT: [KARNE_CARD],
 };
 
 /**

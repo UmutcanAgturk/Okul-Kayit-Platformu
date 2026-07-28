@@ -223,6 +223,22 @@ seviye-360/
     tenant izolasyonunun gerçekten çalıştığı doğrulanmıştır. Bir gün için
     kayıt yoksa öğrenci varsayılan olarak "Var" (VAR) kabul edilir (demo'daki
     davranışla aynı).
+24. **Karne — sekizinci gerçek modül, STUDENT'ın ilk gerçek modülü**
+    (`apps/web/app/api/students/[studentId]/report-card`,
+    `apps/web/components/report-card/ReportCardView.tsx`,
+    `apps/web/lib/curriculum.ts`). Demo'daki (`demo/seviye360-app.html`)
+    `buildKarneHtml()`'in dediği gibi YENİ BİR VERİ MODELİ EKLEMEZ — iki
+    gerçek modülün (Ölçme-Değerlendirme'nin `ExamResult`/
+    `StudentAchievementResult`'ı ve madde 23'teki Devamsızlık'ın
+    `AttendanceRecord`'u) verisini tek bir yanıtta birleştirir: sınav geçmişi,
+    kazanım koduna göre türetilen (bkz. `lib/curriculum.ts`'deki
+    `subjectFromCode` — AI Sınıf Röntgeni ile ORTAK, oradan çıkarılıp
+    paylaşılan bir yardımcıya taşındı) ders bazlı başarı yüzdesi, ve
+    devamsızlık özeti. Yetki kontrolü Devamsızlık ile birebir aynıdır
+    (STUDENT kendi, PARENT velisi olduğu öğrencinin, personel herkesin
+    karnesini görebilir) — `apps/web/scripts/test-report-card-module.mjs`
+    hem bu ayrımı hem de ders bazlı başarı hesabının seed verisindeki gerçek
+    `correctRatio` değerlerinden doğru türetildiğini doğrular.
 
 ## Yerel Geliştirme (Veritabanı)
 
@@ -279,6 +295,7 @@ node scripts/test-muhasebe-ui-endpoints.mjs  # Muhasebe arayüzü için eklenen 
 node scripts/test-staff-module.mjs           # Personel (StaffProfile) CRUD + staffProfileId ile bordro + DB CHECK constraint
 node scripts/test-documents-module.mjs       # Fatura/Dekont/Senet CRUD + KDV hesabı + belge no üretimi + tenant izolasyonu
 node scripts/test-attendance-module.mjs      # Devamsızlık: yoklama alma + öğrenci/veli kendi kaydını görme + tenant izolasyonu
+node scripts/test-report-card-module.mjs     # Karne: sınav geçmişi + ders bazlı başarı hesabı + yetki/tenant izolasyonu
 node scripts/test-rls-isolation.mjs          # RLS: tenant izolasyonu + Muhasebe rol kısıtlaması (ham DB seviyesinde)
 ```
 
