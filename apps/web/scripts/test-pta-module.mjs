@@ -213,6 +213,11 @@ async function main() {
   await prisma.ptaMeetingRequest.delete({ where: { id: otherTeacherRequest.id } });
   await prisma.teacherProfile.delete({ where: { id: secondTeacher.id } });
   await prisma.user.delete({ where: { id: secondTeacherUser.id } });
+  // Bu testin tetiklediği Aktivite Akışı (Audit Log) yan etkilerini de temizle
+  // (bkz. app/api/students/[studentId]/pta-requests ve .../respond route'larındaki logActivity çağrıları).
+  await prisma.auditLogEntry.deleteMany({
+    where: { action: { in: ["Veli görüşmesi talep edildi", "Veli görüşmesi onaylandı", "Veli görüşmesi reddedildi"] } },
+  });
 
   console.log("\n=== ÖZET ===");
   const fails = results.filter((r) => !r.ok);

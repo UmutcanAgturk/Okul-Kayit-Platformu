@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
 import { withTenantContext } from "@/lib/db-context";
+import { actorLabel, logActivity } from "@/lib/audit-log";
 
 const STAFF_ROLES: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.GUIDANCE_COORDINATOR, UserRole.TEACHER];
 
@@ -113,6 +114,13 @@ export async function POST(request: NextRequest, { params }: { params: { student
         topic,
         requestedByUserId: actor.id,
       },
+    });
+    await logActivity(tx, {
+      tenantId: actor.tenantId!,
+      actorUserId: actor.id,
+      actorLabel: actorLabel(actor),
+      action: "Veli görüşmesi talep edildi",
+      detail: requestedAt.toLocaleDateString("tr-TR"),
     });
     return { kind: "created" as const, request: created };
   });

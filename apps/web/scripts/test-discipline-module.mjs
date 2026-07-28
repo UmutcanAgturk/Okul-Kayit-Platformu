@@ -140,6 +140,9 @@ async function main() {
   // Temizlik
   await prisma.disciplineRecord.delete({ where: { id: positiveBody.record.id } });
   await prisma.disciplineRecord.delete({ where: { id: negativeBody.record.id } });
+  // Bu testin tetiklediği Aktivite Akışı (Audit Log) yan etkisini de temizle
+  // (bkz. app/api/branch/discipline route'undaki logActivity çağrısı).
+  await prisma.auditLogEntry.deleteMany({ where: { action: "Disiplin kaydı eklendi" } });
 
   console.log("\n=== ÖZET ===");
   const fails = results.filter((r) => !r.ok);

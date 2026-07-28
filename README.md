@@ -298,6 +298,34 @@ seviye-360/
     ile açıp/kapatabilir. `apps/web/scripts/test-clubs-module.mjs`
     (21 kontrol) çapraz-danışman izolasyonunu, rol yetkilerini, tenant
     izolasyonunu ve üyelik toggle mantığını doğrular.
+28. **Aktivite Akışı (Audit Log) — on ikinci gerçek modül** (`AuditLogEntry`
+    modeli, bkz. `prisma/migrations/20260728124336_add_audit_log` ve
+    `prisma/migrations/20260728130500_fix_audit_log_rls`,
+    `apps/web/lib/audit-log.ts`, `apps/web/app/api/branch/activity-log`,
+    `apps/web/components/activity-log/ActivityLogDashboard.tsx`). Demo'daki
+    `logActivity()`/`ACTIVITY_LOG`'un gerçek karşılığı — `actorLabel`
+    (ör. "Ayşe Demir (Öğretmen)") demo'daki `currentActorLabel()` gibi YAZMA
+    ANINDA hesaplanıp saklanır, kullanıcı silinse/rolü değişse dahi geçmiş
+    kaydın anlamı korunur. Muhasebe/Personel gibi HASSAS tablolarla aynı
+    fikirde ama farklı bir RLS deseni gerekti: OKUMA yalnızca SUPERADMIN/
+    BRANCH_ADMIN'e açık olmalı, ama YAZMA her rolden (TEACHER/PARENT/STUDENT
+    dahil) gelebilmeli — bu yüzden tek bir `tenant_and_role_isolation`
+    politikası YETMEDİ (SELECT/INSERT'e aynı kısıtlamayı uygulardı); `Club`/
+    diğer tablolardan farklı olarak SELECT ve INSERT için AYRI politikalar
+    tanımlandı (bkz. `fix_audit_log_rls` migration'ındaki not). Ayrıca
+    `logActivity()` bilinçli olarak Prisma'nın `.create()`'i (ki her zaman
+    `RETURNING` ekler) YERİNE ham `$executeRaw` INSERT kullanır — Postgres'te
+    `RETURNING`'li bir INSERT, eklenen satırın SELECT politikasını da
+    sağlamasını ister, ve bir TEACHER'ın yazdığı satır SELECT politikasınca
+    görünmez olduğundan `RETURNING` kullanan `.create()` "new row violates
+    row-level security policy" hatasıyla patlıyordu — geliştirme sırasında
+    gerçek bir hataydı, `test-activity-log-module.mjs` ile doğrulanarak
+    düzeltildi. Şimdilik yalnızca en yeni modüllerin (Disiplin, Veli
+    Görüşmesi, Kulüpler) yazma işlemleri bu akışa kaydedilir — demo'nun
+    kendisi de her mutasyonu değil, seçili kritik aksiyonları loglar.
+    `apps/web/scripts/test-activity-log-module.mjs` (10 kontrol) rol/tenant
+    izolasyonunu ve bir Disiplin kaydı eklemenin gerçekten audit log'a
+    yansıdığını doğrular.
 
 ## Yerel Geliştirme (Veritabanı)
 
@@ -358,6 +386,7 @@ node scripts/test-report-card-module.mjs     # Karne: sınav geçmişi + ders ba
 node scripts/test-discipline-module.mjs      # Disiplin: olumlu/olumsuz kayıt + otomatik puan + yetki/tenant izolasyonu
 node scripts/test-pta-module.mjs             # Veli-Öğretmen Görüşmesi: talep/onay/red + çapraz-öğretmen izolasyonu
 node scripts/test-clubs-module.mjs           # Kulüpler: oluşturma/üyelik toggle + çapraz-danışman/tenant izolasyonu
+node scripts/test-activity-log-module.mjs    # Aktivite Akışı: rol/tenant izolasyonu + başka modülden yansıma doğrulaması
 node scripts/test-rls-isolation.mjs          # RLS: tenant izolasyonu + Muhasebe rol kısıtlaması (ham DB seviyesinde)
 ```
 

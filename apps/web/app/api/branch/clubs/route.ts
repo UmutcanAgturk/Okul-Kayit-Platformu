@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
 import { withTenantContext } from "@/lib/db-context";
+import { actorLabel, logActivity } from "@/lib/audit-log";
 
 /**
  * Kulüpler / Sosyal Etkinlikler — demo'daki "branch:kulup" ekranının
@@ -67,6 +68,13 @@ export async function POST(request: NextRequest) {
     }
     const club = await tx.club.create({
       data: { tenantId: actor.tenantId!, name, description, advisorTeacherId },
+    });
+    await logActivity(tx, {
+      tenantId: actor.tenantId!,
+      actorUserId: actor.id,
+      actorLabel: actorLabel(actor),
+      action: "Kulüp oluşturuldu",
+      detail: name,
     });
     return { kind: "created" as const, club };
   });

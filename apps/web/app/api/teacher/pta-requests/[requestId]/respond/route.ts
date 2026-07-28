@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { PtaRequestStatus, UserRole } from "@prisma/client";
 import { withTenantContext } from "@/lib/db-context";
 import { getSessionActor } from "@/lib/session";
+import { actorLabel, logActivity } from "@/lib/audit-log";
 
 /**
  * Bir öğretmenin, kendisine yöneltilen bir Veli-Öğretmen Görüşme talebini
@@ -51,6 +52,12 @@ export async function POST(
     }
 
     const updated = await tx.ptaMeetingRequest.findUniqueOrThrow({ where: { id: ptaRequest.id } });
+    await logActivity(tx, {
+      tenantId: actor.tenantId!,
+      actorUserId: actor.id,
+      actorLabel: actorLabel(actor),
+      action: decision === "APPROVE" ? "Veli görüşmesi onaylandı" : "Veli görüşmesi reddedildi",
+    });
     return { kind: "responded" as const, request: updated };
   });
 

@@ -29,9 +29,10 @@ const KARNE_CARD: ModuleCard = { href: "/karne", title: "Karne", description: "S
 const DISIPLIN_CARD: ModuleCard = { href: "/disiplin", title: "Disiplin", description: "Olumlu/olumsuz davranış kaydı ekleme ve geçmişi." };
 const VELI_GORUSME_CARD: ModuleCard = { href: "/veli-gorusme", title: "Veli Görüşmeleri", description: "Veli-öğretmen görüşme randevusu talep etme ve onaylama." };
 const KULUPLER_CARD: ModuleCard = { href: "/kulupler", title: "Kulüpler", description: "Kulüp oluşturma, danışman atama ve üyelik yönetimi." };
+const AKTIVITE_CARD: ModuleCard = { href: "/aktivite", title: "Aktivite Akışı", description: "Kayıt, ödeme, disiplin ve atama gibi kritik işlemlerin denetim izi." };
 
 const MODULES_BY_ROLE: Record<string, ModuleCard[]> = {
-  BRANCH_ADMIN: [MUHASEBE_CARD, PERSONEL_CARD, DEVAMSIZLIK_CARD, DISIPLIN_CARD, VELI_GORUSME_CARD, KULUPLER_CARD],
+  BRANCH_ADMIN: [MUHASEBE_CARD, PERSONEL_CARD, DEVAMSIZLIK_CARD, DISIPLIN_CARD, VELI_GORUSME_CARD, KULUPLER_CARD, AKTIVITE_CARD],
   ACCOUNTING: [MUHASEBE_CARD, PERSONEL_CARD],
   GUIDANCE_COORDINATOR: [DEVAMSIZLIK_CARD, DISIPLIN_CARD, VELI_GORUSME_CARD],
   TEACHER: [DEVAMSIZLIK_CARD, DISIPLIN_CARD, VELI_GORUSME_CARD, KULUPLER_CARD],

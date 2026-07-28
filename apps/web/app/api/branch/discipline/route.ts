@@ -3,6 +3,7 @@ import { DisciplineType, UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
 import { withTenantContext } from "@/lib/db-context";
 import { DISCIPLINE_CATEGORIES, pointsForType } from "@/lib/discipline";
+import { actorLabel, logActivity } from "@/lib/audit-log";
 
 /**
  * Disiplin/Davranış Takibi — demo/seviye360-app.html'deki "teacher:disiplin"/
@@ -88,6 +89,13 @@ export async function POST(request: NextRequest) {
         points: pointsForType(type),
         recordedByUserId: actor.id,
       },
+    });
+    await logActivity(tx, {
+      tenantId: actor.tenantId!,
+      actorUserId: actor.id,
+      actorLabel: actorLabel(actor),
+      action: "Disiplin kaydı eklendi",
+      detail: `${type} · ${category}`,
     });
     return { kind: "created" as const, record };
   });

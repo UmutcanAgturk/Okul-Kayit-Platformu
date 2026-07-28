@@ -89,6 +89,7 @@ model Tenant {
   disciplineRecords   DisciplineRecord[]
   ptaMeetingRequests  PtaMeetingRequest[]
   clubs               Club[]
+  auditLogEntries     AuditLogEntry[]
 
   @@index([parentId])
 }
@@ -608,6 +609,30 @@ model ClubMembership {
   joinedAt DateTime @default(now())
 
   @@id([clubId, studentId])
+}
+
+// Aktivite Akışı (Audit Log) — demo'daki `logActivity()`/`ACTIVITY_LOG`'un
+// gerçek karşılığı. Muhasebe/Personel/Belgeler gibi HASSAS tablolarla aynı
+// `tenant_and_role_isolation` deseni (yalnızca SUPERADMIN/BRANCH_ADMIN) —
+// bu akış platformdaki tüm kritik işlemlerin denetim izidir, ACCOUNTING/
+// GUIDANCE_COORDINATOR/TEACHER gibi roller bile göremez. `actorLabel` demo'daki
+// `currentActorLabel()` gibi YAZMA ANINDA hesaplanıp saklanır (ör.
+// "Ayşe Demir (Öğretmen)") — bu sayede kullanıcı silinse/rolü değişse dahi
+// geçmiş kayıt anlamını korur.
+model AuditLogEntry {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  actorUserId String?
+  actorLabel  String
+
+  action String
+  detail String?
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, createdAt])
 }
 
 model TeacherAvailabilitySlot {

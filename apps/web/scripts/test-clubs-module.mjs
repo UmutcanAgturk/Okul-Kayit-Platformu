@@ -194,6 +194,9 @@ async function main() {
   await prisma.club.delete({ where: { id: clubId } });
   await prisma.teacherProfile.delete({ where: { id: otherTeacher.id } });
   await prisma.user.delete({ where: { id: otherTeacherUser.id } });
+  // Bu testin tetiklediği Aktivite Akışı (Audit Log) yan etkisini de temizle
+  // (bkz. app/api/branch/clubs route'undaki logActivity çağrısı).
+  await prisma.auditLogEntry.deleteMany({ where: { action: "Kulüp oluşturuldu", detail: "Satranç Kulübü" } });
 
   console.log("\n=== ÖZET ===");
   const fails = results.filter((r) => !r.ok);
