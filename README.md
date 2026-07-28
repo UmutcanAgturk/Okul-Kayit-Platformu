@@ -358,6 +358,28 @@ seviye-360/
     (19 kontrol) tek-güzergah kısıtını (ikinci güzergaha eklemenin birinciden
     otomatik çıkardığını), rol/tenant izolasyonunu ve atanmamış öğrenci için
     `route: null` döndüğünü doğrular.
+31. **Quiz / Pratik Modülü — on beşinci gerçek modül** (`QuizAttempt` modeli,
+    bkz. `prisma/migrations/20260728141401_add_quiz_attempts`,
+    `apps/web/app/api/curriculum/achievements`,
+    `apps/web/app/api/students/[studentId]/quiz-attempts`,
+    `apps/web/components/quiz/QuizDashboard.tsx`). Demo'nun kendisinde de
+    sorular GERÇEK değildir (`startQuizSession()` her soru için rastgele bir
+    doğru şık üretir, gerçek bir soru bankası yoktur) — bu ayrım, resmi
+    optik-taranmış sınavları modelleyen Ölçme-Değerlendirme ile bilinçli
+    olarak korunur: soru üretimi/rastgele doğru şık simülasyonu istemci
+    tarafında (demo'daki `startQuizSession`/`answerQuizQuestion` ile birebir
+    aynı mantıkla) kalır, yalnızca NİHAİ SONUÇ (ders/kazanım, kaç doğru/kaç
+    soru) `QuizAttempt` tablosuna kalıcı kılınır. `QuizAttempt` düz
+    `tenant_isolation` taşır; yetki deseni Devamsızlık/Disiplin/PTA/Quiz ile
+    aynıdır (`STUDENT` kendi, `PARENT` velisi olduğu öğrenci için deneme
+    kaydedebilir/görebilir; personel salt okunur görebilir).
+    `GET /api/curriculum/achievements` (MEB kazanım listesi — `CurriculumNode`
+    tenant'a özgü olmadığı için RLS taşımaz, yalnızca oturum açık olması
+    yeterlidir) "Ders"/"Kazanım" seçicilerini doldurur.
+    `apps/web/scripts/test-quiz-module.mjs` (18 kontrol) doğrulamayı
+    (correctCount > totalCount reddi, olmayan achievementId 404), rol/tenant
+    izolasyonunu ve gerçek seed kazanımının (`MAT.9.1.2.3`) listede
+    görünmesini doğrular.
 
 ## Yerel Geliştirme (Veritabanı)
 
@@ -421,6 +443,7 @@ node scripts/test-clubs-module.mjs           # Kulüpler: oluşturma/üyelik tog
 node scripts/test-activity-log-module.mjs    # Aktivite Akışı: rol/tenant izolasyonu + başka modülden yansıma doğrulaması
 node scripts/test-today-summary-module.mjs   # Bugün Özeti: yoklama/ödeme/PTA/aktivite fixture'larının özet sayılarına yansıması
 node scripts/test-bus-routes-module.mjs      # Servis: tek-güzergah kısıtı + rol/tenant izolasyonu
+node scripts/test-quiz-module.mjs            # Quiz: doğrulama + rol/tenant izolasyonu + kazanım eşleme
 node scripts/test-rls-isolation.mjs          # RLS: tenant izolasyonu + Muhasebe rol kısıtlaması (ham DB seviyesinde)
 ```
 

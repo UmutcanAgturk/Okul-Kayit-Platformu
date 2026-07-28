@@ -91,6 +91,7 @@ model Tenant {
   clubs               Club[]
   auditLogEntries     AuditLogEntry[]
   busRoutes           BusRoute[]
+  quizAttempts        QuizAttempt[]
 
   @@index([parentId])
 }
@@ -225,6 +226,7 @@ model StudentProfile {
   disciplineRecords  DisciplineRecord[]
   ptaMeetingRequests PtaMeetingRequest[]
   clubMemberships    ClubMembership[]
+  quizAttempts       QuizAttempt[]
 
   @@index([classroomId])
   @@index([gradeLevel])
@@ -456,6 +458,7 @@ model CurriculumNode {
   examQuestions             ExamQuestion[]
   studentAchievementResults StudentAchievementResult[]
   studySessions             StudySession[]
+  quizAttempts              QuizAttempt[]
 
   @@index([parentId])
   @@index([type, gradeLevel])
@@ -640,6 +643,35 @@ model BusRoute {
   updatedAt DateTime @updatedAt
 
   @@index([tenantId])
+}
+
+// Quiz / Pratik Modülü — demo'daki QUIZ_ATTEMPTS'in gerçek karşılığı.
+// Demo'nun kendisinde de sorular GERÇEK değildir (`startQuizSession()` her
+// soru için rastgele bir doğru şık üretir, gerçek bir soru bankası yoktur) —
+// bu ayrım, resmi optik-taranmış sınavları modelleyen Ölçme-Değerlendirme
+// (Exam/ExamResult) ile bilinçli olarak korunur. Gerçek olan ve burada
+// kalıcı kılınan kısım, denemenin SONUCUDUR (hangi ders/kazanım, kaç doğru/
+// kaç soru, ne zaman) — soru üretimi/rastgele doğru şık simülasyonu istemci
+// tarafında (demo'daki gibi) kalır, sunucu yalnızca nihai sonucu kaydeder.
+model QuizAttempt {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  studentId String
+  student   StudentProfile @relation(fields: [studentId], references: [id])
+
+  subject String
+
+  achievementId String?
+  achievement   CurriculumNode? @relation(fields: [achievementId], references: [id])
+
+  correctCount Int
+  totalCount   Int
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, studentId, createdAt])
 }
 
 // Aktivite Akışı (Audit Log) — demo'daki `logActivity()`/`ACTIVITY_LOG`'un
