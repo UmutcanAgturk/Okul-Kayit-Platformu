@@ -21,7 +21,7 @@ import { generateStudentEmail, generateStudentNo, generateTempPassword } from "@
  * yalnızca bcrypt hash'i User.passwordHash'e yazılır. Bu yüzden çağıran
  * taraf (şube yöneticisi/rehberlik) bunu HEMEN veliye iletmelidir.
  */
-const ROLES_ALLOWED = [UserRole.BRANCH_ADMIN, UserRole.GUIDANCE_COORDINATOR];
+const ROLES_ALLOWED: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.GUIDANCE_COORDINATOR];
 
 export async function POST(request: NextRequest, { params }: { params: { enrollmentId: string } }) {
   const actor = await getSessionActor(request);

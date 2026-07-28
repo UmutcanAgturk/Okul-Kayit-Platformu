@@ -13,7 +13,7 @@ import { vatBreakdown } from "@/lib/tax";
  * `?from=` / `?to=` (ISO tarih) verilirse yalnızca o aralıktaki entryDate'ler
  * dahil edilir; hiçbiri verilmezse tüm zamanların özeti döner.
  */
-const ROLES_ALLOWED = [UserRole.BRANCH_ADMIN, UserRole.ACCOUNTING];
+const ROLES_ALLOWED: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.ACCOUNTING];
 
 export async function GET(request: NextRequest) {
   const actor = await getSessionActor(request);

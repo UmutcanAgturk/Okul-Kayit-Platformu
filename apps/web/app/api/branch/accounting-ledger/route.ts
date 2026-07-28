@@ -19,7 +19,7 @@ import { vatBreakdown, withholdingBreakdown } from "@/lib/tax";
  * şubenin defteri" sorusu hem de POST'ta hangi tenantId'ye yazılacağı
  * belirsiz kalırdı — Genel Merkez'in konsolide görünümü kapsam dışıdır.
  */
-const ROLES_ALLOWED = [UserRole.BRANCH_ADMIN, UserRole.ACCOUNTING];
+const ROLES_ALLOWED: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.ACCOUNTING];
 
 export async function GET(request: NextRequest) {
   const actor = await getSessionActor(request);

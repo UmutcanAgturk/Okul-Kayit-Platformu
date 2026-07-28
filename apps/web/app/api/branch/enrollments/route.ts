@@ -15,7 +15,7 @@ import { withTenantContext } from "@/lib/db-context";
  * SUPERADMIN kasıtlı olarak dışarıda: diğer `/api/branch/...` route'larıyla
  * aynı gerekçe (tek bir şubeyi hedefler).
  */
-const ROLES_ALLOWED = [UserRole.BRANCH_ADMIN, UserRole.GUIDANCE_COORDINATOR];
+const ROLES_ALLOWED: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.GUIDANCE_COORDINATOR];
 const VALID_STAGES = ["ON_KAYIT_ALINDI", "SOZLESME_BEKLENIYOR", "ODEME_PLANI_OLUSTURULDU", "KAYIT_TAMAMLANDI", "IPTAL_EDILDI"];
 
 export async function GET(request: NextRequest) {

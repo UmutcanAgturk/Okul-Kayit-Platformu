@@ -147,6 +147,21 @@ seviye-360/
     gibi bariz bir placeholder içeriyorsa uygulama hiç başlamaz. Bkz.
     `apps/web/.env.example` — üretimde bir secret yöneticisinden enjekte
     edilmesi gerektiği not düşülmüştür.
+19. **Muhasebe modülünün ilk gerçek (localStorage değil) arayüzü** —
+    `apps/web/app/login`, `apps/web/app/(branch)/muhasebe`,
+    `apps/web/components/muhasebe/*`. Bu depodaki route'ların çoğunun (yukarıdaki
+    1-18 dahil) hiç kullanıcı arayüzü yoktu — yalnızca API + Prisma modeli
+    olarak duruyorlardı. Bu ekran, `/api/auth/login`'e karşı çalışan gerçek bir
+    giriş formuyla başlayıp Kayıt Defteri (ekle/sil + KDV özeti), Tahsilat
+    Takibi (bekleyen taksitler + yaşlandırma raporu) ve Bordro (öğretmen bazlı)
+    sekmelerini `fetch()` ile doğrudan yukarıdaki gerçek API'lere bağlar — hiçbir
+    yerde `localStorage` kullanılmaz. Seed veriyle örnek giriş:
+    `merve.aslan@seviye360.com` / `seviye360dev-pw` (bkz. "Yerel Geliştirme").
+    **Bilinçli kapsam dışı (henüz taşınmadı):** Fatura/Dekont/Senet (Prisma'da
+    karşılığı yok), ve Bordro yalnızca `TeacherProfile`'ı kapsar — şemada genel
+    bir "personel" modeli (şube müdürü, ön büro, muhasebe görevlisi vb.) henüz
+    yok, bu yüzden demo/seviye360-app.html'deki "Maaş Ödemeleri" bölümünün tüm
+    personeli kapsamasından daha dar bir kapsamı var.
 
 ## Yerel Geliştirme (Veritabanı)
 
@@ -187,6 +202,8 @@ ENVEOF
 cd apps/web
 npm install
 npm run dev
+# Tarayıcıda http://localhost:3000/login açın — Muhasebe modülünün gerçek
+# (localStorage değil) arayüzü burada (bkz. yukarıdaki madde 19).
 
 # 6) (ayrı bir terminalde) entegrasyon testlerini çalıştırın
 node scripts/test-auth.mjs                   # /api/auth/login ve /logout
@@ -195,6 +212,7 @@ node scripts/test-payment-installments.mjs   # taksit tahsilatı API'si (login +
 node scripts/test-study-sessions.mjs         # etüt onay/red API'si (login + tenant izolasyonu + yetki kontrolü)
 node scripts/test-class-xray.mjs             # AI Sınıf Röntgeni API'si (login + tenant izolasyonu + yetki kontrolü)
 node scripts/test-accounting-ledger.mjs      # Muhasebe defteri API'si (login + tenant izolasyonu + yetki kontrolü)
+node scripts/test-muhasebe-ui-endpoints.mjs  # Muhasebe arayüzü için eklenen DELETE ledger + GET teachers
 node scripts/test-rls-isolation.mjs          # RLS: tenant izolasyonu + Muhasebe rol kısıtlaması (ham DB seviyesinde)
 ```
 

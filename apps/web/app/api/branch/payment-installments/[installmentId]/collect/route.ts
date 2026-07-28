@@ -23,7 +23,7 @@ import { getSessionActor } from "@/lib/session";
  * PENDING ise) atomik olarak yapılır — iki eşzamanlı istek aynı taksiti iki kez
  * tahsil edemez.
  */
-const ROLES_ALLOWED_TO_COLLECT = [UserRole.SUPERADMIN, UserRole.BRANCH_ADMIN, UserRole.ACCOUNTING];
+const ROLES_ALLOWED_TO_COLLECT: UserRole[] = [UserRole.SUPERADMIN, UserRole.BRANCH_ADMIN, UserRole.ACCOUNTING];
 
 export async function POST(
   request: NextRequest,

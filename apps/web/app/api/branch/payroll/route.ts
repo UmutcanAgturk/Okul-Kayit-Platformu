@@ -16,7 +16,7 @@ import { computePayroll } from "@/lib/payroll";
  * aynı gerekçe (tek bir şubeyi hedefler, Genel Merkez konsolide görünümü
  * kapsam dışı).
  */
-const ROLES_ALLOWED = [UserRole.BRANCH_ADMIN, UserRole.ACCOUNTING];
+const ROLES_ALLOWED: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.ACCOUNTING];
 
 export async function GET(request: NextRequest) {
   const actor = await getSessionActor(request);
