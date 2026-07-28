@@ -326,6 +326,20 @@ seviye-360/
     `apps/web/scripts/test-activity-log-module.mjs` (10 kontrol) rol/tenant
     izolasyonunu ve bir Disiplin kaydı eklemenin gerçekten audit log'a
     yansıdığını doğrular.
+29. **"Bugün" Özet Ekranı — on üçüncü gerçek modül** (`apps/web/app/api/branch/today-summary`,
+    `apps/web/components/today-summary/TodaySummaryDashboard.tsx`). Demo'daki
+    "branch:bugun" ekranının dediği gibi ("Yeni veri modeli gerektirmez") bu
+    modül de YENİ BİR TABLO EKLEMEZ — Devamsızlık (`AttendanceRecord`),
+    Ödeme (`PaymentInstallment`), Veli Görüşmesi (`PtaMeetingRequest`) ve
+    Aktivite Akışı (`AuditLogEntry`) modüllerinin BUGÜNE ait gerçek verisini
+    tek bir yanıtta birleştirir: bugün yoklaması alınan sınıf sayısı, vadesi
+    geçmiş/yaklaşan (7 gün) taksit sayısı, bugüne ait bekleyen/planlı veli
+    görüşmeleri ve son 6 aktivite akışı kaydı. Demo'daki Lider Tablosu/Etüt
+    doluluk bölümleri kasıtlı olarak dışarıda bırakıldı — bu depoda henüz
+    gerçek bir Gamification (XP/Seviye) modülü yok. Yalnızca `BRANCH_ADMIN`
+    erişebilir (Aktivite Akışı ile aynı kapsam). `apps/web/scripts/test-today-summary-module.mjs`
+    (14 kontrol) dört ayrı fixture'ın (yoklama, vadesi geçmiş/yaklaşan taksit,
+    PTA talebi, disiplin kaydı) özet sayılarına doğru yansıdığını doğrular.
 
 ## Yerel Geliştirme (Veritabanı)
 
@@ -387,6 +401,7 @@ node scripts/test-discipline-module.mjs      # Disiplin: olumlu/olumsuz kayıt +
 node scripts/test-pta-module.mjs             # Veli-Öğretmen Görüşmesi: talep/onay/red + çapraz-öğretmen izolasyonu
 node scripts/test-clubs-module.mjs           # Kulüpler: oluşturma/üyelik toggle + çapraz-danışman/tenant izolasyonu
 node scripts/test-activity-log-module.mjs    # Aktivite Akışı: rol/tenant izolasyonu + başka modülden yansıma doğrulaması
+node scripts/test-today-summary-module.mjs   # Bugün Özeti: yoklama/ödeme/PTA/aktivite fixture'larının özet sayılarına yansıması
 node scripts/test-rls-isolation.mjs          # RLS: tenant izolasyonu + Muhasebe rol kısıtlaması (ham DB seviyesinde)
 ```
 
