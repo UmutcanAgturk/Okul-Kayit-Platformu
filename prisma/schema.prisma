@@ -85,6 +85,7 @@ model Tenant {
   invoices            Invoice[]
   receipts            Receipt[]
   promissoryNotes     PromissoryNote[]
+  attendanceRecords   AttendanceRecord[]
 
   @@index([parentId])
 }
@@ -202,14 +203,15 @@ model StudentProfile {
   targetGoal String? // örn. "Tıp Fakültesi"
   studentNo  String  @unique
 
-  guardians       StudentGuardian[]
-  examResults     ExamResult[]
-  achievementRows StudentAchievementResult[]
-  studySessions   StudySession[]
-  installments    PaymentInstallment[]
-  paymentMethods  PaymentMethod[]
-  enrollment      Enrollment?
-  promissoryNotes PromissoryNote[]
+  guardians         StudentGuardian[]
+  examResults       ExamResult[]
+  achievementRows   StudentAchievementResult[]
+  studySessions     StudySession[]
+  installments      PaymentInstallment[]
+  paymentMethods    PaymentMethod[]
+  enrollment        Enrollment?
+  promissoryNotes   PromissoryNote[]
+  attendanceRecords AttendanceRecord[]
 
   @@index([classroomId])
   @@index([gradeLevel])
@@ -243,11 +245,56 @@ model Classroom {
   name       String // örn. "9-A" (şube içindeki fiziksel şube/bölüm)
   gradeLevel GradeLevel
 
-  students    StudentProfile[]
-  enrollments Enrollment[]
+  students          StudentProfile[]
+  enrollments       Enrollment[]
+  attendanceRecords AttendanceRecord[]
 
   @@unique([tenantId, name])
   @@index([tenantId, gradeLevel])
+}
+
+// ---------------------------------------------------------------------------
+// DEVAMSIZLIK / YOKLAMA
+// ---------------------------------------------------------------------------
+//
+// Diğer akademik tablolar (Exam/ExamResult/Classroom/StudentProfile) gibi
+// yalnızca `tenant_isolation` taşır (rol bazlı kısıtlama YOK) — TEACHER/
+// BRANCH_ADMIN/GUIDANCE_COORDINATOR yoklama alıp görebilir, STUDENT/PARENT
+// yalnızca KENDİ (veya velisi olduğu öğrencinin) kayıtlarını görebilir; bu
+// satır bazlı filtre veritabanında değil uygulama katmanında (bkz.
+// app/api/students/[studentId]/attendance) yapılır — Muhasebe/Bordro'nun
+// aksine, burada hangi SATIRLARIN görünür olduğu role değil KİMLİĞE bağlıdır.
+
+enum AttendanceStatus {
+  VAR // Katıldı
+  GEC // Geç geldi
+  IZINLI // İzinli/mazeretli
+  YOK // Katılmadı (devamsız)
+}
+
+model AttendanceRecord {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  studentId String
+  student   StudentProfile @relation(fields: [studentId], references: [id])
+
+  classroomId String
+  classroom   Classroom @relation(fields: [classroomId], references: [id])
+
+  date   DateTime // gün (saat bileşeni yok sayılır)
+  status AttendanceStatus
+  note   String?
+
+  recordedByUserId String // yoklamayı alan öğretmen/şube yöneticisinin User.id'si
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([studentId, date])
+  @@index([tenantId, date])
+  @@index([classroomId, date])
 }
 
 // ---------------------------------------------------------------------------

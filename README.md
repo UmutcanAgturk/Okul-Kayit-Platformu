@@ -181,11 +181,11 @@ seviye-360/
     `apps/web/components/dashboard/DashboardHub.tsx`) — `/login` başarılı
     girişten sonra artık sabit bir modüle (eskiden `/muhasebe`) değil,
     `/dashboard`'a yönlendirir. Bu ekran `/api/me`'den dönen role göre erişilebilir
-    gerçek modülleri (şu an Muhasebe + Personel, yalnızca `BRANCH_ADMIN`/
-    `ACCOUNTING` için) kart olarak listeler; henüz gerçek bir modülü olmayan
-    roller için (`TEACHER`/`STUDENT`/`PARENT`/`SUPERADMIN`/`GUIDANCE_COORDINATOR`)
-    bunu dürüstçe belirtip demo dosyasına (`demo/seviye360/seviye360-app.html`)
-    işaret eder — sessizce boş bir ekran göstermez.
+    gerçek modülleri kart olarak listeler (bkz. madde 23'teki Devamsızlık ile
+    güncellenen liste); henüz gerçek bir modülü olmayan roller için
+    (`STUDENT`/`PARENT`/`SUPERADMIN`) bunu dürüstçe belirtip demo dosyasına
+    (`demo/seviye360/seviye360-app.html`) işaret eder — sessizce boş bir ekran
+    göstermez.
 22. **Belgeler: Fatura/Dekont/Senet — altıncı gerçek modül**
     (`prisma/schema.prisma`'daki `Invoice`/`Receipt`/`PromissoryNote` modelleri,
     `apps/web/app/api/branch/invoices`, `.../receipts`, `.../promissory-notes`,
@@ -204,6 +204,25 @@ seviye-360/
     `scripts/test-documents-module.mjs` ile doğrulanarak düzeltildi. Senet
     için ayrıca bir "Ödendi İşaretle" aksiyonu (`.../promissory-notes/[id]/mark-paid`)
     vardır.
+23. **Devamsızlık/Yoklama — yedinci gerçek modül, TEACHER'ın ilk gerçek modülü**
+    (`prisma/schema.prisma`'daki `AttendanceRecord` modeli,
+    `apps/web/app/api/branch/classrooms`, `.../attendance`,
+    `apps/web/app/api/students/[studentId]/attendance`,
+    `apps/web/components/attendance/AttendanceDashboard.tsx`). Önceki gerçek
+    modüllerin aksine (Muhasebe/Personel/Belgeler — hepsi rol-kısıtlı
+    `tenant_and_role_isolation`), `AttendanceRecord` yalnızca düz
+    `tenant_isolation` taşır (bkz. `prisma/migrations/20260728080512_add_attendance`
+    ve `Exam`/`ExamResult`/`Classroom` ile aynı desen) — çünkü burada hangi
+    SATIRLARIN görünür olduğu role değil KİMLİĞE bağlıdır: `TEACHER`/
+    `BRANCH_ADMIN`/`GUIDANCE_COORDINATOR` bir sınıfın tüm yoklamasını
+    alıp/görebilir (`/api/branch/attendance`, sınıf+tarih bazlı toplu upsert),
+    ama `STUDENT` yalnızca KENDİ kaydını, `PARENT` yalnızca velisi olduğu
+    öğrencinin kaydını görebilir — bu filtre veritabanında değil uygulama
+    katmanında (`/api/students/[studentId]/attendance`) yapılır ve
+    `apps/web/scripts/test-attendance-module.mjs` ile hem bu ayrımın hem de
+    tenant izolasyonunun gerçekten çalıştığı doğrulanmıştır. Bir gün için
+    kayıt yoksa öğrenci varsayılan olarak "Var" (VAR) kabul edilir (demo'daki
+    davranışla aynı).
 
 ## Yerel Geliştirme (Veritabanı)
 
@@ -259,6 +278,7 @@ node scripts/test-accounting-ledger.mjs      # Muhasebe defteri API'si (login + 
 node scripts/test-muhasebe-ui-endpoints.mjs  # Muhasebe arayüzü için eklenen DELETE ledger + GET teachers
 node scripts/test-staff-module.mjs           # Personel (StaffProfile) CRUD + staffProfileId ile bordro + DB CHECK constraint
 node scripts/test-documents-module.mjs       # Fatura/Dekont/Senet CRUD + KDV hesabı + belge no üretimi + tenant izolasyonu
+node scripts/test-attendance-module.mjs      # Devamsızlık: yoklama alma + öğrenci/veli kendi kaydını görme + tenant izolasyonu
 node scripts/test-rls-isolation.mjs          # RLS: tenant izolasyonu + Muhasebe rol kısıtlaması (ham DB seviyesinde)
 ```
 
