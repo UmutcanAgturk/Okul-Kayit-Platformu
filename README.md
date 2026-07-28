@@ -433,6 +433,28 @@ seviye-360/
     (24 kontrol) yetki sınırlarını, sınıf filtreli gönderimi, okundu/kaldırma
     akışını, tenant izolasyonunu (başka bir şubenin mesajı bu veliye
     ulaşmıyor) ve Aktivite Akışı'na yansımayı doğrular.
+35. **Seviye Mentör (Online Mentörlük) — on dokuzuncu gerçek modül**
+    (`TeacherProfile.isMentor`, `StudentProfile.mentorTeacherId`,
+    `MentorRequest` modeli, bkz. `prisma/migrations/20260728164135_add_mentor`
+    + `.../..._add_mentor_rls`, `apps/web/app/api/students/[studentId]/mentor[-requests]`,
+    `apps/web/app/api/teacher/mentor-requests`, `apps/web/app/api/branch/mentor-requests`,
+    `apps/web/app/api/branch/teachers/[teacherId]/mentor`,
+    `apps/web/components/mentor/MentorDashboard.tsx`). Demo'da "Mentör
+    Öğretmen" ayrı bir personel rolüdür; burada mevcut bir `TeacherProfile`'ın
+    ek bir görevi (`isMentor`) olarak modellenir — `BRANCH_ADMIN` bir
+    öğretmeni mentör havuzuna ekler/çıkarır. Mentör ataması BusRoute ile aynı
+    desen (tekli nullable FK, join tablosu değil): bir öğrencinin en fazla BİR
+    mentörü olur, öğrencinin mentör ekranını ilk açtığında round-robin (en az
+    mentisi olan mentöre) OTOMATİK atanır. Aylık randevu kotası demo'daki
+    gibi sınıf düzeyine göre değişir (8./12. Sınıf ve Mezun → ayda 2, diğerleri
+    → ayda 1) ve `MentorRequest`, ekstra bir `TAMAMLANDI` durumu taşır
+    (mentörün randevuyu gerçekleştirdikten sonra işaretlemesi) —
+    `PtaMeetingRequest`'in aksine öğrenci/veli bir öğretmen SEÇMEZ, zaten
+    atanmış mentörüne talep gönderir. `apps/web/scripts/test-mentor-module.mjs`
+    (25 kontrol) mentör havuzu yetkisini (BRANCH_ADMIN-only, tenant
+    izolasyonu), otomatik atamayı, aylık kota aşımını (409), onay/red/
+    tamamlandı geçişlerini (geçersiz geçişler 409) ve Aktivite Akışı'na
+    yansımayı doğrular.
 
 ## Yerel Geliştirme (Veritabanı)
 
@@ -500,6 +522,7 @@ node scripts/test-quiz-module.mjs            # Quiz: doğrulama + rol/tenant izo
 node scripts/test-reports-module.mjs         # Raporlar: 5 rapor endpoint'i + CSV başlıkları + Mali Özet tutarlılığı + Aktivite Akışı yansıması
 node scripts/test-hq-tenants-module.mjs      # Kurum Yönetimi: SUPERADMIN yetkisi + tenant envanteri + ham DB sayım eşleşmesi
 node scripts/test-messages-module.mjs        # İletişim: gönderme yetkisi + sınıf filtreli hedefleme + okundu/kaldırma + tenant izolasyonu
+node scripts/test-mentor-module.mjs          # Seviye Mentör: havuz yetkisi + otomatik atama + aylık kota + onay/red/tamamlandı geçişleri
 node scripts/test-rls-isolation.mjs          # RLS: tenant izolasyonu + Muhasebe rol kısıtlaması (ham DB seviyesinde)
 ```
 

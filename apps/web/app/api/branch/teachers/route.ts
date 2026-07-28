@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
       id: t.id,
       name: `${t.user.firstName} ${t.user.lastName}`,
       branch: t.branch,
+      isMentor: t.isMentor,
     })),
   });
 }

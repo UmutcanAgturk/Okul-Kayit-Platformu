@@ -93,6 +93,7 @@ model Tenant {
   busRoutes           BusRoute[]
   quizAttempts        QuizAttempt[]
   messages            Message[]
+  mentorRequests      MentorRequest[]
 
   @@index([parentId])
 }
@@ -163,11 +164,19 @@ model TeacherProfile {
   branch String // örn. "Matematik", "Fizik" (zümre)
   title  String? // örn. "Zümre Başkanı"
 
+  // Seviye Mentör — bu öğretmenin mentör havuzunda olup olmadığı (bkz.
+  // app/api/branch/teachers/[teacherId]/mentor). Demo'daki gibi ayrı bir
+  // "Mentör Öğretmen" personel rolü değil, mevcut bir öğretmenin ek bir
+  // görevi olarak modellenir — BRANCH_ADMIN tarafından açılıp kapatılır.
+  isMentor Boolean @default(false)
+
   availabilitySlots  TeacherAvailabilitySlot[]
   studySessions      StudySession[]
   payrollRecords     PayrollRecord[]
   ptaMeetingRequests PtaMeetingRequest[]
   advisedClubs       Club[]
+  mentees            StudentProfile[]
+  mentorRequests     MentorRequest[]
 
   @@index([branch])
 }
@@ -214,6 +223,13 @@ model StudentProfile {
 
   busRouteId String? // Servis/Ulaşım Takibi — bir öğrenci en fazla BİR güzergaha atanabilir
   busRoute   BusRoute? @relation(fields: [busRouteId], references: [id])
+
+  // Seviye Mentör — BusRoute ile aynı desen (tekli nullable FK, join tablosu
+  // değil): bir öğrencinin en fazla BİR mentörü olur, ilk erişimde round-robin
+  // (en az mentisi olan mentöre) otomatik atanır — bkz. app/api/students/[studentId]/mentor.
+  mentorTeacherId String?
+  mentorTeacher   TeacherProfile? @relation(fields: [mentorTeacherId], references: [id])
+  mentorRequests  MentorRequest[]
 
   targetGoal String? // örn. "Tıp Fakültesi"
   studentNo  String  @unique
@@ -1040,4 +1056,44 @@ model MessageRecipient {
 
   @@id([messageId, userId])
   @@index([userId])
+}
+
+enum MentorRequestStatus {
+  BEKLIYOR
+  ONAYLANDI
+  REDDEDILDI
+  TAMAMLANDI
+}
+
+// Seviye Mentör (Online Mentörlük) — demo'daki `MENTOR_REQUESTS`'in gerçek
+// karşılığı. PtaMeetingRequest ile neredeyse aynı şekil (talep/onay/red),
+// iki farkla: (1) mentör ataması StudentProfile.mentorTeacherId üzerinden
+// round-robin otomatik yapılır (bkz. app/api/students/[studentId]/mentor),
+// veli/öğrenci bir öğretmen SEÇMEZ; (2) demo'daki gibi aylık kota vardır
+// (8. Sınıf/12. Sınıf/Mezun -> ayda 2, diğerleri -> ayda 1 — bkz.
+// MENTOR_MONTHLY_QUOTA'daki not), bu yüzden ekstra bir TAMAMLANDI durumu
+// (mentörün görüşmeyi gerçekleştirdikten sonra işaretlemesi) taşır.
+model MentorRequest {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  studentId String
+  student   StudentProfile @relation(fields: [studentId], references: [id])
+
+  mentorTeacherId String
+  mentorTeacher   TeacherProfile @relation(fields: [mentorTeacherId], references: [id])
+
+  requestedAt DateTime // öğrenci/velinin talep ettiği görüşme tarihi/saati
+  note        String?
+  status      MentorRequestStatus @default(BEKLIYOR)
+
+  requestedByUserId String // talebi oluşturan STUDENT ya da PARENT kullanıcısı
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, createdAt])
+  @@index([studentId])
+  @@index([mentorTeacherId, status])
 }
