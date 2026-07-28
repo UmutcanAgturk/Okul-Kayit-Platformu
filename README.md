@@ -413,6 +413,26 @@ seviye-360/
     (16 kontrol) rol yetkisini (yalnızca SUPERADMIN, BRANCH_ADMIN 403), seed'deki
     3 tenant'ın (Genel Merkez, Mezitli, Çankaya) ham DB sayımıyla birebir
     eşleşen öğrenci/sınıf sayılarını ve doğru şube müdürü adlarını doğrular.
+34. **İletişim — on sekizinci gerçek modül** (`Message`/`MessageRecipient`
+    modelleri, bkz. `prisma/migrations/20260728144908_add_messages` +
+    `.../20260728144925_add_message_rls`, `apps/web/app/api/branch/messages`,
+    `apps/web/app/api/messages/inbox`, `apps/web/app/api/messages/[messageId]`,
+    `apps/web/components/messages/MessagesDashboard.tsx`). Demo'daki
+    SMS/e-posta kanalları, dosya ekleri ve hazır şablonlar yalnızca
+    SİMÜLASYONDUR (gerçek bir sağlayıcı yok) — bu ilk sürüm bu yüzden yalnızca
+    uygulama-içi mesajlaşmayı gerçek veriye bağlar. `MessageRecipient`
+    (`ClubMembership` ile aynı gerekçeyle kendi RLS'i yok, `Message`'ın
+    `tenant_isolation`'ına güvenir) alıcı bazlı okundu durumunu tutar; DELETE
+    yalnızca o kullanıcının kendi kopyasını (MessageRecipient satırını) siler,
+    mesajın kendisini ya da diğer alıcıları etkilemez. Yetki, Devamsızlık/
+    Disiplin ile aynı deseni izler: `BRANCH_ADMIN` ve `TEACHER` gönderebilir
+    (bu depoda gerçek bir öğretmen-sınıf ataması modeli olmadığından `TEACHER`
+    tüm tenant'taki öğrenci/veliye gönderebilir ama `ALL_TEACHERS`/`ALL_STAFF`
+    hedefleyemez — yalnızca `BRANCH_ADMIN`). Gelen kutusu (`GET
+    /api/messages/inbox`) her role açıktır. `apps/web/scripts/test-messages-module.mjs`
+    (24 kontrol) yetki sınırlarını, sınıf filtreli gönderimi, okundu/kaldırma
+    akışını, tenant izolasyonunu (başka bir şubenin mesajı bu veliye
+    ulaşmıyor) ve Aktivite Akışı'na yansımayı doğrular.
 
 ## Yerel Geliştirme (Veritabanı)
 
@@ -479,6 +499,7 @@ node scripts/test-bus-routes-module.mjs      # Servis: tek-güzergah kısıtı +
 node scripts/test-quiz-module.mjs            # Quiz: doğrulama + rol/tenant izolasyonu + kazanım eşleme
 node scripts/test-reports-module.mjs         # Raporlar: 5 rapor endpoint'i + CSV başlıkları + Mali Özet tutarlılığı + Aktivite Akışı yansıması
 node scripts/test-hq-tenants-module.mjs      # Kurum Yönetimi: SUPERADMIN yetkisi + tenant envanteri + ham DB sayım eşleşmesi
+node scripts/test-messages-module.mjs        # İletişim: gönderme yetkisi + sınıf filtreli hedefleme + okundu/kaldırma + tenant izolasyonu
 node scripts/test-rls-isolation.mjs          # RLS: tenant izolasyonu + Muhasebe rol kısıtlaması (ham DB seviyesinde)
 ```
 

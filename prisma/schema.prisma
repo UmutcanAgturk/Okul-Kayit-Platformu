@@ -92,6 +92,7 @@ model Tenant {
   auditLogEntries     AuditLogEntry[]
   busRoutes           BusRoute[]
   quizAttempts        QuizAttempt[]
+  messages            Message[]
 
   @@index([parentId])
 }
@@ -131,6 +132,9 @@ model User {
   studentProfile StudentProfile?
   parentProfile  ParentProfile?
   sessions       UserSession[]
+
+  sentMessages      Message[]
+  messageRecipients MessageRecipient[]
 
   @@index([tenantId, role])
 }
@@ -997,4 +1001,43 @@ model PayrollRecord {
   @@unique([teacherId, period])
   @@unique([staffProfileId, period])
   @@index([tenantId, period])
+}
+
+// İletişim — demo'daki `MESSAGES`/`createMessage()`'ın gerçek karşılığı.
+// SMS/e-posta kanalları, ekli dosyalar ve hazır şablonlar demo'da yalnızca
+// SİMÜLASYONDUR (gerçek bir SMS/e-posta sağlayıcısı yok) — bu ilk sürüm bu
+// yüzden yalnızca uygulama-içi (in-app) mesajlaşmayı gerçek veriye bağlar.
+// Alıcı bazlı okundu/gizle durumu için ayrı bir join tablosu (MessageRecipient)
+// gerekir — ClubMembership ile aynı gerekçe (StudentGuardian gibi kendi
+// tenantId'si yoktur, Message'ın RLS'sine güvenir).
+model Message {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  senderUserId String
+  sender       User   @relation(fields: [senderUserId], references: [id])
+  senderLabel  String // actorLabel() ile üretilir, bkz. lib/audit-log.ts
+
+  title         String
+  body          String
+  audienceLabel String // örn. "Tüm Veliler", "9-A Sınıfı Velileri"
+
+  createdAt DateTime @default(now())
+
+  recipients MessageRecipient[]
+
+  @@index([tenantId, createdAt])
+}
+
+model MessageRecipient {
+  messageId String
+  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  readAt DateTime?
+
+  @@id([messageId, userId])
+  @@index([userId])
 }
