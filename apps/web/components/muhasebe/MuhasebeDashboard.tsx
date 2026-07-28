@@ -8,21 +8,21 @@ import { ApiError } from "@/lib/api/client";
 import { LedgerPanel } from "./LedgerPanel";
 import { InstallmentsPanel } from "./InstallmentsPanel";
 import { PayrollPanel } from "./PayrollPanel";
+import { BelgelerPanel } from "./BelgelerPanel";
 
 const ALLOWED_ROLES = ["BRANCH_ADMIN", "ACCOUNTING"];
 const TABS = [
   { id: "genel", label: "Genel Bakış (Kayıt Defteri)" },
   { id: "tahsilat", label: "Tahsilat Takibi" },
   { id: "bordro", label: "Bordro" },
+  { id: "belgeler", label: "Belgeler (Fatura/Dekont/Senet)" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 
 /**
- * Muhasebe modülünün ilk gerçek (localStorage değil, Postgres'e karşı çalışan)
- * ekranı. demo/seviye360-app.html'deki Muhasebe sekmesinin aynısı DEĞİL —
- * yalnızca o ekranda zaten karşılığı olan üç bölümü (Kayıt Defteri, Tahsilat
- * Takibi, Bordro) kapsar; Fatura/Dekont/Senet henüz buraya taşınmadı (bkz.
- * kök README.md'deki "sıradaki" notu).
+ * Muhasebe modülünün gerçek (localStorage değil, Postgres'e karşı çalışan)
+ * ekranı — Kayıt Defteri, Tahsilat Takibi, Bordro ve Belgeler (Fatura/Dekont/
+ * Senet) bölümlerini kapsar (bkz. kök README.md).
  */
 export function MuhasebeDashboard() {
   const router = useRouter();
@@ -118,6 +118,7 @@ export function MuhasebeDashboard() {
       {tab === "genel" && <LedgerPanel />}
       {tab === "tahsilat" && <InstallmentsPanel />}
       {tab === "bordro" && <PayrollPanel />}
+      {tab === "belgeler" && <BelgelerPanel />}
     </div>
   );
 }

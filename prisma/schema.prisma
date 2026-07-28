@@ -55,33 +55,36 @@ enum TenantType {
 }
 
 model Tenant {
-  id        String     @id @default(cuid())
-  name      String // örn. "Özel Mezitli Seviye Anadolu Lisesi"
-  code      String     @unique // örn. "MEZITLI-01"
-  type      TenantType
-  city      String?
-  district  String?
+  id       String     @id @default(cuid())
+  name     String // örn. "Özel Mezitli Seviye Anadolu Lisesi"
+  code     String     @unique // örn. "MEZITLI-01"
+  type     TenantType
+  city     String?
+  district String?
 
-  parentId  String?
-  parent    Tenant?    @relation("TenantHierarchy", fields: [parentId], references: [id])
-  children  Tenant[]   @relation("TenantHierarchy")
+  parentId String?
+  parent   Tenant?  @relation("TenantHierarchy", fields: [parentId], references: [id])
+  children Tenant[] @relation("TenantHierarchy")
 
-  isActive  Boolean    @default(true)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  users              User[]
-  classrooms         Classroom[]
-  studentProfiles    StudentProfile[]
-  enrollments        Enrollment[]
-  exams              Exam[]
-  examResults        ExamResult[]
-  studySessions      StudySession[]
+  users               User[]
+  classrooms          Classroom[]
+  studentProfiles     StudentProfile[]
+  enrollments         Enrollment[]
+  exams               Exam[]
+  examResults         ExamResult[]
+  studySessions       StudySession[]
   paymentInstallments PaymentInstallment[]
-  paymentMethods     PaymentMethod[]
-  ledgerEntries      AccountingLedgerEntry[]
-  payrollRecords     PayrollRecord[]
-  staffProfiles      StaffProfile[]
+  paymentMethods      PaymentMethod[]
+  ledgerEntries       AccountingLedgerEntry[]
+  payrollRecords      PayrollRecord[]
+  staffProfiles       StaffProfile[]
+  invoices            Invoice[]
+  receipts            Receipt[]
+  promissoryNotes     PromissoryNote[]
 
   @@index([parentId])
 }
@@ -101,9 +104,9 @@ enum UserRole {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  tenantId     String?  // SUPERADMIN için null olabilir (Genel Merkez kullanıcısı)
-  tenant       Tenant?  @relation(fields: [tenantId], references: [id])
+  id       String  @id @default(cuid())
+  tenantId String? // SUPERADMIN için null olabilir (Genel Merkez kullanıcısı)
+  tenant   Tenant? @relation(fields: [tenantId], references: [id])
 
   email        String   @unique
   phone        String?  @unique
@@ -113,8 +116,8 @@ model User {
   lastName     String
   isActive     Boolean  @default(true)
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   teacherProfile TeacherProfile?
   staffProfile   StaffProfile?
@@ -130,9 +133,9 @@ model User {
 // tek gerçek kaynak burasıdır — bu sayede çalınmış/eski bir token, süresi
 // dolmadan da (logout veya logout-all ile) iptal edilebilir.
 model UserSession {
-  id        String    @id @default(cuid())
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   createdAt DateTime  @default(now())
   expiresAt DateTime
@@ -142,16 +145,16 @@ model UserSession {
 }
 
 model TeacherProfile {
-  id        String  @id @default(cuid())
-  userId    String  @unique
-  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  branch    String // örn. "Matematik", "Fizik" (zümre)
-  title     String? // örn. "Zümre Başkanı"
+  branch String // örn. "Matematik", "Fizik" (zümre)
+  title  String? // örn. "Zümre Başkanı"
 
-  availabilitySlots   TeacherAvailabilitySlot[]
-  studySessions       StudySession[]
-  payrollRecords      PayrollRecord[]
+  availabilitySlots TeacherAvailabilitySlot[]
+  studySessions     StudySession[]
+  payrollRecords    PayrollRecord[]
 
   @@index([branch])
 }
@@ -186,18 +189,18 @@ model StaffProfile {
 }
 
 model StudentProfile {
-  id           String   @id @default(cuid())
-  tenantId     String   // RLS scoping için doğrudan tutulur (bkz. prisma/rls/README.md)
-  tenant       Tenant   @relation(fields: [tenantId], references: [id])
-  userId       String   @unique
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  tenantId String // RLS scoping için doğrudan tutulur (bkz. prisma/rls/README.md)
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  userId   String @unique
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  gradeLevel   GradeLevel // kayıt sırasında belirlenir; şube ataması sonrasında da sabit kalır
-  classroomId  String?    // "Sınıf Atama" ekranıyla doldurulur (örn. "9-A"); null ise henüz bir şubeye atanmamıştır
-  classroom    Classroom? @relation(fields: [classroomId], references: [id])
+  gradeLevel  GradeLevel // kayıt sırasında belirlenir; şube ataması sonrasında da sabit kalır
+  classroomId String? // "Sınıf Atama" ekranıyla doldurulur (örn. "9-A"); null ise henüz bir şubeye atanmamıştır
+  classroom   Classroom? @relation(fields: [classroomId], references: [id])
 
-  targetGoal   String? // örn. "Tıp Fakültesi"
-  studentNo    String   @unique
+  targetGoal String? // örn. "Tıp Fakültesi"
+  studentNo  String  @unique
 
   guardians       StudentGuardian[]
   examResults     ExamResult[]
@@ -206,6 +209,7 @@ model StudentProfile {
   installments    PaymentInstallment[]
   paymentMethods  PaymentMethod[]
   enrollment      Enrollment?
+  promissoryNotes PromissoryNote[]
 
   @@index([classroomId])
   @@index([gradeLevel])
@@ -221,22 +225,22 @@ model ParentProfile {
 
 // Bir öğrencinin birden fazla velisi, bir velinin birden fazla öğrencisi olabilir.
 model StudentGuardian {
-  studentId  String
-  student    StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  parentId   String
-  parent     ParentProfile  @relation(fields: [parentId], references: [id], onDelete: Cascade)
-  relation   String // örn. "Anne", "Baba", "Vasi"
-  isBillingResponsible Boolean @default(false)
+  studentId            String
+  student              StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  parentId             String
+  parent               ParentProfile  @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  relation             String // örn. "Anne", "Baba", "Vasi"
+  isBillingResponsible Boolean        @default(false)
 
   @@id([studentId, parentId])
 }
 
 model Classroom {
-  id        String  @id @default(cuid())
-  tenantId  String
-  tenant    Tenant  @relation(fields: [tenantId], references: [id])
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
 
-  name      String // örn. "9-A" (şube içindeki fiziksel şube/bölüm)
+  name       String // örn. "9-A" (şube içindeki fiziksel şube/bölüm)
   gradeLevel GradeLevel
 
   students    StudentProfile[]
@@ -256,8 +260,8 @@ model Classroom {
 // geçtiğinde `studentId` doldurulur ve gerçek StudentProfile oluşturulmuş olur.
 
 enum EnrollmentType {
-  ON_KAYIT      // Kapora ile yer ayırtma
-  NORMAL_KAYIT  // Sözleşme + tam kayıt
+  ON_KAYIT // Kapora ile yer ayırtma
+  NORMAL_KAYIT // Sözleşme + tam kayıt
 }
 
 enum EnrollmentStage {
@@ -269,28 +273,28 @@ enum EnrollmentStage {
 }
 
 model Enrollment {
-  id                String            @id @default(cuid())
-  tenantId          String
-  tenant            Tenant            @relation(fields: [tenantId], references: [id])
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
 
-  type              EnrollmentType    @default(ON_KAYIT)
-  stage             EnrollmentStage   @default(ON_KAYIT_ALINDI)
+  type  EnrollmentType  @default(ON_KAYIT)
+  stage EnrollmentStage @default(ON_KAYIT_ALINDI)
 
-  candidateFullName String
+  candidateFullName   String
   candidateGradeLevel GradeLevel
-  guardianFullName  String
-  guardianPhone     String
-  targetClassroomId String?
-  targetClassroom   Classroom?        @relation(fields: [targetClassroomId], references: [id])
+  guardianFullName    String
+  guardianPhone       String
+  targetClassroomId   String?
+  targetClassroom     Classroom? @relation(fields: [targetClassroomId], references: [id])
 
-  depositAmount     Decimal?          @db.Decimal(10, 2) // Ön kayıt kaporası
-  contractSignedAt  DateTime?
+  depositAmount    Decimal?  @db.Decimal(10, 2) // Ön kayıt kaporası
+  contractSignedAt DateTime?
 
-  studentId         String?           @unique // Normal kayıt tamamlanınca StudentProfile'a bağlanır
-  student           StudentProfile?   @relation(fields: [studentId], references: [id])
+  studentId String?         @unique // Normal kayıt tamamlanınca StudentProfile'a bağlanır
+  student   StudentProfile? @relation(fields: [studentId], references: [id])
 
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([tenantId, stage])
 }
@@ -300,22 +304,22 @@ model Enrollment {
 // ---------------------------------------------------------------------------
 
 enum CurriculumNodeType {
-  SUBJECT       // Ders (örn. Matematik)
-  UNIT          // Ünite
-  TOPIC         // Konu
-  ACHIEVEMENT   // Kazanım (örn. "MAT.9.1.2.3")
+  SUBJECT // Ders (örn. Matematik)
+  UNIT // Ünite
+  TOPIC // Konu
+  ACHIEVEMENT // Kazanım (örn. "MAT.9.1.2.3")
 }
 
 model CurriculumNode {
-  id         String              @id @default(cuid())
+  id         String             @id @default(cuid())
   type       CurriculumNodeType
-  code       String              @unique // MEB kazanım kodu
+  code       String             @unique // MEB kazanım kodu
   label      String
   gradeLevel Int
 
-  parentId   String?
-  parent     CurriculumNode?     @relation("CurriculumHierarchy", fields: [parentId], references: [id])
-  children   CurriculumNode[]    @relation("CurriculumHierarchy")
+  parentId String?
+  parent   CurriculumNode?  @relation("CurriculumHierarchy", fields: [parentId], references: [id])
+  children CurriculumNode[] @relation("CurriculumHierarchy")
 
   examQuestions             ExamQuestion[]
   studentAchievementResults StudentAchievementResult[]
@@ -330,7 +334,7 @@ model CurriculumNode {
 // ---------------------------------------------------------------------------
 
 enum ExamScope {
-  BRANCH  // Tek şubeye özel
+  BRANCH // Tek şubeye özel
   NETWORK // Genel Merkez tarafından tüm şubelere push edilen "Seviye 360 Deneme Sınavı"
 }
 
@@ -341,32 +345,32 @@ enum ExamType {
 }
 
 model Exam {
-  id            String    @id @default(cuid())
-  tenantId      String // Network sınavlarında bu, sınavı yayınlayan Genel Merkez tenant'ıdır
-  tenant        Tenant    @relation(fields: [tenantId], references: [id])
+  id       String @id @default(cuid())
+  tenantId String // Network sınavlarında bu, sınavı yayınlayan Genel Merkez tenant'ıdır
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
 
-  name          String
-  type          ExamType
-  scope         ExamScope
-  bookletTypes  String[]  @default(["A", "B", "C", "D"])
-  examDate      DateTime
+  name         String
+  type         ExamType
+  scope        ExamScope
+  bookletTypes String[]  @default(["A", "B", "C", "D"])
+  examDate     DateTime
 
-  createdAt     DateTime  @default(now())
+  createdAt DateTime @default(now())
 
-  questions     ExamQuestion[]
-  results       ExamResult[]
+  questions ExamQuestion[]
+  results   ExamResult[]
 
   @@index([tenantId, examDate])
 }
 
 model ExamQuestion {
-  id              String          @id @default(cuid())
-  examId          String
-  exam            Exam            @relation(fields: [examId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  examId String
+  exam   Exam   @relation(fields: [examId], references: [id], onDelete: Cascade)
 
-  orderIndex      Int
-  achievementId   String
-  achievement     CurriculumNode  @relation(fields: [achievementId], references: [id])
+  orderIndex    Int
+  achievementId String
+  achievement   CurriculumNode @relation(fields: [achievementId], references: [id])
 
   // IRT (Madde Tepki Kuramı) parametreleri
   irtDifficulty     Float? // b parametresi
@@ -377,28 +381,28 @@ model ExamQuestion {
 }
 
 model ExamResult {
-  id            String    @id @default(cuid())
-  examId        String
-  exam          Exam      @relation(fields: [examId], references: [id])
-  tenantId      String
-  tenant        Tenant    @relation(fields: [tenantId], references: [id])
-  studentId     String
-  student       StudentProfile @relation(fields: [studentId], references: [id])
+  id        String         @id @default(cuid())
+  examId    String
+  exam      Exam           @relation(fields: [examId], references: [id])
+  tenantId  String
+  tenant    Tenant         @relation(fields: [tenantId], references: [id])
+  studentId String
+  student   StudentProfile @relation(fields: [studentId], references: [id])
 
   seatingRoomId String?
   seatNo        String?
   bookletType   String?
 
-  correctCount  Int
-  wrongCount    Int
-  emptyCount    Int
-  rawScore      Float
-  netScore      Float
-  percentile    Float?
+  correctCount Int
+  wrongCount   Int
+  emptyCount   Int
+  rawScore     Float
+  netScore     Float
+  percentile   Float?
 
   achievementResults StudentAchievementResult[]
 
-  createdAt     DateTime  @default(now())
+  createdAt DateTime @default(now())
 
   @@unique([examId, studentId])
   @@index([tenantId, examId])
@@ -407,17 +411,17 @@ model ExamResult {
 // Öğrencinin sınavdaki her kazanım için başarı durumu — "AI Sınıf Röntgeni" ısı
 // haritasının veri kaynağıdır.
 model StudentAchievementResult {
-  id             String          @id @default(cuid())
-  examResultId   String
-  examResult     ExamResult      @relation(fields: [examResultId], references: [id], onDelete: Cascade)
-  studentId      String
-  student        StudentProfile  @relation(fields: [studentId], references: [id])
-  achievementId  String
-  achievement    CurriculumNode  @relation(fields: [achievementId], references: [id])
+  id            String         @id @default(cuid())
+  examResultId  String
+  examResult    ExamResult     @relation(fields: [examResultId], references: [id], onDelete: Cascade)
+  studentId     String
+  student       StudentProfile @relation(fields: [studentId], references: [id])
+  achievementId String
+  achievement   CurriculumNode @relation(fields: [achievementId], references: [id])
 
-  questionCount  Int
-  correctCount   Int
-  correctRatio   Float // 0 - 1, masteryLevel bu değerden türetilir
+  questionCount Int
+  correctCount  Int
+  correctRatio  Float // 0 - 1, masteryLevel bu değerden türetilir
 
   @@unique([examResultId, achievementId])
   @@index([studentId, achievementId])
@@ -441,38 +445,38 @@ enum StudySessionSource {
 }
 
 model TeacherAvailabilitySlot {
-  id         String          @id @default(cuid())
-  teacherId  String
-  teacher    TeacherProfile  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  id        String         @id @default(cuid())
+  teacherId String
+  teacher   TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
 
-  dayOfWeek  Int // 0=Pazartesi ... 6=Pazar
-  startTime  String // "14:00"
-  endTime    String // "14:40"
-  isBooked   Boolean @default(false)
+  dayOfWeek Int // 0=Pazartesi ... 6=Pazar
+  startTime String // "14:00"
+  endTime   String // "14:40"
+  isBooked  Boolean @default(false)
 
   @@index([teacherId, dayOfWeek, isBooked])
 }
 
 model StudySession {
-  id             String              @id @default(cuid())
-  tenantId       String
-  tenant         Tenant              @relation(fields: [tenantId], references: [id])
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
 
-  studentId      String
-  student        StudentProfile      @relation(fields: [studentId], references: [id])
-  teacherId      String
-  teacher        TeacherProfile      @relation(fields: [teacherId], references: [id])
-  achievementId  String
-  achievement    CurriculumNode      @relation(fields: [achievementId], references: [id])
+  studentId     String
+  student       StudentProfile @relation(fields: [studentId], references: [id])
+  teacherId     String
+  teacher       TeacherProfile @relation(fields: [teacherId], references: [id])
+  achievementId String
+  achievement   CurriculumNode @relation(fields: [achievementId], references: [id])
 
-  status         StudySessionStatus  @default(AI_SUGGESTED)
-  source         StudySessionSource  @default(AI_AUTO_ASSIGNED)
+  status StudySessionStatus @default(AI_SUGGESTED)
+  source StudySessionSource @default(AI_AUTO_ASSIGNED)
 
   scheduledStart DateTime
   scheduledEnd   DateTime
 
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([tenantId, teacherId, scheduledStart])
   @@index([studentId, status])
@@ -490,23 +494,23 @@ enum PaymentStatus {
 }
 
 model PaymentInstallment {
-  id                  String        @id @default(cuid())
-  tenantId            String
-  tenant              Tenant        @relation(fields: [tenantId], references: [id])
-  studentId           String
-  student             StudentProfile @relation(fields: [studentId], references: [id])
+  id        String         @id @default(cuid())
+  tenantId  String
+  tenant    Tenant         @relation(fields: [tenantId], references: [id])
+  studentId String
+  student   StudentProfile @relation(fields: [studentId], references: [id])
 
-  installmentNo       Int
-  amount              Decimal       @db.Decimal(10, 2)
-  dueDate             DateTime
-  paidAt              DateTime?
-  status              PaymentStatus @default(PENDING)
+  installmentNo Int
+  amount        Decimal       @db.Decimal(10, 2)
+  dueDate       DateTime
+  paidAt        DateTime?
+  status        PaymentStatus @default(PENDING)
 
-  paymentProvider     String        @default("ParamPOS")
+  paymentProvider       String  @default("ParamPOS")
   providerTransactionId String?
 
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([tenantId, status, dueDate])
   @@index([studentId, installmentNo])
@@ -522,19 +526,19 @@ enum PaymentMethodType {
 // havale bilgisi / nakit tercihi). Kart bilgisinin kendisi ParamPOS'ta saklanır;
 // burada yalnızca maskelenmiş görüntü ve tokenize referans tutulur.
 model PaymentMethod {
-  id                  String            @id @default(cuid())
-  tenantId            String
-  tenant              Tenant            @relation(fields: [tenantId], references: [id])
-  studentId           String
-  student             StudentProfile    @relation(fields: [studentId], references: [id])
+  id        String         @id @default(cuid())
+  tenantId  String
+  tenant    Tenant         @relation(fields: [tenantId], references: [id])
+  studentId String
+  student   StudentProfile @relation(fields: [studentId], references: [id])
 
-  type                PaymentMethodType
-  provider            String            @default("ParamPOS")
-  maskedCardNumber    String?           // örn. "•••• •••• •••• 4831"
-  providerCardToken   String?           // ParamPOS tokenize kart referansı
-  isDefault           Boolean           @default(false)
+  type              PaymentMethodType
+  provider          String            @default("ParamPOS")
+  maskedCardNumber  String? // örn. "•••• •••• •••• 4831"
+  providerCardToken String? // ParamPOS tokenize kart referansı
+  isDefault         Boolean           @default(false)
 
-  createdAt           DateTime          @default(now())
+  createdAt DateTime @default(now())
 
   @@index([tenantId, studentId])
 }
@@ -555,35 +559,144 @@ enum AccountingEntryType {
 }
 
 model AccountingLedgerEntry {
-  id            String              @id @default(cuid())
-  tenantId      String
-  tenant        Tenant              @relation(fields: [tenantId], references: [id])
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
 
-  type          AccountingEntryType
-  category      String              // örn. "Taksit Tahsilatı", "Kira", "Personel Maaşı"
-  amount        Decimal             @db.Decimal(10, 2) // her zaman KDV dahil brüt tutar
-  entryDate     DateTime
-  note          String?
+  type      AccountingEntryType
+  category  String // örn. "Taksit Tahsilatı", "Kira", "Personel Maaşı"
+  amount    Decimal             @db.Decimal(10, 2) // her zaman KDV dahil brüt tutar
+  entryDate DateTime
+  note      String?
 
   // KDV Kanunu md 17/2-b uyarınca lisanslı eğitim kurumlarının eğitim/öğretim
   // hizmeti gelirleri genelde KDV'den istisnadır — bu yüzden vatRate NULL
   // (istisna/KDV dışı) olabilir. Doluysa `amount` KDV dahil kabul edilir;
   // matrah = amount / (1 + vatRate), kdv = amount - matrah (bkz. lib/tax.ts).
-  vatRate         Decimal?          @db.Decimal(5, 4)
+  vatRate         Decimal? @db.Decimal(5, 4)
   // GVK md 94 stopajı (örn. gerçek kişiden kiralanan işyeri kirası %20) —
   // doluysa `amount` kesintiden ÖNCEKİ (brüt/sözleşme) tutardır; kesilen pay
   // muhtasar beyanname ile vergi dairesine, kalanı hak sahibine ödenir.
-  withholdingRate Decimal?          @db.Decimal(5, 4)
+  withholdingRate Decimal? @db.Decimal(5, 4)
 
-  createdByUserId String            // BRANCH_ADMIN veya ACCOUNTING rolündeki User.id
-  relatedInstallmentId String?      // varsa ilgili PaymentInstallment.id
+  createdByUserId      String // BRANCH_ADMIN veya ACCOUNTING rolündeki User.id
+  relatedInstallmentId String? // varsa ilgili PaymentInstallment.id
 
   payrollRecord PayrollRecord?
 
-  createdAt     DateTime            @default(now())
+  createdAt DateTime @default(now())
 
   @@index([tenantId, entryDate])
   @@index([tenantId, type])
+}
+
+// ---------------------------------------------------------------------------
+// BELGELER: Fatura / Dekont / Senet
+// ---------------------------------------------------------------------------
+//
+// AccountingLedgerEntry ile aynı RLS deseni (tenant_and_role_isolation) —
+// yalnızca SUPERADMIN/BRANCH_ADMIN/ACCOUNTING görebilir. Demo'daki
+// (demo/seviye360/seviye360-app.html) karşılığı gibi bu üç belge türü
+// BİLİNÇLİ OLARAK Kayıt Defteri'ne otomatik yazılmaz — birbirinden bağımsız
+// belgelerdir; deftere yansıtmak isteyen kullanıcı Kayıt Defteri'nden ayrıca
+// manuel bir kayıt ekler. `no` alanı (örn. "FT-2026-000001") tenant+yıl
+// bazında sıralıdır; üretimi apps/web/lib/documents.ts'de retry-on-conflict
+// deseniyle yapılır (bkz. lib/enrollment.ts'deki generateStudentNo ile aynı yaklaşım).
+
+model Invoice {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  no           String
+  invoiceDate  DateTime
+  buyerName    String
+  buyerTaxNo   String?
+  buyerAddress String?
+  items        Json // [{ description: string, quantity: number, unitPrice: number }]
+
+  // AccountingLedgerEntry.vatRate ile aynı anlam: NULL = KDV'den istisna
+  // (KDV Kanunu 17/2-b). Doluysa fatura KDV HARİÇ düzenlenir: kdvAmount =
+  // subtotal * kdvRate, total = subtotal + kdvAmount (ledger'daki KDV DAHİL
+  // tutardan matrah çıkarma yönünün TERSİ — bkz. lib/documents.ts).
+  kdvRate   Decimal? @db.Decimal(5, 4)
+  subtotal  Decimal  @db.Decimal(10, 2)
+  kdvAmount Decimal  @db.Decimal(10, 2)
+  total     Decimal  @db.Decimal(10, 2)
+  note      String?
+
+  createdByUserId String
+
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, no])
+  @@index([tenantId])
+}
+
+enum ReceiptType {
+  TAHSILAT
+  ODEME
+}
+
+enum ReceiptMethod {
+  KREDI_KARTI
+  BANKA_HAVALESI
+  NAKIT
+  SENET
+}
+
+// "Dekont" — tahsilat veya ödeme makbuzu.
+model Receipt {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  no          String
+  receiptDate DateTime
+  type        ReceiptType
+  personName  String
+  amount      Decimal       @db.Decimal(10, 2)
+  method      ReceiptMethod
+  description String?
+  note        String?
+
+  createdByUserId String
+
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, no])
+  @@index([tenantId])
+}
+
+enum PromissoryNoteStatus {
+  ODENMEDI
+  ODENDI
+}
+
+// "Senet" — borçludan tahsil edilecek/edilmiş kambiyo senedi.
+model PromissoryNote {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  no         String
+  issueDate  DateTime
+  dueDate    DateTime
+  debtorName String
+  amount     Decimal              @db.Decimal(10, 2)
+  note       String?
+  status     PromissoryNoteStatus @default(ODENMEDI)
+  paidAt     DateTime?
+
+  studentId String?
+  student   StudentProfile? @relation(fields: [studentId], references: [id])
+
+  createdByUserId String
+
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, no])
+  @@index([tenantId])
 }
 
 // Basitleştirilmiş, gösterim amaçlı bordro hesaplayıcısının çıktısı (bkz.
@@ -608,7 +721,7 @@ model PayrollRecord {
   staffProfileId String?
   staffProfile   StaffProfile? @relation(fields: [staffProfileId], references: [id])
 
-  period    String // "2026-07" (YYYY-MM)
+  period String // "2026-07" (YYYY-MM)
 
   grossSalary               Decimal @db.Decimal(10, 2)
   sgkEmployeeShare          Decimal @db.Decimal(10, 2) // %14
@@ -621,7 +734,7 @@ model PayrollRecord {
   unemploymentEmployerShare Decimal @db.Decimal(10, 2) // %2
   employerCost              Decimal @db.Decimal(10, 2) // brüt + işveren payları
 
-  ledgerEntryId String?               @unique
+  ledgerEntryId String?                @unique
   ledgerEntry   AccountingLedgerEntry? @relation(fields: [ledgerEntryId], references: [id])
 
   createdByUserId String

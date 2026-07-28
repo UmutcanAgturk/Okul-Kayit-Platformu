@@ -157,8 +157,7 @@ seviye-360/
     sekmelerini `fetch()` ile doğrudan yukarıdaki gerçek API'lere bağlar — hiçbir
     yerde `localStorage` kullanılmaz. Seed veriyle örnek giriş:
     `merve.aslan@seviye360.com` / `seviye360dev-pw` (bkz. "Yerel Geliştirme").
-    **Bilinçli kapsam dışı (henüz taşınmadı):** Fatura/Dekont/Senet (Prisma'da
-    karşılığı yok).
+    Fatura/Dekont/Senet artık burada "kapsam dışı" değil — bkz. madde 22.
 20. **Personel modülü (öğretmen dışı personel) — beşinci gerçek modül**
     (`prisma/schema.prisma`'daki `StaffProfile` modeli,
     `apps/web/app/api/branch/staff`, `apps/web/app/(branch)/personel`,
@@ -187,6 +186,24 @@ seviye-360/
     roller için (`TEACHER`/`STUDENT`/`PARENT`/`SUPERADMIN`/`GUIDANCE_COORDINATOR`)
     bunu dürüstçe belirtip demo dosyasına (`demo/seviye360/seviye360-app.html`)
     işaret eder — sessizce boş bir ekran göstermez.
+22. **Belgeler: Fatura/Dekont/Senet — altıncı gerçek modül**
+    (`prisma/schema.prisma`'daki `Invoice`/`Receipt`/`PromissoryNote` modelleri,
+    `apps/web/app/api/branch/invoices`, `.../receipts`, `.../promissory-notes`,
+    `apps/web/components/muhasebe/BelgelerPanel.tsx` — Muhasebe'nin yeni
+    "Belgeler" sekmesi). Üçü de `AccountingLedgerEntry`/`PayrollRecord`/
+    `StaffProfile` ile aynı `tenant_and_role_isolation` RLS politikasına
+    tabidir (bkz. `prisma/migrations/20260728073342_add_documents`). Demo'daki
+    (`demo/seviye360/seviye360-app.html`) karşılığı gibi bu üç belge türü
+    BİLİNÇLİ OLARAK Kayıt Defteri'ne otomatik yazılmaz — birbirinden bağımsız
+    belgelerdir (bkz. `lib/documents.ts`). Belge numaraları (`FT-2026-000001`
+    gibi) tenant+yıl bazında sıralıdır; üretimi INSERT'i catch-retry ile DEĞİL,
+    önce boş bir numara arayıp SONRA tek bir INSERT çalıştırarak yapılır —
+    bir Postgres transaction'ı içinde bir INSERT hata verdiğinde transaction'ın
+    tamamı "aborted" olur ve aynı transaction içindeki hiçbir sonraki komut
+    (bir retry dahil) çalışmaz; bu, geliştirme sırasında gerçek bir hataydı ve
+    `scripts/test-documents-module.mjs` ile doğrulanarak düzeltildi. Senet
+    için ayrıca bir "Ödendi İşaretle" aksiyonu (`.../promissory-notes/[id]/mark-paid`)
+    vardır.
 
 ## Yerel Geliştirme (Veritabanı)
 
@@ -241,6 +258,7 @@ node scripts/test-class-xray.mjs             # AI Sınıf Röntgeni API'si (logi
 node scripts/test-accounting-ledger.mjs      # Muhasebe defteri API'si (login + tenant izolasyonu + yetki kontrolü)
 node scripts/test-muhasebe-ui-endpoints.mjs  # Muhasebe arayüzü için eklenen DELETE ledger + GET teachers
 node scripts/test-staff-module.mjs           # Personel (StaffProfile) CRUD + staffProfileId ile bordro + DB CHECK constraint
+node scripts/test-documents-module.mjs       # Fatura/Dekont/Senet CRUD + KDV hesabı + belge no üretimi + tenant izolasyonu
 node scripts/test-rls-isolation.mjs          # RLS: tenant izolasyonu + Muhasebe rol kısıtlaması (ham DB seviyesinde)
 ```
 
