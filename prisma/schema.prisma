@@ -87,6 +87,7 @@ model Tenant {
   promissoryNotes     PromissoryNote[]
   attendanceRecords   AttendanceRecord[]
   disciplineRecords   DisciplineRecord[]
+  ptaMeetingRequests  PtaMeetingRequest[]
 
   @@index([parentId])
 }
@@ -154,9 +155,10 @@ model TeacherProfile {
   branch String // örn. "Matematik", "Fizik" (zümre)
   title  String? // örn. "Zümre Başkanı"
 
-  availabilitySlots TeacherAvailabilitySlot[]
-  studySessions     StudySession[]
-  payrollRecords    PayrollRecord[]
+  availabilitySlots  TeacherAvailabilitySlot[]
+  studySessions      StudySession[]
+  payrollRecords     PayrollRecord[]
+  ptaMeetingRequests PtaMeetingRequest[]
 
   @@index([branch])
 }
@@ -204,16 +206,17 @@ model StudentProfile {
   targetGoal String? // örn. "Tıp Fakültesi"
   studentNo  String  @unique
 
-  guardians         StudentGuardian[]
-  examResults       ExamResult[]
-  achievementRows   StudentAchievementResult[]
-  studySessions     StudySession[]
-  installments      PaymentInstallment[]
-  paymentMethods    PaymentMethod[]
-  enrollment        Enrollment?
-  promissoryNotes   PromissoryNote[]
-  attendanceRecords AttendanceRecord[]
-  disciplineRecords DisciplineRecord[]
+  guardians          StudentGuardian[]
+  examResults        ExamResult[]
+  achievementRows    StudentAchievementResult[]
+  studySessions      StudySession[]
+  installments       PaymentInstallment[]
+  paymentMethods     PaymentMethod[]
+  enrollment         Enrollment?
+  promissoryNotes    PromissoryNote[]
+  attendanceRecords  AttendanceRecord[]
+  disciplineRecords  DisciplineRecord[]
+  ptaMeetingRequests PtaMeetingRequest[]
 
   @@index([classroomId])
   @@index([gradeLevel])
@@ -333,6 +336,42 @@ model DisciplineRecord {
 
   @@index([tenantId, createdAt])
   @@index([studentId])
+}
+
+enum PtaRequestStatus {
+  BEKLIYOR
+  ONAYLANDI
+  REDDEDILDI
+}
+
+// Veli-Öğretmen Görüşme Randevusu — demo'daki PTA_REQUESTS'in gerçek karşılığı.
+// DisciplineRecord/AttendanceRecord ile aynı düz `tenant_isolation` (rol değil
+// KİMLİK bazlı görünürlük): PARENT yalnızca kendi talebini, TEACHER yalnızca
+// kendisine yöneltilen talepleri, BRANCH_ADMIN/GUIDANCE_COORDINATOR tüm
+// tenant'ı görebilir/yönetebilir.
+model PtaMeetingRequest {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  studentId String
+  student   StudentProfile @relation(fields: [studentId], references: [id])
+
+  teacherId String
+  teacher   TeacherProfile @relation(fields: [teacherId], references: [id])
+
+  requestedAt DateTime // velinin talep ettiği görüşme tarihi/saati
+  topic       String?
+  status      PtaRequestStatus @default(BEKLIYOR)
+
+  requestedByUserId String // talebi oluşturan PARENT kullanıcısı
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, createdAt])
+  @@index([studentId])
+  @@index([teacherId, status])
 }
 
 // ---------------------------------------------------------------------------

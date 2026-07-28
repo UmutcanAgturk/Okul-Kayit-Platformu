@@ -8,9 +8,11 @@ import { withTenantContext } from "@/lib/db-context";
  * route'unun (bkz. app/api/branch/payroll/route.ts) kendi yorumunda dediği
  * gibi TeacherProfile'ın kendisi RLS ile tenant'a scope edilmemiştir (tabloda
  * doğrudan bir tenantId kolonu yok), bu yüzden filtre burada `User.tenantId`
- * üzerinden uygulama katmanında yapılır — aynı deseni tekrarlar.
+ * üzerinden uygulama katmanında yapılır — aynı deseni tekrarlar. PARENT de
+ * dahil edilmiştir: Veli-Öğretmen Görüşme Randevusu formunda velinin
+ * öğretmen seçebilmesi için kullanılır.
  */
-const ROLES_ALLOWED: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.ACCOUNTING];
+const ROLES_ALLOWED: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.ACCOUNTING, UserRole.PARENT];
 
 export async function GET(request: NextRequest) {
   const actor = await getSessionActor(request);

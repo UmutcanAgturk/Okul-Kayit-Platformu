@@ -27,14 +27,15 @@ const PERSONEL_CARD: ModuleCard = { href: "/personel", title: "Personel", descri
 const DEVAMSIZLIK_CARD: ModuleCard = { href: "/devamsizlik", title: "Devamsızlık", description: "Sınıf bazlı yoklama alma ve devamsızlık geçmişi." };
 const KARNE_CARD: ModuleCard = { href: "/karne", title: "Karne", description: "Sınav geçmişi, ders bazlı başarı ve devamsızlık özeti." };
 const DISIPLIN_CARD: ModuleCard = { href: "/disiplin", title: "Disiplin", description: "Olumlu/olumsuz davranış kaydı ekleme ve geçmişi." };
+const VELI_GORUSME_CARD: ModuleCard = { href: "/veli-gorusme", title: "Veli Görüşmeleri", description: "Veli-öğretmen görüşme randevusu talep etme ve onaylama." };
 
 const MODULES_BY_ROLE: Record<string, ModuleCard[]> = {
-  BRANCH_ADMIN: [MUHASEBE_CARD, PERSONEL_CARD, DEVAMSIZLIK_CARD, DISIPLIN_CARD],
+  BRANCH_ADMIN: [MUHASEBE_CARD, PERSONEL_CARD, DEVAMSIZLIK_CARD, DISIPLIN_CARD, VELI_GORUSME_CARD],
   ACCOUNTING: [MUHASEBE_CARD, PERSONEL_CARD],
-  GUIDANCE_COORDINATOR: [DEVAMSIZLIK_CARD, DISIPLIN_CARD],
-  TEACHER: [DEVAMSIZLIK_CARD, DISIPLIN_CARD],
+  GUIDANCE_COORDINATOR: [DEVAMSIZLIK_CARD, DISIPLIN_CARD, VELI_GORUSME_CARD],
+  TEACHER: [DEVAMSIZLIK_CARD, DISIPLIN_CARD, VELI_GORUSME_CARD],
   STUDENT: [KARNE_CARD],
-  PARENT: [KARNE_CARD],
+  PARENT: [KARNE_CARD, VELI_GORUSME_CARD],
 };
 
 /**

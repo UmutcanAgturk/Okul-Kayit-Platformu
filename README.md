@@ -261,6 +261,27 @@ seviye-360/
     puanların toplamı) döner. `apps/web/scripts/test-discipline-module.mjs`
     (22 kontrol) kategori-tür uyuşmazlığının reddedildiğini, otomatik puan
     hesabını, yetki ayrımını ve tenant izolasyonunu doğrular.
+26. **Veli-Öğretmen Görüşme Randevusu — onuncu gerçek modül, üç rolü aynı anda
+    kapsayan ilk modül** (`prisma/schema.prisma`'daki `PtaMeetingRequest`
+    modeli ve `PtaRequestStatus` enum'ı, bkz.
+    `prisma/migrations/20260728084426_add_pta_meeting_request`,
+    `apps/web/app/api/students/[studentId]/pta-requests`,
+    `apps/web/app/api/teacher/pta-requests[/[requestId]/respond]`,
+    `apps/web/app/api/branch/pta-requests`,
+    `apps/web/components/pta/PtaDashboard.tsx`). Devamsızlık/Disiplin ile
+    aynı düz `tenant_isolation` deseni. Demo'daki "student:veligorusme"
+    ekranı `guardianOnly: true` idi — bu gerçek karşılıkta da talep
+    oluşturma yalnızca `PARENT` rolüne açıktır (velisi olduğu öğrenci için,
+    `/api/branch/teachers`'tan seçilen bir öğretmene). Onay/red akışı Etüt
+    (StudySession) route'undaki deseni birebir tekrarlar
+    (`app/api/teacher/study-sessions/[sessionId]/respond`): yalnızca
+    `TEACHER`, yalnızca KENDİSİNE atanmış bir talebe, ve yalnızca hâlâ
+    `BEKLIYOR` durumundaysa (aksi halde 409). `BRANCH_ADMIN`/
+    `GUIDANCE_COORDINATOR` tüm tenant'ın taleplerini salt okunur izler.
+    `apps/web/scripts/test-pta-module.mjs` (24 kontrol) çapraz-öğretmen
+    izolasyonunu (bir öğretmenin başka bir öğretmene yöneltilen talebi ne
+    listede görebildiğini ne de yanıtlayabildiğini), rol/tenant izolasyonunu
+    ve çift-yanıt 409'unu doğrular.
 
 ## Yerel Geliştirme (Veritabanı)
 
@@ -319,6 +340,7 @@ node scripts/test-documents-module.mjs       # Fatura/Dekont/Senet CRUD + KDV he
 node scripts/test-attendance-module.mjs      # Devamsızlık: yoklama alma + öğrenci/veli kendi kaydını görme + tenant izolasyonu
 node scripts/test-report-card-module.mjs     # Karne: sınav geçmişi + ders bazlı başarı hesabı + yetki/tenant izolasyonu
 node scripts/test-discipline-module.mjs      # Disiplin: olumlu/olumsuz kayıt + otomatik puan + yetki/tenant izolasyonu
+node scripts/test-pta-module.mjs             # Veli-Öğretmen Görüşmesi: talep/onay/red + çapraz-öğretmen izolasyonu
 node scripts/test-rls-isolation.mjs          # RLS: tenant izolasyonu + Muhasebe rol kısıtlaması (ham DB seviyesinde)
 ```
 
