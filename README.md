@@ -455,6 +455,27 @@ seviye-360/
     izolasyonu), otomatik atamayı, aylık kota aşımını (409), onay/red/
     tamamlandı geçişlerini (geçersiz geçişler 409) ve Aktivite Akışı'na
     yansımayı doğrular.
+36. **Gamification (XP/Seviye/Rozet/Lider Tablosu) — yirminci gerçek modül**
+    (yeni bir Prisma modeli EKLEMEZ — saf agregasyon, bkz.
+    `apps/web/lib/gamification.ts`, `apps/web/app/api/students/[studentId]/gamification`,
+    `apps/web/app/api/branch/leaderboard`,
+    `apps/web/components/gamification/GamificationDashboard.tsx`). Demo'nun
+    kendi yorumundaki gibi XP rastgele bir sayı DEĞİLDİR: sınav katılımı+neti
+    (`ExamResult`), kazanım ustalığı (`StudentAchievementResult.correctRatio
+    >= 0.7`), devam durumu (`AttendanceRecord`), onaylı/tamamlanmış etüt
+    katılımı (`StudySession`), disiplin puanı (`DisciplineRecord.points`),
+    kulüp üyeliği (`ClubMembership`) ve pratik quiz sonuçları
+    (`QuizAttempt`) toplanarak hesaplanır — demo'daki formülün birebir
+    aynısı. 8 rozet aynı eşiklerden (ör. "Sürekli Katılımcı": devam oranı
+    ≥%90) otomatik kazanılır. Bu depoda gerçek bir öğretmen-sınıf ataması
+    modeli olmadığından (bkz. "Öğretmen Performans Paneli" notu) `TEACHER`,
+    Devamsızlık/Disiplin ile aynı şekilde tüm tenant'ın lider tablosunu görür
+    — demo'daki "yalnızca kendi sınıfı" kısıtı burada uygulanamaz.
+    `apps/web/scripts/test-gamification-module.mjs` (20 kontrol) başlangıç
+    XP'sinin seed verisinden doğru hesaplandığını, yeni devamsızlık/disiplin/
+    kulüp/quiz kayıtları eklendiğinde XP ve ilgili rozetlerin doğru arttığını,
+    tenant izolasyonunu (404 — bkz. prisma/rls/README.md) ve Lider
+    Tablosu'nun (BRANCH_ADMIN + TEACHER) doğru sıralandığını doğrular.
 
 ## Yerel Geliştirme (Veritabanı)
 
@@ -523,6 +544,7 @@ node scripts/test-reports-module.mjs         # Raporlar: 5 rapor endpoint'i + CS
 node scripts/test-hq-tenants-module.mjs      # Kurum Yönetimi: SUPERADMIN yetkisi + tenant envanteri + ham DB sayım eşleşmesi
 node scripts/test-messages-module.mjs        # İletişim: gönderme yetkisi + sınıf filtreli hedefleme + okundu/kaldırma + tenant izolasyonu
 node scripts/test-mentor-module.mjs          # Seviye Mentör: havuz yetkisi + otomatik atama + aylık kota + onay/red/tamamlandı geçişleri
+node scripts/test-gamification-module.mjs    # Gamification: XP formülü + rozet eşikleri + tenant izolasyonu + Lider Tablosu
 node scripts/test-rls-isolation.mjs          # RLS: tenant izolasyonu + Muhasebe rol kısıtlaması (ham DB seviyesinde)
 ```
 
