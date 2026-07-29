@@ -588,6 +588,21 @@ seviye-360/
     fatura hesabının ham DB sayımıyla eşleştiğini, `Exam.tenantId`'nin
     gerçekten GENEL_MERKEZ tenant'ına işaret ettiğini ve Aktivite Akışı
     yansımasını doğrular.
+43. **Global Analytics — yirmi yedinci gerçek modül** (yeni bir Prisma
+    modeli EKLEMEZ — saf agregasyon, bkz. `apps/web/app/api/hq/analytics`).
+    Demo'daki "hq:analytics" ekranının gerçek karşılığı: `BRANCHES[i].ciro`
+    (demo'da UYDURMA bir alan) yerine gerçek `AccountingLedgerEntry` GELİR
+    toplamı (bkz. `app/api/hq/accounting-ledger`teki aynı hesap); "Ders
+    Bazlı Ortalama Net" yerine — bu depoda ham cevap granülerliği hiç
+    saklanmadığından — Karne'deki (report-card) `subjectBreakdown` ile aynı
+    yöntemle (`StudentAchievementResult.correctRatio` ortalaması) ama TÜM
+    organizasyon kapsamında hesaplanan "Ders Bazlı Ortalama Başarı %";
+    "Akademik Olarak En Başarılı Şubeler" (ExamResult.netScore ortalamasına
+    göre ilk 3 şube) gerçek veriden. `apps/web/scripts/test-hq-analytics-module.mjs`
+    (10 kontrol) yetki kısıtlamasını (yalnızca SUPERADMIN) ve dört
+    hesaplamanın (orgAvgNet, topBranches, subjectPerformance, branchRevenue)
+    HER BİRİNİN ham DB verisinden bağımsızca türetilen beklenen değerlerle
+    eşleştiğini doğrular.
 
 ## Yerel Geliştirme (Veritabanı)
 
@@ -663,6 +678,7 @@ node scripts/test-enrollments-module.mjs     # Öğrenci Ön Kayıt: CRUD + ON_K
 node scripts/test-roadmap-module.mjs         # Akademik Yol Haritası: net/netPct hesabı + kritik kazanım filtresi + yetki/tenant izolasyonu
 node scripts/test-daily-ops-module.mjs       # Günlük Operasyon: gecikmiş/yaklaşan taksit ayrımı + etüt gruplama + Tahsil Et akışı
 node scripts/test-hq-exams-module.mjs        # Genel Sınav Merkezi: NETWORK sınav oluşturma + optik/fatura hesabı + yetki kısıtlaması
+node scripts/test-hq-analytics-module.mjs    # Global Analytics: orgAvgNet/topBranches/subjectPerformance/branchRevenue ham DB eşleşmesi
 node scripts/test-rls-isolation.mjs          # RLS: tenant izolasyonu + Muhasebe rol kısıtlaması (ham DB seviyesinde)
 ```
 

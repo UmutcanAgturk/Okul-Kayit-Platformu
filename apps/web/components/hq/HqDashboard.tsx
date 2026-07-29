@@ -9,6 +9,7 @@ import {
   createHqExam,
   createTenant,
   fetchHqAccountingSummary,
+  fetchHqAnalytics,
   fetchHqExams,
   fetchHqStudents,
   fetchHqTenants,
@@ -483,6 +484,122 @@ function HqExamsPanel() {
   );
 }
 
+function HBar({ label, sub, value, max, valueLabel, tone }: { label: string; sub?: string; value: number; max: number; valueLabel: string; tone?: "strong" | "weak" | "critical" }) {
+  const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
+  const barColor = tone === "strong" ? "bg-emerald-500" : tone === "critical" ? "bg-red-500" : tone === "weak" ? "bg-amber-500" : "bg-[#0071ce]";
+  return (
+    <div>
+      <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
+        <span>
+          {label}
+          {sub && <span className="ml-1 text-slate-400 dark:text-slate-500">· {sub}</span>}
+        </span>
+        <span>{valueLabel}</span>
+      </div>
+      <div className="mt-1 h-2 w-full rounded-full bg-slate-100 dark:bg-slate-800">
+        <div className={`h-2 rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function HqAnalyticsPanel() {
+  const query = useQuery({ queryKey: hqKeys.analytics(), queryFn: fetchHqAnalytics });
+  const data = query.data;
+  const medal = ["🥇", "🥈", "🥉"];
+
+  return (
+    <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
+      <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Global Analytics</h2>
+      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+        Tüm kurumlar genelinde gerçek sınav sonuçlarından ders bazlı başarı ve şube bazlı gelir karşılaştırması.
+      </p>
+
+      {query.isLoading && <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</p>}
+
+      {data && (
+        <>
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Toplam Şube</p>
+              <p className="font-semibold text-slate-900 dark:text-slate-50">{data.totalBranches}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Toplam Öğrenci</p>
+              <p className="font-semibold text-slate-900 dark:text-slate-50">{data.totalStudents}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Genel Ortalama Net</p>
+              <p className="font-semibold text-slate-900 dark:text-slate-50">
+                {data.orgAvgNet !== null ? (Math.round(data.orgAvgNet * 10) / 10).toString() : "—"}
+              </p>
+            </div>
+          </div>
+
+          {data.topBranches.length > 0 && (
+            <div className="mt-5">
+              <h3 className="text-xs font-semibold text-slate-700 dark:text-slate-300">🏆 Akademik Olarak En Başarılı Şubeler</h3>
+              <div className="mt-2 flex flex-wrap gap-3">
+                {data.topBranches.map((b, i) => (
+                  <div key={b.tenantId} className="min-w-[160px] flex-1 rounded-lg border border-slate-100 p-3 text-center dark:border-slate-800">
+                    <p className="text-2xl">{medal[i]}</p>
+                    <p className="text-xs font-semibold text-slate-900 dark:text-slate-50">{b.tenantName}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {b.city} · {Math.round((b.avgNet as number) * 10) / 10} net
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="mt-5 grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <div>
+              <h3 className="text-xs font-semibold text-slate-700 dark:text-slate-300">Ders Bazlı Ortalama Başarı</h3>
+              {data.subjectPerformance.length === 0 ? (
+                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Henüz kazanım sonucu yok.</p>
+              ) : (
+                <div className="mt-2 space-y-2">
+                  {data.subjectPerformance.map((s) => (
+                    <HBar
+                      key={s.subject}
+                      label={s.subject}
+                      sub={`${s.count} sonuç`}
+                      value={s.avgMasteryPct}
+                      max={100}
+                      valueLabel={`%${s.avgMasteryPct}`}
+                      tone={s.avgMasteryPct >= 70 ? "strong" : s.avgMasteryPct >= 40 ? "weak" : "critical"}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+            <div>
+              <h3 className="text-xs font-semibold text-slate-700 dark:text-slate-300">Şube Bazlı Gelir</h3>
+              {data.branchRevenue.length === 0 ? (
+                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Kurum yok.</p>
+              ) : (
+                <div className="mt-2 space-y-2">
+                  {data.branchRevenue.map((b) => (
+                    <HBar
+                      key={b.tenantId}
+                      label={b.tenantName}
+                      sub={b.city ?? undefined}
+                      value={b.totalGelir}
+                      max={Math.max(...data.branchRevenue.map((r) => r.totalGelir), 1)}
+                      valueLabel={formatTl2(b.totalGelir)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 /**
  * Kurum Yönetimi — demo/seviye360-app.html'deki "hq:kurumlar" ekranının
  * gerçek karşılığı: yeni kurum ekleme (otomatik oluşturulan Şube Yöneticisi
@@ -594,6 +711,8 @@ export function HqDashboard() {
       <HqStudentsPanel tenants={tenants} />
 
       <HqExamsPanel />
+
+      <HqAnalyticsPanel />
 
       <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Konsolide Mali Özet</h2>

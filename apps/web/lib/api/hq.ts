@@ -125,9 +125,44 @@ export function createHqExam(input: CreateHqExamInput) {
   });
 }
 
+export interface HqAnalyticsBranchNet {
+  tenantId: string;
+  tenantName: string;
+  city: string | null;
+  avgNet: number | null;
+  studentCount: number;
+}
+
+export interface HqAnalyticsSubject {
+  subject: string;
+  avgMasteryPct: number;
+  count: number;
+}
+
+export interface HqAnalyticsBranchRevenue {
+  tenantId: string;
+  tenantName: string;
+  city: string | null;
+  totalGelir: number;
+}
+
+export interface HqAnalytics {
+  totalBranches: number;
+  totalStudents: number;
+  orgAvgNet: number | null;
+  topBranches: HqAnalyticsBranchNet[];
+  subjectPerformance: HqAnalyticsSubject[];
+  branchRevenue: HqAnalyticsBranchRevenue[];
+}
+
+export function fetchHqAnalytics() {
+  return apiFetch<HqAnalytics>("/api/hq/analytics", { cache: "no-store" });
+}
+
 export const hqKeys = {
   tenants: () => ["hq", "tenants"] as const,
   accountingSummary: () => ["hq", "accounting-summary"] as const,
   students: (q: string, tenantId: string) => ["hq", "students", q, tenantId] as const,
   exams: () => ["hq", "exams"] as const,
+  analytics: () => ["hq", "analytics"] as const,
 };
