@@ -85,6 +85,7 @@ model Tenant {
   classrooms          Classroom[]
   studentProfiles     StudentProfile[]
   enrollments         Enrollment[]
+  crmLeads            CrmLead[]
   exams               Exam[]
   examResults         ExamResult[]
   studySessions       StudySession[]
@@ -457,6 +458,48 @@ model Enrollment {
 
   studentId String?         @unique // Normal kayıt tamamlanınca StudentProfile'a bağlanır
   student   StudentProfile? @relation(fields: [studentId], references: [id])
+
+  crmLead CrmLead?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, stage])
+}
+
+enum CrmLeadStage {
+  ARANDI
+  GORUSULDU
+  DENEME_SINAVINA_GIRDI
+  KAYIT_OLDU
+}
+
+// CRM — Ön Kayıt'tan ÖNCEKİ, henüz bir yer ayırtma kaporası ödenmemiş "aday
+// havuzu" (demo/seviye360-app.html'deki "branch:crm" Kanban'ının gerçek
+// karşılığı, bkz. app/api/branch/crm-leads). Enrollment'tan kasıtlı olarak
+// ayrı bir model: bu aşamada henüz finansal bir taahhüt (kapora) yoktur, bu
+// yüzden bir CrmLead — Enrollment'ın aksine — gerçekten SİLİNEBİLİR
+// (henüz Enrollment'a dönüşmemişse). "KAYIT_OLDU" aşamasına taşındığında
+// otomatik olarak bir Enrollment(ON_KAYIT) oluşturulur ve buraya bağlanır
+// (bkz. demo'daki not: "Ön kayıt, CRM'de 'Kayıt Oldu' statüsüne düşen
+// adaylardan otomatik de oluşabilir").
+model CrmLead {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  candidateFullName   String
+  candidateGradeLevel GradeLevel
+  school              String?
+  guardianFullName    String
+  guardianPhone       String
+  guardianEmail       String?
+  notes               String?
+
+  stage CrmLeadStage @default(ARANDI)
+
+  enrollmentId String?     @unique
+  enrollment   Enrollment? @relation(fields: [enrollmentId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

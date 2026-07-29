@@ -603,6 +603,27 @@ seviye-360/
     hesaplamanın (orgAvgNet, topBranches, subjectPerformance, branchRevenue)
     HER BİRİNİN ham DB verisinden bağımsızca türetilen beklenen değerlerle
     eşleştiğini doğrular.
+44. **CRM — yirmi sekizinci gerçek modül** (yeni bir Prisma modeli: `CrmLead`,
+    bkz. `prisma/migrations/20260729183745_add_crm_leads` ve
+    `.../20260729183755_add_crm_lead_rls`, `apps/web/app/api/branch/crm-leads`).
+    Demo'daki "branch:crm" Kanban'ının gerçek karşılığı — Ön Kayıt'tan
+    (Enrollment) ÖNCEKİ, henüz finansal bir taahhüt (kapora) olmayan "aday
+    havuzu". Enrollment'tan kasıtlı olarak ayrı bir model: bu aşamada
+    finansal taahhüt olmadığından, bir CrmLead — Enrollment'ın aksine —
+    dönüşmemişse GERÇEKTEN silinebilir (soft-cancel değil). Bir aday
+    "KAYIT_OLDU" aşamasına taşındığında — demo'daki "Ön kayıt, CRM'de 'Kayıt
+    Oldu' statüsüne düşen adaylardan otomatik de oluşabilir" notuna uygun
+    olarak — otomatik bir `Enrollment(ON_KAYIT)` oluşturulur ve bu adaya
+    bağlanır (idempotent: tekrar aynı aşamaya taşımak ikinci bir Enrollment
+    oluşturmaz). RLS, veli PII'sı içerdiğinden Enrollment ile aynı
+    `tenant_and_role_isolation` (yalnızca SUPERADMIN/BRANCH_ADMIN/
+    GUIDANCE_COORDINATOR). Sürükle-bırak yerine (bu depoda hiçbir modülde
+    kullanılmadı) basit "İleri Al/Geri Al" butonlarıyla aşama değişimi.
+    `apps/web/scripts/test-crm-module.mjs` (21 kontrol) yetki/tenant
+    izolasyonunu, oluşturma/düzenleme/aşama geçişlerini, otomatik Enrollment
+    oluşturmanın idempotent olduğunu, dönüşmüş bir adayın silinemediğini
+    (409) ama dönüşmemiş bir adayın gerçekten silinebildiğini ve Aktivite
+    Akışı yansımasını doğrular.
 
 ## Yerel Geliştirme (Veritabanı)
 
@@ -679,6 +700,7 @@ node scripts/test-roadmap-module.mjs         # Akademik Yol Haritası: net/netPc
 node scripts/test-daily-ops-module.mjs       # Günlük Operasyon: gecikmiş/yaklaşan taksit ayrımı + etüt gruplama + Tahsil Et akışı
 node scripts/test-hq-exams-module.mjs        # Genel Sınav Merkezi: NETWORK sınav oluşturma + optik/fatura hesabı + yetki kısıtlaması
 node scripts/test-hq-analytics-module.mjs    # Global Analytics: orgAvgNet/topBranches/subjectPerformance/branchRevenue ham DB eşleşmesi
+node scripts/test-crm-module.mjs             # CRM: aşama geçişleri + otomatik Enrollment oluşturma (idempotent) + hard-delete kısıtı
 node scripts/test-rls-isolation.mjs          # RLS: tenant izolasyonu + Muhasebe rol kısıtlaması (ham DB seviyesinde)
 ```
 
