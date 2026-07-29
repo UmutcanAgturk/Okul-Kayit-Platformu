@@ -531,6 +531,23 @@ seviye-360/
     ON_KAYIT→tamamlama akışının artık çalıştığını (ve üretilen kimlik
     bilgileriyle GERÇEKTEN giriş yapılabildiğini), kilitli durumlardaki 409
     yanıtlarını ve Aktivite Akışı yansımasını doğrular.
+40. **Akademik Yol Haritası — yirmi dördüncü gerçek modül** (yeni bir Prisma
+    modeli EKLEMEZ — saf agregasyon, bkz. `apps/web/app/api/students/[studentId]/roadmap`,
+    `apps/web/components/roadmap/RoadmapView.tsx`). Demo'daki
+    "student:roadmap" ekranının gerçek karşılığı: net ortalama/hedef net
+    (`Exam`/`ExamResult`'tan), `StudentProfile.targetGoal` (şemada zaten
+    vardı) ve "kritik kazanımlar" listesi — AI Sınıf Röntgeni'ndeki (bkz.
+    `teacher/exams/[examId]/class-xray`) `ratioToMastery` eşiğiyle (< 0.4)
+    birebir aynı mantık, ama tek bir sınava değil öğrencinin TÜM sınavlarındaki
+    `StudentAchievementResult` ortalamasına bakar. Yetki kontrolü Karne
+    (report-card) ile birebir aynıdır: STUDENT yalnızca kendi kaydını,
+    PARENT yalnızca velisi olduğu öğrencinin kaydını, TEACHER/BRANCH_ADMIN/
+    GUIDANCE_COORDINATOR/SUPERADMIN tenant içindeki herhangi bir öğrenciyi
+    görebilir; çapraz-tenant erişim 404. `apps/web/scripts/test-roadmap-module.mjs`
+    (16 kontrol) yetki/tenant izolasyonunu, net/netPct hesabının ham
+    `ExamResult` verisiyle eşleştiğini ve kritik kazanım filtresinin (bir
+    öğrenci için boş, ratio'su 0.2 olan başka bir öğrenci için dolu) doğru
+    çalıştığını doğrular.
 
 ## Yerel Geliştirme (Veritabanı)
 
@@ -603,6 +620,7 @@ node scripts/test-gamification-module.mjs    # Gamification: XP formülü + roze
 node scripts/test-hq-students-module.mjs     # Genel Merkez Öğrenciler: SUPERADMIN yetkisi + tenant/arama filtreleri + ham DB eşleşmesi
 node scripts/test-hq-tenant-crud-module.mjs  # Kurum Yönetimi CRUD: yeni kurum + otomatik hesap girişi + devre dışı bırakma/etkinleştirme
 node scripts/test-enrollments-module.mjs     # Öğrenci Ön Kayıt: CRUD + ON_KAYIT→tamamlama + otomatik hesap girişi + kilitli durum 409'ları
+node scripts/test-roadmap-module.mjs         # Akademik Yol Haritası: net/netPct hesabı + kritik kazanım filtresi + yetki/tenant izolasyonu
 node scripts/test-rls-isolation.mjs          # RLS: tenant izolasyonu + Muhasebe rol kısıtlaması (ham DB seviyesinde)
 ```
 
