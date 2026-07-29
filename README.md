@@ -509,6 +509,28 @@ seviye-360/
     (24 kontrol) yetki sınırlarını, yeni oluşturulan kimlik bilgileriyle
     GERÇEKTEN giriş yapılabildiğini, devre dışı bırakma/yeniden
     etkinleştirme akışını ve Aktivite Akışı'na yansımayı doğrular.
+39. **Öğrenci Ön Kayıt — yirmi üçüncü gerçek modül** (`Enrollment`'ın
+    backend'i — `apps/web/app/api/branch/enrollments` GET/POST — daha önceki
+    bir oturumda eklenmişti ama hiç frontend'i yoktu; bu geçişte
+    `apps/web/components/enrollments/EnrollmentsDashboard.tsx` +
+    `apps/web/app/on-kayit/page.tsx` ile ilk gerçek arayüzüne kavuştu). Aynı
+    zamanda iki gerçek eksik giderildi: (1) `.../complete` route'u önceden
+    yalnızca `type: NORMAL_KAYIT` adayları kabul ediyordu — demo'daki asıl
+    akış olan "Ön Kayıt (ON_KAYIT) → sözleşme+ödeme planıyla tam kayda
+    dönüştürme"nin (bkz. `branch:normalkayit` "Tekli Dönüştürme" ekranı)
+    hiçbir zaman gerçekleşemeyeceği anlamına geliyordu; bu kısıtlama
+    kaldırıldı. (2) Yeni `apps/web/app/api/branch/enrollments/[enrollmentId]/route.ts`
+    ile PATCH (aday bilgilerini düzenleme) ve DELETE (iptal) eklendi — DELETE
+    satırı asla silmez, `EnrollmentStage.IPTAL_EDILDI`'ye taşır (StaffProfile/
+    Tenant'taki "deaktive et, asla silme" deseniyle aynı gerekçe). Her iki
+    işlem de yalnızca `KAYIT_TAMAMLANDI`/`IPTAL_EDILDI` olmayan adaylarda
+    mümkündür. Tüm mutasyonlar artık Aktivite Akışı'na da yazıyor (route'lar
+    Audit Log modülünden önce yazıldığı için bu bağlantı hiç kurulmamıştı).
+    `apps/web/scripts/test-enrollments-module.mjs` (32 kontrol) yetki/tenant
+    izolasyonunu, oluşturma/düzenleme/iptal akışlarını, önceden engellenen
+    ON_KAYIT→tamamlama akışının artık çalıştığını (ve üretilen kimlik
+    bilgileriyle GERÇEKTEN giriş yapılabildiğini), kilitli durumlardaki 409
+    yanıtlarını ve Aktivite Akışı yansımasını doğrular.
 
 ## Yerel Geliştirme (Veritabanı)
 
@@ -580,6 +602,7 @@ node scripts/test-mentor-module.mjs          # Seviye Mentör: havuz yetkisi + o
 node scripts/test-gamification-module.mjs    # Gamification: XP formülü + rozet eşikleri + tenant izolasyonu + Lider Tablosu
 node scripts/test-hq-students-module.mjs     # Genel Merkez Öğrenciler: SUPERADMIN yetkisi + tenant/arama filtreleri + ham DB eşleşmesi
 node scripts/test-hq-tenant-crud-module.mjs  # Kurum Yönetimi CRUD: yeni kurum + otomatik hesap girişi + devre dışı bırakma/etkinleştirme
+node scripts/test-enrollments-module.mjs     # Öğrenci Ön Kayıt: CRUD + ON_KAYIT→tamamlama + otomatik hesap girişi + kilitli durum 409'ları
 node scripts/test-rls-isolation.mjs          # RLS: tenant izolasyonu + Muhasebe rol kısıtlaması (ham DB seviyesinde)
 ```
 

@@ -4,13 +4,18 @@ import { getSessionActor } from "@/lib/session";
 import { withTenantContext } from "@/lib/db-context";
 import { hashPassword } from "@/lib/auth";
 import { generateStudentEmail, generateStudentNo, generateTempPassword } from "@/lib/enrollment";
+import { actorLabel, logActivity } from "@/lib/audit-log";
 
 /**
- * Normal Kayıt'ı tamamlar: gerçek bir User (STUDENT) + StudentProfile +
- * taksit planı (PaymentInstallment[]) oluşturur, otomatik kullanıcı adı/
- * şifre üretir (bkz. lib/enrollment.ts — demo/seviye360-app.html'deki
+ * Bir kayıt adayını (ON_KAYIT ile ön kaydı alınmış ya da doğrudan NORMAL_KAYIT
+ * olarak girilmiş fark etmez — demo'daki "Normal Kayıt: Tekli Dönüştürme"
+ * ekranı tam olarak bunu yapar) tamamlar: gerçek bir User (STUDENT) +
+ * StudentProfile + taksit planı (PaymentInstallment[]) oluşturur, otomatik
+ * kullanıcı adı/şifre üretir (bkz. lib/enrollment.ts — demo/seviye360-app.html'deki
  * "otomatik kullanıcı adı/şifre" akışının gerçek karşılığı) ve Enrollment'ı
- * KAYIT_TAMAMLANDI'ya taşıyıp studentId'yi bağlar.
+ * KAYIT_TAMAMLANDI'ya taşıyıp studentId'yi bağlar. `type` alanı değişmez —
+ * yalnızca adayın hangi yoldan geldiğini (kapora ile ön kayıt mı, doğrudan mı)
+ * kaydeder, tamamlanabilirliğini etkilemez.
  *
  * Kayıt geliri burada ledger'a YAZILMAZ — mevcut
  * /api/branch/payment-installments/[id]/collect, her taksit fiilen tahsil
@@ -48,9 +53,6 @@ export async function POST(request: NextRequest, { params }: { params: { enrollm
     const enrollment = await tx.enrollment.findUnique({ where: { id: params.enrollmentId } });
     if (!enrollment || enrollment.tenantId !== actor.tenantId) {
       return { kind: "not_found" as const };
-    }
-    if (enrollment.type !== "NORMAL_KAYIT") {
-      return { kind: "wrong_type" as const };
     }
     if (enrollment.stage === "KAYIT_TAMAMLANDI" || enrollment.stage === "IPTAL_EDILDI") {
       return { kind: "already_final" as const, stage: enrollment.stage };
@@ -113,14 +115,19 @@ export async function POST(request: NextRequest, { params }: { params: { enrollm
       data: { stage: "KAYIT_TAMAMLANDI", studentId: student.id },
     });
 
+    await logActivity(tx, {
+      tenantId: actor.tenantId!,
+      actorUserId: actor.id,
+      actorLabel: actorLabel(actor),
+      action: "Kayıt tamamlandı",
+      detail: `${enrollment.candidateFullName} — Öğrenci No: ${studentNo}`,
+    });
+
     return { kind: "completed" as const, enrollment: updatedEnrollment, student, installments, email, tempPassword };
   });
 
   if (outcome.kind === "not_found") {
     return NextResponse.json({ message: "Kayıt adayı bulunamadı" }, { status: 404 });
-  }
-  if (outcome.kind === "wrong_type") {
-    return NextResponse.json({ message: "Yalnızca NORMAL_KAYIT türündeki adaylar bu şekilde tamamlanabilir" }, { status: 400 });
   }
   if (outcome.kind === "already_final") {
     return NextResponse.json({ message: `Bu kayıt zaten "${outcome.stage}" durumunda` }, { status: 409 });

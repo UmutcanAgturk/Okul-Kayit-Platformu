@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { EnrollmentType, GradeLevel, UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
 import { withTenantContext } from "@/lib/db-context";
+import { actorLabel, logActivity } from "@/lib/audit-log";
 
 /**
  * Normal Kayıt / Ön Kayıt — Enrollment modeli şemada baştan beri vardı
@@ -72,7 +73,7 @@ export async function POST(request: NextRequest) {
       const classroom = await tx.classroom.findUnique({ where: { id: targetClassroomId } });
       if (!classroom) return null;
     }
-    return tx.enrollment.create({
+    const created = await tx.enrollment.create({
       data: {
         tenantId: actor.tenantId!,
         type,
@@ -84,6 +85,16 @@ export async function POST(request: NextRequest) {
         depositAmount,
       },
     });
+
+    await logActivity(tx, {
+      tenantId: actor.tenantId!,
+      actorUserId: actor.id,
+      actorLabel: actorLabel(actor),
+      action: "Kayıt adayı eklendi",
+      detail: `${created.candidateFullName} — ${type === "ON_KAYIT" ? "Ön Kayıt" : "Normal Kayıt"}`,
+    });
+
+    return created;
   });
 
   if (!enrollment) {
