@@ -548,6 +548,24 @@ seviye-360/
     `ExamResult` verisiyle eşleştiğini ve kritik kazanım filtresinin (bir
     öğrenci için boş, ratio'su 0.2 olan başka bir öğrenci için dolu) doğru
     çalıştığını doğrular.
+41. **Günlük Operasyon Paneli — yirmi beşinci gerçek modül** (yeni bir Prisma
+    modeli EKLEMEZ — bkz. `apps/web/app/api/branch/daily-ops`). "Bugün"
+    Özeti'nin (bkz. `app/api/branch/today-summary`) yalnızca SAYI gösteren
+    özetinden farklı olarak, gecikmiş/yaklaşan taksitleri (`PaymentInstallment`)
+    tek tek — öğrenciye göre gruplanmadan, her satırdan doğrudan mevcut
+    `/api/branch/payment-installments/[id]/collect`'i çağıran bir "Tahsil Et"
+    butonuyla — ve bugünkü etüt doluluğunu (`StudySession`, ders+saat bazında
+    gruplanmış) listeleyen eyleme dönük bir operasyon konsolu. Demo'daki
+    "Personel Devam Durumu" (Geldi/Gelmedi/İzinli) BİLİNÇLİ OLARAK dışarıda
+    bırakıldı — şemada personel için AttendanceRecord'dan (öğrenci yoklaması)
+    tamamen ayrı, günlük bir "personel check-in" kavramı hiç yok; bu, mevcut
+    veriden türetilemeyen, ayrı bir modelleme kararı gerektiren gerçek bir
+    yeni özellik olurdu. `apps/web/scripts/test-daily-ops-module.mjs`
+    (11 kontrol, kendi throwaway taksit/etüt fixture'larını oluşturup temizler
+    — seed verisi "bugüne göre" gecikmiş/yaklaşan veri içermediğinden) yetki
+    kısıtlamasını, gecikmiş/yaklaşan ayrımını, toplam tutar hesabını, etüt
+    gruplamasını ve "Tahsil Et"in gerçekten mevcut collect endpoint'ini
+    tetikleyip satırı listeden düşürdüğünü doğrular.
 
 ## Yerel Geliştirme (Veritabanı)
 
@@ -621,6 +639,7 @@ node scripts/test-hq-students-module.mjs     # Genel Merkez Öğrenciler: SUPERA
 node scripts/test-hq-tenant-crud-module.mjs  # Kurum Yönetimi CRUD: yeni kurum + otomatik hesap girişi + devre dışı bırakma/etkinleştirme
 node scripts/test-enrollments-module.mjs     # Öğrenci Ön Kayıt: CRUD + ON_KAYIT→tamamlama + otomatik hesap girişi + kilitli durum 409'ları
 node scripts/test-roadmap-module.mjs         # Akademik Yol Haritası: net/netPct hesabı + kritik kazanım filtresi + yetki/tenant izolasyonu
+node scripts/test-daily-ops-module.mjs       # Günlük Operasyon: gecikmiş/yaklaşan taksit ayrımı + etüt gruplama + Tahsil Et akışı
 node scripts/test-rls-isolation.mjs          # RLS: tenant izolasyonu + Muhasebe rol kısıtlaması (ham DB seviyesinde)
 ```
 

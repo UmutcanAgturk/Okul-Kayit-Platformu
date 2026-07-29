@@ -41,10 +41,11 @@ const BASARI_CARD: ModuleCard = { href: "/basari", title: "Başarı Rozetlerim",
 const LEADERBOARD_CARD: ModuleCard = { href: "/basari", title: "Lider Tablosu", description: "Öğrencilerin gerçek katılım/başarı verisinden hesaplanan XP sıralaması." };
 const ON_KAYIT_CARD: ModuleCard = { href: "/on-kayit", title: "Öğrenci Ön Kayıt", description: "Aday öğrenci ön kaydı oluşturma, düzenleme ve sözleşme/ödeme planıyla tam kayda dönüştürme." };
 const ROADMAP_CARD: ModuleCard = { href: "/yol-haritasi", title: "Akademik Yol Haritam", description: "Net ortalama, hedef ve sınav/kazanım verisinden hesaplanan kişiye özel AI tavsiyesi." };
+const GUNLUK_OPS_CARD: ModuleCard = { href: "/gunluk-operasyon", title: "Günlük Operasyon", description: "Geciken/yaklaşan ödemeler ve bugünkü etüt doluluğu — doğrudan aksiyon alınabilen operasyon konsolu." };
 
 const MODULES_BY_ROLE: Record<string, ModuleCard[]> = {
-  BRANCH_ADMIN: [BUGUN_CARD, ON_KAYIT_CARD, MUHASEBE_CARD, PERSONEL_CARD, DEVAMSIZLIK_CARD, DISIPLIN_CARD, VELI_GORUSME_CARD, KULUPLER_CARD, SERVIS_CARD, AKTIVITE_CARD, RAPORLAR_CARD, ILETISIM_CARD, MENTOR_CARD, LEADERBOARD_CARD],
-  ACCOUNTING: [MUHASEBE_CARD, PERSONEL_CARD],
+  BRANCH_ADMIN: [BUGUN_CARD, GUNLUK_OPS_CARD, ON_KAYIT_CARD, MUHASEBE_CARD, PERSONEL_CARD, DEVAMSIZLIK_CARD, DISIPLIN_CARD, VELI_GORUSME_CARD, KULUPLER_CARD, SERVIS_CARD, AKTIVITE_CARD, RAPORLAR_CARD, ILETISIM_CARD, MENTOR_CARD, LEADERBOARD_CARD],
+  ACCOUNTING: [GUNLUK_OPS_CARD, MUHASEBE_CARD, PERSONEL_CARD],
   GUIDANCE_COORDINATOR: [ON_KAYIT_CARD, DEVAMSIZLIK_CARD, DISIPLIN_CARD, VELI_GORUSME_CARD],
   TEACHER: [DEVAMSIZLIK_CARD, DISIPLIN_CARD, VELI_GORUSME_CARD, KULUPLER_CARD, ILETISIM_CARD, MENTOR_CARD, LEADERBOARD_CARD],
   STUDENT: [KARNE_CARD, ROADMAP_CARD, KULUPLER_CARD, SERVIS_CARD, QUIZ_CARD, ILETISIM_CARD, MENTOR_CARD, BASARI_CARD],
