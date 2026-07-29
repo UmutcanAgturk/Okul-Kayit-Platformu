@@ -5,10 +5,35 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { authKeys, fetchMe, logout } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
-import { createTenant, fetchHqAccountingSummary, fetchHqStudents, fetchHqTenants, hqKeys, toggleTenantActive, type HqTenant } from "@/lib/api/hq";
+import {
+  createHqExam,
+  createTenant,
+  fetchHqAccountingSummary,
+  fetchHqExams,
+  fetchHqStudents,
+  fetchHqTenants,
+  hqKeys,
+  toggleTenantActive,
+  type HqTenant,
+} from "@/lib/api/hq";
 
 const ALLOWED_ROLES = ["SUPERADMIN"];
 const TENANT_TYPE_LABEL: Record<string, string> = { GENEL_MERKEZ: "Genel Merkez", SUBE: "Şube", BOLUM: "Bölüm" };
+const EXAM_ELIGIBLE_GRADE_OPTIONS = ["SINIF_5", "SINIF_6", "SINIF_7", "SINIF_8", "SINIF_9", "SINIF_10", "SINIF_11", "SINIF_12"];
+const GRADE_LABEL: Record<string, string> = {
+  SINIF_5: "5. Sınıf",
+  SINIF_6: "6. Sınıf",
+  SINIF_7: "7. Sınıf",
+  SINIF_8: "8. Sınıf",
+  SINIF_9: "9. Sınıf",
+  SINIF_10: "10. Sınıf",
+  SINIF_11: "11. Sınıf",
+  SINIF_12: "12. Sınıf",
+};
+
+function formatTl2(n: number) {
+  return "₺" + Math.round(n).toLocaleString("tr-TR");
+}
 
 function formatTl(n: number) {
   return `₺${n.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -316,6 +341,148 @@ function HqStudentsPanel({ tenants }: { tenants: HqTenant[] }) {
   );
 }
 
+function HqExamsPanel() {
+  const queryClient = useQueryClient();
+  const examsQuery = useQuery({ queryKey: hqKeys.exams(), queryFn: fetchHqExams });
+
+  const [name, setName] = useState("");
+  const [examDate, setExamDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [bookletCount, setBookletCount] = useState<2 | 4>(4);
+  const [feePerStudent, setFeePerStudent] = useState("");
+  const [selectedGrades, setSelectedGrades] = useState<string[]>(EXAM_ELIGIBLE_GRADE_OPTIONS);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const createMutation = useMutation({
+    mutationFn: createHqExam,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: hqKeys.exams() });
+      setName("");
+      setFeePerStudent("");
+      setFormError(null);
+    },
+    onError: (err) => setFormError(err instanceof ApiError ? err.message : "Sınav oluşturulamadı."),
+  });
+
+  function toggleGrade(g: string) {
+    setSelectedGrades((prev) => (prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g]));
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim() || !examDate || selectedGrades.length === 0) {
+      setFormError("Sınav adı, tarih ve en az bir sınıf düzeyi zorunludur.");
+      return;
+    }
+    createMutation.mutate({
+      name: name.trim(),
+      examDate,
+      bookletCount,
+      feePerStudent: feePerStudent ? Number(feePerStudent) : undefined,
+      eligibleGradeLevels: selectedGrades,
+    });
+  }
+
+  const exams = examsQuery.data?.exams ?? [];
+
+  return (
+    <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
+      <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Genel Sınav Merkezi</h2>
+      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+        Türkiye geneli deneme sınavı tanımlayın — seçilen sınıf düzeylerindeki (Ortaokul+Lise) TÜM şubelerde optik form
+        ihtiyacı ve toplam fatura tutarı canlı öğrenci sayısından otomatik hesaplanır.
+      </p>
+
+      <form onSubmit={handleSubmit} className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div>
+          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Sınav Adı</label>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Örn. Seviye 360 Türkiye Geneli Deneme #1"
+            className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Sınav Tarihi</label>
+          <input
+            type="date"
+            value={examDate}
+            onChange={(e) => setExamDate(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Kitapçık Sayısı</label>
+          <select
+            value={bookletCount}
+            onChange={(e) => setBookletCount(Number(e.target.value) as 2 | 4)}
+            className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900"
+          >
+            <option value={4}>4 (A/B/C/D)</option>
+            <option value={2}>2 (A/B)</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Öğrenci Başına Ücret (₺, opsiyonel)</label>
+          <input
+            type="number"
+            min="0"
+            value={feePerStudent}
+            onChange={(e) => setFeePerStudent(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900"
+          />
+        </div>
+        <div className="sm:col-span-2">
+          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Katılacak Sınıf Düzeyleri</label>
+          <div className="mt-1 flex flex-wrap gap-2 rounded-lg border border-slate-300 p-2 dark:border-slate-700">
+            {EXAM_ELIGIBLE_GRADE_OPTIONS.map((g) => (
+              <label key={g} className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300">
+                <input type="checkbox" checked={selectedGrades.includes(g)} onChange={() => toggleGrade(g)} />
+                {GRADE_LABEL[g]}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {formError && <p className="text-xs text-red-600 dark:text-red-400 sm:col-span-2">{formError}</p>}
+
+        <div className="sm:col-span-2">
+          <button
+            type="submit"
+            disabled={createMutation.isPending}
+            className="rounded-lg bg-[#0071ce] px-4 py-2 text-sm font-semibold text-white hover:bg-[#00558f] disabled:opacity-60"
+          >
+            {createMutation.isPending ? "Oluşturuluyor…" : "Sınavı Oluştur"}
+          </button>
+        </div>
+      </form>
+
+      <div className="mt-5">
+        <h3 className="text-xs font-semibold text-slate-700 dark:text-slate-300">Tanımlı Sınavlar ({exams.length})</h3>
+        {examsQuery.isLoading && <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</p>}
+        {!examsQuery.isLoading && exams.length === 0 && (
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Henüz tanımlı bir Genel Sınav yok.</p>
+        )}
+        <div className="mt-2 space-y-2">
+          {exams.map((exam) => (
+            <div key={exam.id} className="rounded-lg border border-slate-100 p-3 text-sm dark:border-slate-800">
+              <div className="flex items-center justify-between">
+                <span className="font-medium text-slate-900 dark:text-slate-50">{exam.name}</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400">{new Date(exam.examDate).toLocaleDateString("tr-TR")}</span>
+              </div>
+              <div className="mt-1 grid grid-cols-3 gap-2 text-xs text-slate-600 dark:text-slate-400">
+                <span>{exam.studentCount} öğrenci</span>
+                <span>{exam.opticFormCount} optik form</span>
+                <span>{exam.feePerStudent ? formatTl2(exam.totalFee) : "—"}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /**
  * Kurum Yönetimi — demo/seviye360-app.html'deki "hq:kurumlar" ekranının
  * gerçek karşılığı: yeni kurum ekleme (otomatik oluşturulan Şube Yöneticisi
@@ -425,6 +592,8 @@ export function HqDashboard() {
       <CreateTenantForm />
 
       <HqStudentsPanel tenants={tenants} />
+
+      <HqExamsPanel />
 
       <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
         <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Konsolide Mali Özet</h2>

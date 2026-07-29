@@ -94,8 +94,40 @@ export function fetchHqStudents(params?: { q?: string; tenantId?: string }) {
   return apiFetch<HqStudentsResponse>(`/api/hq/students${qs ? `?${qs}` : ""}`, { cache: "no-store" });
 }
 
+export interface HqExam {
+  id: string;
+  name: string;
+  examDate: string;
+  bookletTypes: string[];
+  eligibleGradeLevels: string[];
+  feePerStudent: number | null;
+  studentCount: number;
+  opticFormCount: number;
+  totalFee: number;
+}
+
+export function fetchHqExams() {
+  return apiFetch<{ exams: HqExam[] }>("/api/hq/exams", { cache: "no-store" });
+}
+
+export interface CreateHqExamInput {
+  name: string;
+  examDate: string;
+  bookletCount: 2 | 4;
+  feePerStudent?: number;
+  eligibleGradeLevels: string[];
+}
+
+export function createHqExam(input: CreateHqExamInput) {
+  return apiFetch<{ exam: HqExam; studentCount: number; opticFormCount: number; totalFee: number }>("/api/hq/exams", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
 export const hqKeys = {
   tenants: () => ["hq", "tenants"] as const,
   accountingSummary: () => ["hq", "accounting-summary"] as const,
   students: (q: string, tenantId: string) => ["hq", "students", q, tenantId] as const,
+  exams: () => ["hq", "exams"] as const,
 };

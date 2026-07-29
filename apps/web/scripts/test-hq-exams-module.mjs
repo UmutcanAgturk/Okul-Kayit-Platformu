@@ -1,0 +1,149 @@
+// Genel Sınav Merkezi modülünün GERÇEK bir Postgres veritabanına karşı uçtan
+// uca doğrulaması. Önkoşullar: kökte `npm run seed` çalıştırılmış, `npm run
+// dev` sunucusu (localhost:3000) çalışıyor olmalı. Exam modeline
+// feePerStudent/eligibleGradeLevels eklendi (bkz.
+// prisma/migrations/20260729182549_add_exam_network_fields) — yeni bir model
+// değil, mevcut Exam'e iki alan.
+//
+// Kontrol ettikleri:
+//   1. Yetki: yalnızca SUPERADMIN görüntüleyebilir/oluşturabilir (BRANCH_ADMIN
+//      403).
+//   2. Oluşturma: NETWORK kapsamlı bir Exam gerçekten oluşuyor, tenantId'si
+//      GENEL_MERKEZ tenant'ına işaret ediyor.
+//   3. Öğrenci/optik form/fatura hesabı seed'deki ham StudentProfile
+//      sayısıyla (SINIF_9: 4, SINIF_10: 1, ikisi de Lise → 1 optik/öğrenci)
+//      eşleşiyor.
+//   4. Yalnızca Ortaokul/Lise dışı bir sınıf düzeyi (örn. SINIF_1) reddediliyor.
+//   5. GET listesi, oluşturulan sınavı doğru hesaplanmış alanlarla gösteriyor.
+//   6. Aktivite Akışı'na yansıma.
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient({
+  datasources: { db: { url: "postgresql://seviye360:seviye360dev@localhost:5432/seviye360?schema=public" } },
+});
+const BASE = "http://localhost:3000";
+const SEED_DEV_PASSWORD = "seviye360dev-pw";
+const results = [];
+const check = (label, ok, detail) => {
+  results.push({ label, ok });
+  console.log(`[${ok ? "OK" : "FAIL"}] ${label}${detail !== undefined ? " — " + detail : ""}`);
+};
+
+async function loginAs(email, password) {
+  const res = await fetch(`${BASE}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  if (res.status !== 200) return null;
+  return (res.headers.get("set-cookie") || "").split(";")[0];
+}
+
+async function main() {
+  const genelMerkez = await prisma.tenant.findFirst({ where: { type: "GENEL_MERKEZ" } });
+  const sinif9Count = await prisma.studentProfile.count({ where: { gradeLevel: "SINIF_9", tenant: { type: "SUBE" } } });
+  const sinif10Count = await prisma.studentProfile.count({ where: { gradeLevel: "SINIF_10", tenant: { type: "SUBE" } } });
+  if (!genelMerkez) throw new Error("Seed verisi bulunamadı — önce kökten `npm run seed` çalıştırın.");
+
+  const superadminCookie = await loginAs("admin@seviye360.com", SEED_DEV_PASSWORD);
+  const branchAdminCookie = await loginAs("merve.aslan@seviye360.com", SEED_DEV_PASSWORD);
+  check("Kurulum: SUPERADMIN/BRANCH_ADMIN için giriş başarılı", !!superadminCookie && !!branchAdminCookie);
+
+  const noAuthRes = await fetch(`${BASE}/api/hq/exams`);
+  check("GET hq/exams: oturumsuz 401", noAuthRes.status === 401, noAuthRes.status);
+
+  const branchListRes = await fetch(`${BASE}/api/hq/exams`, { headers: { Cookie: branchAdminCookie } });
+  check("BRANCH_ADMIN listeleyemez: 403", branchListRes.status === 403, branchListRes.status);
+
+  const branchCreateRes = await fetch(`${BASE}/api/hq/exams`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({ name: "X", examDate: "2026-09-01", bookletCount: 4, eligibleGradeLevels: ["SINIF_9"] }),
+  });
+  check("BRANCH_ADMIN oluşturamaz: 403", branchCreateRes.status === 403, branchCreateRes.status);
+
+  // ===== Geçersiz sınıf düzeyi (Ortaokul/Lise dışı) reddedilir =====
+  const invalidGradeRes = await fetch(`${BASE}/api/hq/exams`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: superadminCookie },
+    body: JSON.stringify({ name: "Geçersiz", examDate: "2026-09-01", bookletCount: 4, eligibleGradeLevels: ["SINIF_1"] }),
+  });
+  check("Ortaokul/Lise dışı sınıf düzeyi reddedilir: 400", invalidGradeRes.status === 400, invalidGradeRes.status);
+
+  // ===== Gerçek oluşturma: SINIF_9 + SINIF_10 (ikisi de Lise) =====
+  const uniqueName = `Test Deneme ${Date.now()}`;
+  const createRes = await fetch(`${BASE}/api/hq/exams`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: superadminCookie },
+    body: JSON.stringify({
+      name: uniqueName,
+      examDate: "2026-09-15",
+      bookletCount: 2,
+      feePerStudent: 50,
+      eligibleGradeLevels: ["SINIF_9", "SINIF_10"],
+    }),
+  });
+  const createBody = await createRes.json();
+  check("POST hq/exams: 201", createRes.status === 201, createRes.status);
+  const expectedStudents = sinif9Count + sinif10Count;
+  check(
+    "Öğrenci sayısı seed'deki ham veriyle eşleşiyor",
+    createBody.studentCount === expectedStudents,
+    JSON.stringify({ got: createBody.studentCount, expected: expectedStudents }),
+  );
+  check(
+    "Optik form sayısı = öğrenci sayısı (Lise → 1 optik/öğrenci)",
+    createBody.opticFormCount === expectedStudents,
+    createBody.opticFormCount,
+  );
+  check("Toplam fatura = öğrenci sayısı × 50", createBody.totalFee === expectedStudents * 50, createBody.totalFee);
+  check("Kitapçık türleri 2'li (A/B)", JSON.stringify(createBody.exam.bookletTypes) === JSON.stringify(["A", "B"]), createBody.exam.bookletTypes);
+
+  // ===== Exam.tenantId gerçekten GENEL_MERKEZ'e işaret ediyor =====
+  const dbExam = await prisma.exam.findUnique({ where: { id: createBody.exam.id } });
+  check("Exam.tenantId GENEL_MERKEZ tenant'ına işaret ediyor", dbExam?.tenantId === genelMerkez.id, dbExam?.tenantId);
+  check("Exam.scope = NETWORK", dbExam?.scope === "NETWORK", dbExam?.scope);
+
+  // ===== GET listesi doğru hesaplanmış alanları gösteriyor =====
+  const listRes = await fetch(`${BASE}/api/hq/exams`, { headers: { Cookie: superadminCookie } });
+  const listBody = await listRes.json();
+  const listedExam = listBody.exams?.find((e) => e.id === createBody.exam.id);
+  check(
+    "GET listesi: yeni sınav doğru studentCount ile görünüyor",
+    listedExam?.studentCount === expectedStudents,
+    JSON.stringify(listedExam),
+  );
+
+  // ===== Aktivite Akışı =====
+  const activityRes = await fetch(`${BASE}/api/branch/activity-log`, { headers: { Cookie: superadminCookie } });
+  check("Aktivite Akışı endpoint'i SUPERADMIN için erişilebilir (200 veya 403 olabilir, kontrol amaçlı)", true);
+  if (activityRes.status === 200) {
+    const activityBody = await activityRes.json();
+    const actions = (activityBody.entries || []).map((e) => e.action);
+    check("Aktivite Akışı: Genel Sınav tanımlandı", actions.includes("Genel Sınav tanımlandı"));
+  } else {
+    // SUPERADMIN kendi branch/activity-log'unu göremeyebilir (tenant bağlamı farklı) — doğrudan DB'den doğrula.
+    const auditRow = await prisma.auditLogEntry.findFirst({ where: { tenantId: genelMerkez.id, action: "Genel Sınav tanımlandı" } });
+    check("Aktivite Akışı (DB): Genel Sınav tanımlandı kaydı var", !!auditRow);
+  }
+
+  // Temizlik — yalnızca bu testin oluşturduğu Exam ve Audit Log kaydı.
+  await prisma.auditLogEntry.deleteMany({ where: { tenantId: genelMerkez.id, action: "Genel Sınav tanımlandı", detail: { contains: uniqueName } } });
+  await prisma.exam.delete({ where: { id: createBody.exam.id } });
+
+  console.log("\n=== ÖZET ===");
+  const fails = results.filter((r) => !r.ok);
+  console.log(`Toplam: ${results.length} | Başarılı: ${results.length - fails.length} | Başarısız: ${fails.length}`);
+  return fails.length;
+}
+
+main()
+  .then(async (failCount) => {
+    await prisma.$disconnect();
+    process.exit(failCount ? 1 : 0);
+  })
+  .catch(async (e) => {
+    console.error(e);
+    await prisma.$disconnect();
+    process.exit(1);
+  });

@@ -521,6 +521,16 @@ model Exam {
   bookletTypes String[]  @default(["A", "B", "C", "D"])
   examDate     DateTime
 
+  // Yalnızca NETWORK kapsamlı sınavlarda kullanılır (bkz. app/api/hq/exams —
+  // "Genel Sınav Merkezi"). Öğrenci başına ücret ve hedeflenen sınıf
+  // düzeyleri (Ortaokul+Lise) burada saklanır ki optik form ihtiyacı/toplam
+  // fatura tutarı her görüntülemede TÜM şubelerdeki canlı StudentProfile
+  // sayısına göre yeniden hesaplanabilsin — demo'nun aksine hangi şubelerin
+  // "davet edildiği" ayrıca saklanmaz: NETWORK bir sınav, tanımı gereği
+  // hedeflenen sınıf düzeyindeki TÜM şubelere gönderilir.
+  feePerStudent       Decimal?     @db.Decimal(10, 2)
+  eligibleGradeLevels GradeLevel[] @default([])
+
   createdAt DateTime @default(now())
 
   questions ExamQuestion[]

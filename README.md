@@ -566,6 +566,28 @@ seviye-360/
     kısıtlamasını, gecikmiş/yaklaşan ayrımını, toplam tutar hesabını, etüt
     gruplamasını ve "Tahsil Et"in gerçekten mevcut collect endpoint'ini
     tetikleyip satırı listeden düşürdüğünü doğrular.
+42. **Genel Sınav Merkezi — yirmi altıncı gerçek modül** (`Exam` modeline
+    `feePerStudent`/`eligibleGradeLevels` eklendi, bkz.
+    `prisma/migrations/20260729182549_add_exam_network_fields`,
+    `apps/web/app/api/hq/exams`). Demo'daki "hq:exam" ekranının gerçek
+    karşılığı: şemada `ExamScope.NETWORK` zaten "Genel Merkez tarafından tüm
+    şubelere push edilen sınav" olarak tanımlıydı ama hiç kullanılmıyordu —
+    bu, bu depodaki Exam/ExamResult modellerine karşı yazılan İLK gerçek
+    oluşturma (POST) endpoint'i. SUPERADMIN bir sınav adı/tarihi/kitapçık
+    sayısı/öğrenci başına ücret ve hedeflenen sınıf düzeyi (yalnızca
+    Ortaokul+Lise) tanımlar; optik form ihtiyacı (Ortaokul×2, Lise×1) ve
+    toplam fatura tutarı, seçilen sınıf düzeylerindeki TÜM şubelerdeki canlı
+    `StudentProfile` sayısından her görüntülemede yeniden hesaplanır (donmuş
+    bir anlık görüntü değil). Demo'nun aksine hangi şubelerin "davet
+    edildiği" ayrı bir alan olarak SAKLANMAZ — NETWORK bir sınav tanımı
+    gereği hedeflenen sınıf düzeyindeki TÜM şubelere gönderilir (şube alt
+    kümesi seçimi ve "Personel Devam Durumu" tarzı dağıtım/lojistik takibi
+    bilinçli olarak kapsam dışı, bkz. route dosyasındaki not).
+    `apps/web/scripts/test-hq-exams-module.mjs` (15 kontrol) yetki
+    kısıtlamasını, Ortaokul/Lise dışı sınıf düzeyi reddini, öğrenci/optik/
+    fatura hesabının ham DB sayımıyla eşleştiğini, `Exam.tenantId`'nin
+    gerçekten GENEL_MERKEZ tenant'ına işaret ettiğini ve Aktivite Akışı
+    yansımasını doğrular.
 
 ## Yerel Geliştirme (Veritabanı)
 
@@ -640,6 +662,7 @@ node scripts/test-hq-tenant-crud-module.mjs  # Kurum Yönetimi CRUD: yeni kurum 
 node scripts/test-enrollments-module.mjs     # Öğrenci Ön Kayıt: CRUD + ON_KAYIT→tamamlama + otomatik hesap girişi + kilitli durum 409'ları
 node scripts/test-roadmap-module.mjs         # Akademik Yol Haritası: net/netPct hesabı + kritik kazanım filtresi + yetki/tenant izolasyonu
 node scripts/test-daily-ops-module.mjs       # Günlük Operasyon: gecikmiş/yaklaşan taksit ayrımı + etüt gruplama + Tahsil Et akışı
+node scripts/test-hq-exams-module.mjs        # Genel Sınav Merkezi: NETWORK sınav oluşturma + optik/fatura hesabı + yetki kısıtlaması
 node scripts/test-rls-isolation.mjs          # RLS: tenant izolasyonu + Muhasebe rol kısıtlaması (ham DB seviyesinde)
 ```
 
