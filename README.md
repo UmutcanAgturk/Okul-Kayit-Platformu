@@ -490,6 +490,25 @@ seviye-360/
     eşleştiğini, `tenantId`/`q` filtrelerinin doğru çalıştığını ve bir
     öğrencinin `avgNet`'inin ham `ExamResult` ortalamasıyla eşleştiğini
     doğrular.
+38. **Kurum Yönetimi: Yeni Kurum Ekle / Devre Dışı Bırak — yirmi ikinci
+    gerçek modül** (`Tenant`'a `address`/`phone`/`email`/`capacity`/`taxNo`
+    alanları eklendi, bkz. `prisma/migrations/20260729054948_add_tenant_contact_fields`,
+    `apps/web/app/api/hq/tenants` POST, `apps/web/app/api/hq/tenants/[tenantId]/toggle-active`).
+    Kurum Yönetimi artık gerçekten CRUD: SUPERADMIN yeni bir kurum (SUBE)
+    ekleyebilir — bu, Normal Kayıt tamamlama route'undaki (bkz.
+    `app/api/branch/enrollments/[id]/complete`) "otomatik kullanıcı adı/
+    şifre" desenini tekrarlayarak gerçek bir BRANCH_ADMIN hesabı da
+    oluşturur ve şifreyi yalnızca o anki yanıtta düz metin döner. Demo'nun
+    aksine `managerName`/`managerPhone` gibi Tenant'a kopyalanan alanlar
+    YOKTUR — şube müdürünün adı/telefonu tek kaynaktan, kendi `User`
+    kaydından okunur (bkz. şemadaki not). Kurum SİLİNMEZ — StaffProfile
+    DELETE route'undaki gerekçeyle aynı (gerçek öğrenci/personel/ödeme
+    kayıtları olabilir) `Tenant.isActive` tersine çevrilir (devre dışı
+    bırak/yeniden etkinleştir); Genel Merkez'in kendisi devre dışı
+    bırakılamaz. `apps/web/scripts/test-hq-tenant-crud-module.mjs`
+    (24 kontrol) yetki sınırlarını, yeni oluşturulan kimlik bilgileriyle
+    GERÇEKTEN giriş yapılabildiğini, devre dışı bırakma/yeniden
+    etkinleştirme akışını ve Aktivite Akışı'na yansımayı doğrular.
 
 ## Yerel Geliştirme (Veritabanı)
 
@@ -560,6 +579,7 @@ node scripts/test-messages-module.mjs        # İletişim: gönderme yetkisi + s
 node scripts/test-mentor-module.mjs          # Seviye Mentör: havuz yetkisi + otomatik atama + aylık kota + onay/red/tamamlandı geçişleri
 node scripts/test-gamification-module.mjs    # Gamification: XP formülü + rozet eşikleri + tenant izolasyonu + Lider Tablosu
 node scripts/test-hq-students-module.mjs     # Genel Merkez Öğrenciler: SUPERADMIN yetkisi + tenant/arama filtreleri + ham DB eşleşmesi
+node scripts/test-hq-tenant-crud-module.mjs  # Kurum Yönetimi CRUD: yeni kurum + otomatik hesap girişi + devre dışı bırakma/etkinleştirme
 node scripts/test-rls-isolation.mjs          # RLS: tenant izolasyonu + Muhasebe rol kısıtlaması (ham DB seviyesinde)
 ```
 

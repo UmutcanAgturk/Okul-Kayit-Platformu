@@ -13,7 +13,7 @@ const TURKISH_ASCII_MAP: Record<string, string> = {
   ş: "s", Ş: "s", ö: "o", Ö: "o", ç: "c", Ç: "c",
 };
 
-function slugifyTurkish(text: string): string {
+export function slugifyTurkish(text: string): string {
   const ascii = text
     .split("")
     .map((ch) => TURKISH_ASCII_MAP[ch] ?? ch)
@@ -40,6 +40,24 @@ export function generateStaffEmail(fullName: string, tenantCode: string): string
   const local = slugifyTurkish(fullName) || "personel";
   const domainTag = slugifyTurkish(tenantCode).replace(/\./g, "-") || "sube";
   return `${local}.${domainTag}@personel.seviye360.com`;
+}
+
+// Yeni kurum eklerken otomatik oluşturulan Şube Yöneticisi hesabı için —
+// bkz. /api/hq/tenants. Seed'deki BRANCH_ADMIN hesaplarıyla (ör.
+// merve.aslan@seviye360.com) aynı üst düzey alan adını kullanır; öğrenci/
+// personel e-postalarından (ayrı alt alan adları) bilinçli olarak farklıdır.
+export function generateBranchAdminEmail(fullName: string, tenantCode: string): string {
+  const local = slugifyTurkish(fullName) || "sube.muduru";
+  const domainTag = slugifyTurkish(tenantCode).replace(/\./g, "-") || "sube";
+  return `${local}.${domainTag}@seviye360.com`;
+}
+
+// Yeni kurum kodu üretir (ör. "MEZITLI-01") — şehir adından slug + iki
+// haneli bir sıra numarası. Çağıran taraf (bkz. /api/hq/tenants)
+// benzersizlik için DB'ye karşı döngüyle dener.
+export function generateTenantCode(city: string, attempt: number): string {
+  const base = slugifyTurkish(city).toUpperCase().replace(/\./g, "-") || "SUBE";
+  return `${base}-${String(attempt).padStart(2, "0")}`;
 }
 
 const PASSWORD_ALPHABET = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789"; // 0/O/1/l/I hariç

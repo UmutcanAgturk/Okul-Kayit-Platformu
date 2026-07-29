@@ -62,6 +62,17 @@ model Tenant {
   city     String?
   district String?
 
+  // Kurum Yönetimi'nin "Yeni Kurum Ekle" formu için (bkz. app/api/hq/tenants) —
+  // demo'daki tüm alanları bilinçli olarak taşımaz (managerName/managerPhone
+  // gibi alanlar gerçek backend'de User.firstName/lastName/phone'un bir
+  // KOPYASI olurdu, bu yüzden eklenmedi — şube müdürünün gerçek adı/telefonu
+  // tek kaynaktan, kendi User kaydından okunur).
+  address  String?
+  phone    String?
+  email    String?
+  capacity Int?
+  taxNo    String?
+
   parentId String?
   parent   Tenant?  @relation("TenantHierarchy", fields: [parentId], references: [id])
   children Tenant[] @relation("TenantHierarchy")

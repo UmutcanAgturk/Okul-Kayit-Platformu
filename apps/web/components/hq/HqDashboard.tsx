@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { authKeys, fetchMe, logout } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
-import { fetchHqAccountingSummary, fetchHqStudents, fetchHqTenants, hqKeys, type HqTenant } from "@/lib/api/hq";
+import { createTenant, fetchHqAccountingSummary, fetchHqStudents, fetchHqTenants, hqKeys, toggleTenantActive, type HqTenant } from "@/lib/api/hq";
 
 const ALLOWED_ROLES = ["SUPERADMIN"];
 const TENANT_TYPE_LABEL: Record<string, string> = { GENEL_MERKEZ: "Genel Merkez", SUBE: "Şube", BOLUM: "Bölüm" };
@@ -14,7 +14,8 @@ function formatTl(n: number) {
   return `₺${n.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function TenantCard({ tenant }: { tenant: HqTenant }) {
+function TenantCard({ tenant, onToggleActive, toggling }: { tenant: HqTenant; onToggleActive: (tenantId: string) => void; toggling: boolean }) {
+  const occupancyPct = tenant.capacity && tenant.capacity > 0 ? Math.round((tenant.studentCount / tenant.capacity) * 100) : null;
   return (
     <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
       <div className="flex items-start justify-between">
@@ -32,7 +33,10 @@ function TenantCard({ tenant }: { tenant: HqTenant }) {
       <div className="mt-3 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
         <div>
           <p className="text-xs text-slate-500 dark:text-slate-400">Öğrenci</p>
-          <p className="font-medium text-slate-900 dark:text-slate-50">{tenant.studentCount}</p>
+          <p className="font-medium text-slate-900 dark:text-slate-50">
+            {tenant.studentCount}
+            {tenant.capacity ? ` / ${tenant.capacity}` : ""}
+          </p>
         </div>
         <div>
           <p className="text-xs text-slate-500 dark:text-slate-400">Öğretmen</p>
@@ -47,9 +51,170 @@ function TenantCard({ tenant }: { tenant: HqTenant }) {
           <p className="font-medium text-slate-900 dark:text-slate-50">{tenant.classroomCount}</p>
         </div>
       </div>
+      {occupancyPct !== null && (
+        <div className="mt-2">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+            <div className="h-full rounded-full bg-[#0071ce]" style={{ width: `${Math.min(100, occupancyPct)}%` }} />
+          </div>
+          <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">Doluluk %{occupancyPct}</p>
+        </div>
+      )}
       <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
         Şube Müdürü: <span className="font-medium text-slate-700 dark:text-slate-300">{tenant.branchAdminName ?? "Atanmamış"}</span>
       </p>
+      {tenant.type !== "GENEL_MERKEZ" && (
+        <button
+          type="button"
+          onClick={() => onToggleActive(tenant.id)}
+          disabled={toggling}
+          className="mt-3 rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+        >
+          {tenant.isActive ? "Devre Dışı Bırak" : "Yeniden Etkinleştir"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function CreateTenantForm() {
+  const queryClient = useQueryClient();
+  const [name, setName] = useState("");
+  const [city, setCity] = useState("");
+  const [district, setDistrict] = useState("");
+  const [address, setAddress] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [capacity, setCapacity] = useState("");
+  const [taxNo, setTaxNo] = useState("");
+  const [managerFirstName, setManagerFirstName] = useState("");
+  const [managerLastName, setManagerLastName] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
+  const [credentials, setCredentials] = useState<{ username: string; password: string } | null>(null);
+
+  const createMutation = useMutation({
+    mutationFn: createTenant,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: hqKeys.tenants() });
+      setName("");
+      setCity("");
+      setDistrict("");
+      setAddress("");
+      setPhone("");
+      setEmail("");
+      setCapacity("");
+      setTaxNo("");
+      setManagerFirstName("");
+      setManagerLastName("");
+      setFormError(null);
+      setCredentials(data.credentials);
+    },
+    onError: (err) => setFormError(err instanceof ApiError ? err.message : "Kurum oluşturulamadı."),
+  });
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim() || !city.trim() || !district.trim() || !managerFirstName.trim() || !managerLastName.trim()) {
+      setFormError("Kurum adı, şehir, ilçe ve şube müdürü adı/soyadı zorunludur.");
+      return;
+    }
+    createMutation.mutate({
+      name: name.trim(),
+      city: city.trim(),
+      district: district.trim(),
+      managerFirstName: managerFirstName.trim(),
+      managerLastName: managerLastName.trim(),
+      address: address.trim() || undefined,
+      phone: phone.trim() || undefined,
+      email: email.trim() || undefined,
+      capacity: capacity ? Number(capacity) : undefined,
+      taxNo: taxNo.trim() || undefined,
+    });
+  }
+
+  return (
+    <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
+      <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Yeni Kurum Ekle</h2>
+      <form onSubmit={handleSubmit} className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div>
+          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Kurum Adı</label>
+          <input value={name} onChange={(e) => setName(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Şehir</label>
+            <input value={city} onChange={(e) => setCity(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">İlçe</label>
+            <input value={district} onChange={(e) => setDistrict(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900" />
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Açık Adres (opsiyonel)</label>
+          <input value={address} onChange={(e) => setAddress(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Telefon (opsiyonel)</label>
+            <input value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">E-posta (opsiyonel)</label>
+            <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Öğrenci Kapasitesi (opsiyonel)</label>
+            <input value={capacity} onChange={(e) => setCapacity(e.target.value)} type="number" min="1" className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Vergi No (opsiyonel)</label>
+            <input value={taxNo} onChange={(e) => setTaxNo(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Şube Müdürü Adı</label>
+            <input value={managerFirstName} onChange={(e) => setManagerFirstName(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Şube Müdürü Soyadı</label>
+            <input value={managerLastName} onChange={(e) => setManagerLastName(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900" />
+          </div>
+        </div>
+
+        {formError && <p className="text-xs text-red-600 dark:text-red-400 sm:col-span-2">{formError}</p>}
+
+        <div className="sm:col-span-2">
+          <button
+            type="submit"
+            disabled={createMutation.isPending}
+            className="rounded-lg bg-[#0071ce] px-4 py-2 text-sm font-semibold text-white hover:bg-[#00558f] disabled:opacity-60"
+          >
+            {createMutation.isPending ? "Oluşturuluyor…" : "Kurumu Ekle"}
+          </button>
+        </div>
+      </form>
+
+      {credentials && (
+        <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900 dark:bg-emerald-950/40">
+          <h3 className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">Şube Müdürü Giriş Bilgileri Oluşturuldu</h3>
+          <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-400">
+            Bu şifre yalnızca burada gösterilir — hemen şube müdürüne iletin, tekrar görüntülenemez.
+          </p>
+          <dl className="mt-2 space-y-1 text-xs text-emerald-800 dark:text-emerald-300">
+            <div className="flex justify-between">
+              <dt>Kullanıcı adı</dt>
+              <dd className="font-mono">{credentials.username}</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt>Şifre</dt>
+              <dd className="font-mono">{credentials.password}</dd>
+            </div>
+          </dl>
+        </div>
+      )}
     </div>
   );
 }
@@ -153,15 +318,21 @@ function HqStudentsPanel({ tenants }: { tenants: HqTenant[] }) {
 
 /**
  * Kurum Yönetimi — demo/seviye360-app.html'deki "hq:kurumlar" ekranının
- * SALT OKUNUR karşılığı: yeni kurum oluşturma/silme (gerçek bir müdür hesabı +
- * kimlik bilgisi üretimi gerektirir) bu sürümün kapsamında değildir — bkz.
- * app/api/hq/tenants route'undaki not. Mali Özet, zaten var olan
+ * gerçek karşılığı: yeni kurum ekleme (otomatik oluşturulan Şube Yöneticisi
+ * hesabıyla birlikte, bkz. app/api/hq/tenants POST) ve devre dışı bırakma/
+ * yeniden etkinleştirme (StaffProfile deaktivasyonuyla aynı desen — gerçek
+ * silme yerine `Tenant.isActive`). Mali Özet, zaten var olan
  * app/api/hq/accounting-ledger'ın (Superadmin konsolide görünüm) ilk
  * gerçek frontend tüketicisidir.
  */
 export function HqDashboard() {
   const router = useRouter();
   const queryClient = useQueryClient();
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: toggleTenantActive,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: hqKeys.tenants() }),
+  });
 
   const { data: me, isLoading, isError, error } = useQuery({
     queryKey: authKeys.me(),
@@ -246,10 +417,12 @@ export function HqDashboard() {
         <h2 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-50">Tüm Kurumlar</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {tenants.map((t) => (
-            <TenantCard key={t.id} tenant={t} />
+            <TenantCard key={t.id} tenant={t} onToggleActive={(id) => toggleActiveMutation.mutate(id)} toggling={toggleActiveMutation.isPending} />
           ))}
         </div>
       </div>
+
+      <CreateTenantForm />
 
       <HqStudentsPanel tenants={tenants} />
 

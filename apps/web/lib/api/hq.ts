@@ -7,6 +7,11 @@ export interface HqTenant {
   type: "GENEL_MERKEZ" | "SUBE" | "BOLUM";
   city: string | null;
   district: string | null;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  capacity: number | null;
+  taxNo: string | null;
   isActive: boolean;
   studentCount: number;
   classroomCount: number;
@@ -17,6 +22,28 @@ export interface HqTenant {
 
 export function fetchHqTenants() {
   return apiFetch<{ tenants: HqTenant[] }>("/api/hq/tenants", { cache: "no-store" });
+}
+
+export function createTenant(input: {
+  name: string;
+  city: string;
+  district: string;
+  managerFirstName: string;
+  managerLastName: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  capacity?: number;
+  taxNo?: string;
+}) {
+  return apiFetch<{ tenant: HqTenant; credentials: { username: string; password: string } }>("/api/hq/tenants", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function toggleTenantActive(tenantId: string) {
+  return apiFetch<{ isActive: boolean }>(`/api/hq/tenants/${tenantId}/toggle-active`, { method: "POST" });
 }
 
 export interface HqLedgerSummaryRow {

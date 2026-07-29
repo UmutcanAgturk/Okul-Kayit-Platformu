@@ -1,17 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { UserRole } from "@prisma/client";
+import { TenantType, UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
 import { withTenantContext } from "@/lib/db-context";
+import { hashPassword } from "@/lib/auth";
+import { generateBranchAdminEmail, generateTempPassword, generateTenantCode } from "@/lib/enrollment";
+import { actorLabel, logActivity } from "@/lib/audit-log";
 
 /**
- * "Kurum Yönetimi" (hq:kurumlar) — demo'daki gibi kurum oluşturma/silme
- * yapmaz (yeni bir tenant, gerçek bir müdür hesabı + kimlik bilgisi
- * gerektirir; bu ayrı bir iş) — bu ilk sürüm SALT OKUNUR bir envanterdir:
- * Genel Merkez'in gördüğü tüm kurumların gerçek Postgres verisinden anlık
- * öğrenci/öğretmen/personel/sınıf sayıları ve şube müdürü bilgisi.
- * `withTenantContext` SUPERADMIN için `superadmin_role` (BYPASSRLS)
- * bağlantısına geçtiğinden tüm tenant'lar tek sorguda görülebilir (bkz.
- * lib/db-context.ts ve app/api/hq/accounting-ledger/route.ts'teki aynı not).
+ * "Kurum Yönetimi" (hq:kurumlar) — GET: tüm kurumların gerçek Postgres
+ * verisinden anlık öğrenci/öğretmen/personel/sınıf sayıları ve şube müdürü
+ * bilgisi (salt okunur envanter). POST: yeni bir kurum (SUBE) + otomatik
+ * oluşturulan bir Şube Yöneticisi hesabı — demo'daki "Yeni Kurum Ekle"
+ * formunun gerçek karşılığı, Normal Kayıt tamamlama route'undaki
+ * (app/api/branch/enrollments/[id]/complete) "otomatik kullanıcı adı/şifre"
+ * desenini tekrarlar. `withTenantContext` SUPERADMIN için `superadmin_role`
+ * (BYPASSRLS) bağlantısına geçtiğinden tüm tenant'lar tek sorguda görülebilir
+ * (bkz. lib/db-context.ts ve app/api/hq/accounting-ledger/route.ts'teki not).
  */
 export async function GET(request: NextRequest) {
   const actor = await getSessionActor(request);
@@ -55,6 +59,11 @@ export async function GET(request: NextRequest) {
       type: t.type,
       city: t.city,
       district: t.district,
+      address: t.address,
+      phone: t.phone,
+      email: t.email,
+      capacity: t.capacity,
+      taxNo: t.taxNo,
       isActive: t.isActive,
       studentCount: studentCounts.get(t.id) ?? 0,
       classroomCount: classroomCounts.get(t.id) ?? 0,
@@ -65,4 +74,84 @@ export async function GET(request: NextRequest) {
   });
 
   return NextResponse.json({ tenants: result });
+}
+
+export async function POST(request: NextRequest) {
+  const actor = await getSessionActor(request);
+  if (!actor) {
+    return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
+  }
+  if (actor.role !== UserRole.SUPERADMIN) {
+    return NextResponse.json({ message: "Yalnızca Genel Merkez yeni kurum ekleyebilir" }, { status: 403 });
+  }
+
+  const body = await request.json().catch(() => ({}));
+  const name = typeof body.name === "string" && body.name.trim() ? body.name.trim() : null;
+  const city = typeof body.city === "string" && body.city.trim() ? body.city.trim() : null;
+  const district = typeof body.district === "string" && body.district.trim() ? body.district.trim() : null;
+  const managerFirstName = typeof body.managerFirstName === "string" && body.managerFirstName.trim() ? body.managerFirstName.trim() : null;
+  const managerLastName = typeof body.managerLastName === "string" && body.managerLastName.trim() ? body.managerLastName.trim() : null;
+  const address = typeof body.address === "string" && body.address.trim() ? body.address.trim() : null;
+  const phone = typeof body.phone === "string" && body.phone.trim() ? body.phone.trim() : null;
+  const email = typeof body.email === "string" && body.email.trim() ? body.email.trim() : null;
+  const capacity = typeof body.capacity === "number" && body.capacity > 0 ? Math.round(body.capacity) : null;
+  const taxNo = typeof body.taxNo === "string" && body.taxNo.trim() ? body.taxNo.trim() : null;
+
+  if (!name || !city || !district || !managerFirstName || !managerLastName) {
+    return NextResponse.json(
+      { message: "name, city, district, managerFirstName ve managerLastName zorunludur" },
+      { status: 400 },
+    );
+  }
+
+  const outcome = await withTenantContext(actor, async (tx) => {
+    let code = generateTenantCode(city, 1);
+    for (let attempt = 2; await tx.tenant.findUnique({ where: { code } }); attempt++) {
+      code = generateTenantCode(city, attempt);
+      if (attempt > 50) throw new Error("Benzersiz kurum kodu üretilemedi");
+    }
+
+    const tenant = await tx.tenant.create({
+      data: { name, code, type: TenantType.SUBE, city, district, address, phone, email, capacity, taxNo },
+    });
+
+    const managerFullName = `${managerFirstName} ${managerLastName}`;
+    let managerEmail = generateBranchAdminEmail(managerFullName, tenant.code);
+    for (let attempt = 2; await tx.user.findUnique({ where: { email: managerEmail } }); attempt++) {
+      const [local, domain] = managerEmail.split("@");
+      managerEmail = `${local.replace(/\d+$/, "")}${attempt}@${domain}`;
+      if (attempt > 20) throw new Error("Benzersiz e-posta üretilemedi");
+    }
+
+    const tempPassword = generateTempPassword();
+    const passwordHash = await hashPassword(tempPassword);
+    await tx.user.create({
+      data: {
+        tenantId: tenant.id,
+        email: managerEmail,
+        passwordHash,
+        role: UserRole.BRANCH_ADMIN,
+        firstName: managerFirstName,
+        lastName: managerLastName,
+      },
+    });
+
+    await logActivity(tx, {
+      tenantId: tenant.id,
+      actorUserId: actor.id,
+      actorLabel: actorLabel(actor),
+      action: "Yeni kurum eklendi",
+      detail: `${tenant.name} — ${city}/${district}`,
+    });
+
+    return { tenant, managerEmail, tempPassword };
+  });
+
+  return NextResponse.json(
+    {
+      tenant: outcome.tenant,
+      credentials: { username: outcome.managerEmail, password: outcome.tempPassword },
+    },
+    { status: 201 },
+  );
 }
