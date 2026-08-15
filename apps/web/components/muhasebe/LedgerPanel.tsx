@@ -10,6 +10,7 @@ import {
   fetchVatSummary,
 } from "@/lib/api/accounting";
 import { ApiError } from "@/lib/api/client";
+import { Icon } from "@/components/ui/icons";
 
 function tl(n: number) {
   return "₺" + Math.round(n).toLocaleString("tr-TR");
@@ -75,169 +76,134 @@ export function LedgerPanel() {
   const vat = vatQuery.data?.summary;
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-      <div className="space-y-4">
-        <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-          <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Yeni Kayıt Ekle</h2>
-          <form onSubmit={handleSubmit} className="mt-3 space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Tür</label>
-                <select
-                  value={type}
-                  onChange={(e) => setType(e.target.value as "GELIR" | "GIDER")}
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-                >
+    <div className="grid cols-2">
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div className="card card-pad">
+          <div className="card-head">
+            <h3>Yeni Kayıt Ekle</h3>
+          </div>
+          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div className="field">
+                <label>Tür</label>
+                <select value={type} onChange={(e) => setType(e.target.value as "GELIR" | "GIDER")}>
                   <option value="GELIR">Gelir</option>
                   <option value="GIDER">Gider</option>
                 </select>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Tarih</label>
-                <input
-                  type="date"
-                  value={entryDate}
-                  onChange={(e) => setEntryDate(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-                />
+              <div className="field">
+                <label>Tarih</label>
+                <input type="date" value={entryDate} onChange={(e) => setEntryDate(e.target.value)} />
               </div>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Kategori</label>
+            <div className="field">
+              <label>Kategori</label>
               <input
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 placeholder="Örn. Kira, Personel Maaşı, Taksit Tahsilatı"
-                className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
               />
             </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Tutar (₺)</label>
-              <input
-                type="number"
-                min="0"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-              />
+            <div className="field">
+              <label>Tutar (₺)</label>
+              <input type="number" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} />
             </div>
 
-            <label className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
               <input type="checkbox" checked={vatExempt} onChange={(e) => setVatExempt(e.target.checked)} />
               KDV'den istisna (3065 sayılı KDV Kanunu 17/2-b — eğitim/öğretim hizmeti)
             </label>
             {!vatExempt && (
-              <div>
-                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">KDV Oranı (%)</label>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={vatRatePct}
-                  onChange={(e) => setVatRatePct(e.target.value)}
-                  className="mt-1 w-32 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-                />
+              <div className="field" style={{ width: 128 }}>
+                <label>KDV Oranı (%)</label>
+                <input type="number" min="0" max="100" value={vatRatePct} onChange={(e) => setVatRatePct(e.target.value)} />
               </div>
             )}
 
-            <label className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
               <input type="checkbox" checked={withholdingOn} onChange={(e) => setWithholdingOn(e.target.checked)} />
               GVK md 94 stopajına tabi (örn. işyeri kira gideri)
             </label>
             {withholdingOn && (
-              <div>
-                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Stopaj Oranı (%)</label>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={withholdingPct}
-                  onChange={(e) => setWithholdingPct(e.target.value)}
-                  className="mt-1 w-32 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-                />
+              <div className="field" style={{ width: 128 }}>
+                <label>Stopaj Oranı (%)</label>
+                <input type="number" min="0" max="100" value={withholdingPct} onChange={(e) => setWithholdingPct(e.target.value)} />
               </div>
             )}
 
-            <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Not (opsiyonel)</label>
-              <input
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-              />
+            <div className="field">
+              <label>Not (opsiyonel)</label>
+              <input value={note} onChange={(e) => setNote(e.target.value)} />
             </div>
 
-            {formError && <p className="text-xs text-red-600 dark:text-red-400">{formError}</p>}
+            {formError && <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--critical)" }}>{formError}</p>}
 
-            <button
-              type="submit"
-              disabled={createMutation.isPending}
-              className="w-full rounded-lg bg-[#0071ce] px-4 py-2 text-sm font-semibold text-white hover:bg-[#00558f] disabled:opacity-60"
-            >
+            <button type="submit" disabled={createMutation.isPending} className="btn primary" style={{ justifyContent: "center" }}>
               {createMutation.isPending ? "Ekleniyor…" : "Kaydı Ekle"}
             </button>
           </form>
         </div>
 
         {vat && (
-          <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">KDV Özeti</h2>
-            <dl className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-600 dark:text-slate-400">
+          <div className="card card-pad">
+            <div className="card-head">
+              <h3>KDV Özeti</h3>
+            </div>
+            <dl style={{ margin: 0, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
               <dt>Hesaplanan KDV</dt>
-              <dd className="text-right font-medium text-slate-900 dark:text-slate-50">{tl(vat.hesaplananKdv)}</dd>
+              <dd style={{ margin: 0, textAlign: "right", fontWeight: 600, color: "var(--ink)" }}>{tl(vat.hesaplananKdv)}</dd>
               <dt>İndirilecek KDV</dt>
-              <dd className="text-right font-medium text-slate-900 dark:text-slate-50">{tl(vat.indirilecekKdv)}</dd>
+              <dd style={{ margin: 0, textAlign: "right", fontWeight: 600, color: "var(--ink)" }}>{tl(vat.indirilecekKdv)}</dd>
               <dt>Ödenecek KDV</dt>
-              <dd className="text-right font-medium text-red-600 dark:text-red-400">{tl(vat.odenecekKdv)}</dd>
+              <dd style={{ margin: 0, textAlign: "right", fontWeight: 600, color: "var(--critical)" }}>{tl(vat.odenecekKdv)}</dd>
               <dt>Devreden KDV</dt>
-              <dd className="text-right font-medium text-emerald-600 dark:text-emerald-400">{tl(vat.devredenKdv)}</dd>
+              <dd style={{ margin: 0, textAlign: "right", fontWeight: 600, color: "var(--strong)" }}>{tl(vat.devredenKdv)}</dd>
             </dl>
           </div>
         )}
       </div>
 
-      <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Kayıt Defteri</h2>
+      <div className="card card-pad">
+        <div className="card-head">
+          <h3>Kayıt Defteri</h3>
           {summary && (
-            <span className="text-xs text-slate-500 dark:text-slate-400">
+            <span className="hint">
               Gelir {tl(summary.totalGelir)} · Gider {tl(summary.totalGider)} · Net {tl(summary.net)}
             </span>
           )}
         </div>
 
-        {ledgerQuery.isLoading && <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</p>}
+        {ledgerQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
         {!ledgerQuery.isLoading && entries.length === 0 && (
-          <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
-            Henüz gelir/gider kaydı yok. Soldaki formdan ilk kaydınızı ekleyin.
-          </p>
+          <div className="empty-state">
+            <Icon name="ledger" />
+            <p>Henüz gelir/gider kaydı yok. Soldaki formdan ilk kaydınızı ekleyin.</p>
+          </div>
         )}
 
-        <div className="mt-3 max-h-[520px] space-y-2 overflow-y-auto">
+        <div style={{ maxHeight: 520, overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}>
           {entries.map((entry) => (
             <div
               key={entry.id}
-              className="flex items-center justify-between border-b border-slate-100 py-2 text-sm dark:border-slate-800"
+              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid var(--border)", padding: "9px 0" }}
             >
               <div>
-                <div className="font-medium text-slate-900 dark:text-slate-50">{entry.category}</div>
-                <div className="text-xs text-slate-500 dark:text-slate-400">
+                <div style={{ fontSize: "var(--text-base)", fontWeight: 600 }}>{entry.category}</div>
+                <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
                   {new Date(entry.entryDate).toLocaleDateString("tr-TR")}
                   {entry.vatRate !== null && ` · KDV %${Math.round(Number(entry.vatRate) * 100)}`}
                   {entry.withholdingRate !== null && ` · Stopaj %${Math.round(Number(entry.withholdingRate) * 100)}`}
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <span
-                  className={entry.type === "GELIR" ? "font-semibold text-emerald-600 dark:text-emerald-400" : "font-semibold text-red-600 dark:text-red-400"}
-                >
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <span style={{ fontWeight: 700, color: entry.type === "GELIR" ? "var(--strong)" : "var(--critical)" }}>
                   {entry.type === "GELIR" ? "+" : "-"}
                   {tl(Number(entry.amount))}
                 </span>
                 <button
                   type="button"
                   onClick={() => deleteMutation.mutate(entry.id)}
-                  className="text-xs text-slate-400 hover:text-red-600 dark:hover:text-red-400"
+                  className="btn xs"
                   aria-label="Sil"
                 >
                   Sil

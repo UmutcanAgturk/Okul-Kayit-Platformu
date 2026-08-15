@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { authKeys, fetchMe, logout } from "@/lib/api/auth";
+import { useQuery } from "@tanstack/react-query";
+import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { LedgerPanel } from "./LedgerPanel";
 import { InstallmentsPanel } from "./InstallmentsPanel";
@@ -26,7 +26,6 @@ type TabId = (typeof TABS)[number]["id"];
  */
 export function MuhasebeDashboard() {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const [tab, setTab] = useState<TabId>("genel");
 
   const { data: me, isLoading, isError, error } = useQuery({
@@ -41,14 +40,8 @@ export function MuhasebeDashboard() {
     }
   }, [isError, error, router]);
 
-  async function handleLogout() {
-    await logout();
-    queryClient.clear();
-    router.replace("/login");
-  }
-
   if (isLoading) {
-    return <div className="animate-pulse text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</div>;
+    return <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>;
   }
 
   if (!me || (isError && error instanceof ApiError && error.status === 401)) {
@@ -57,8 +50,8 @@ export function MuhasebeDashboard() {
 
   if (!ALLOWED_ROLES.includes(me.role)) {
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center dark:border-red-900 dark:bg-red-950/40">
-        <p className="text-sm font-medium text-red-700 dark:text-red-300">
+      <div className="card card-pad">
+        <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
           Bu modüle erişim yetkiniz yok. Muhasebe yalnızca Şube Yöneticisi/Muhasebe rolüne açıktır.
         </p>
       </div>
@@ -66,49 +59,19 @@ export function MuhasebeDashboard() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-50">Muhasebe</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            {me.firstName} {me.lastName} · {me.role === "BRANCH_ADMIN" ? "Şube Yöneticisi" : "Muhasebe"}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <a
-            href="/dashboard"
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            Ana Sayfa
-          </a>
-          <a
-            href="/personel"
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            Personel
-          </a>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            Çıkış Yap
-          </button>
-        </div>
-      </div>
+    <div className="screen">
+      <h1>Muhasebe</h1>
+      <p className="lede">
+        {me.firstName} {me.lastName} · {me.role === "BRANCH_ADMIN" ? "Şube Yöneticisi" : "Muhasebe"}
+      </p>
 
-      <div className="flex gap-1 border-b border-slate-200 dark:border-slate-800">
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 18 }}>
         {TABS.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => setTab(t.id)}
-            className={
-              "border-b-2 px-4 py-2 text-sm font-medium transition " +
-              (tab === t.id
-                ? "border-[#0071ce] text-[#0071ce]"
-                : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200")
-            }
+            className={`screen-tab ${tab === t.id ? "active" : ""}`}
           >
             {t.label}
           </button>

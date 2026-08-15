@@ -6,6 +6,7 @@ import { accountingKeys, createPayroll, fetchPayroll } from "@/lib/api/accountin
 import { fetchTeachers, teacherKeys } from "@/lib/api/teachers";
 import { fetchStaff, staffKeys } from "@/lib/api/staff";
 import { ApiError } from "@/lib/api/client";
+import { Icon } from "@/components/ui/icons";
 
 function tl(n: number) {
   return "₺" + Math.round(n).toLocaleString("tr-TR");
@@ -64,33 +65,28 @@ export function PayrollPanel() {
   const records = payrollQuery.data?.records ?? [];
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-      <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Yeni Bordro Oluştur</h2>
-        <form onSubmit={handleSubmit} className="mt-3 space-y-3">
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Kişi Türü</label>
+    <div className="grid cols-2">
+      <div className="card card-pad">
+        <div className="card-head">
+          <h3>Yeni Bordro Oluştur</h3>
+        </div>
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div className="field">
+            <label>Kişi Türü</label>
             <select
               value={personKind}
               onChange={(e) => {
                 setPersonKind(e.target.value as "TEACHER" | "STAFF");
                 setPersonId("");
               }}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
             >
               <option value="TEACHER">Öğretmen</option>
               <option value="STAFF">Öğretmen Dışı Personel</option>
             </select>
           </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">
-              {personKind === "TEACHER" ? "Öğretmen" : "Personel"}
-            </label>
-            <select
-              value={personId}
-              onChange={(e) => setPersonId(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-            >
+          <div className="field">
+            <label>{personKind === "TEACHER" ? "Öğretmen" : "Personel"}</label>
+            <select value={personId} onChange={(e) => setPersonId(e.target.value)}>
               <option value="">— Seçin —</option>
               {personKind === "TEACHER"
                 ? teachers.map((t) => (
@@ -105,38 +101,23 @@ export function PayrollPanel() {
                   ))}
             </select>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Dönem (YYYY-MM)</label>
-              <input
-                value={period}
-                onChange={(e) => setPeriod(e.target.value)}
-                placeholder="2026-07"
-                className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-              />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div className="field">
+              <label>Dönem (YYYY-MM)</label>
+              <input value={period} onChange={(e) => setPeriod(e.target.value)} placeholder="2026-07" />
             </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Brüt Maaş (₺)</label>
-              <input
-                type="number"
-                min="0"
-                value={grossSalary}
-                onChange={(e) => setGrossSalary(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-              />
+            <div className="field">
+              <label>Brüt Maaş (₺)</label>
+              <input type="number" min="0" value={grossSalary} onChange={(e) => setGrossSalary(e.target.value)} />
             </div>
           </div>
 
-          {formError && <p className="text-xs text-red-600 dark:text-red-400">{formError}</p>}
+          {formError && <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--critical)" }}>{formError}</p>}
 
-          <button
-            type="submit"
-            disabled={createMutation.isPending}
-            className="w-full rounded-lg bg-[#0071ce] px-4 py-2 text-sm font-semibold text-white hover:bg-[#00558f] disabled:opacity-60"
-          >
+          <button type="submit" disabled={createMutation.isPending} className="btn primary" style={{ justifyContent: "center" }}>
             {createMutation.isPending ? "Oluşturuluyor…" : "Bordroyu Oluştur"}
           </button>
-          <p className="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+          <p style={{ margin: 0, fontSize: "var(--text-2xs)", lineHeight: 1.6, color: "var(--ink-faint)" }}>
             SGK işçi payı %14 + işsizlik sigortası işçi payı %1 brüt maaştan düşülür; kalan tutar üzerinden
             basitleştirilmiş tek dilim %15 gelir vergisi hesaplanır; damga vergisi brüt maaşın binde 7,59&apos;udur.
             Onaylandığında işveren toplam maliyeti (brüt + işveren payları) Kayıt Defteri&apos;ne otomatik gider olarak yazılır.
@@ -144,22 +125,27 @@ export function PayrollPanel() {
         </form>
       </div>
 
-      <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Oluşturulan Bordrolar</h2>
-        {payrollQuery.isLoading && <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</p>}
+      <div className="card card-pad">
+        <div className="card-head">
+          <h3>Oluşturulan Bordrolar</h3>
+        </div>
+        {payrollQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
         {!payrollQuery.isLoading && records.length === 0 && (
-          <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Henüz bordro oluşturulmadı.</p>
+          <div className="empty-state">
+            <Icon name="cash" />
+            <p>Henüz bordro oluşturulmadı.</p>
+          </div>
         )}
-        <div className="mt-3 max-h-[480px] space-y-2 overflow-y-auto">
+        <div style={{ maxHeight: 480, overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}>
           {records.map((r) => (
-            <div key={r.id} className="border-b border-slate-100 py-2 text-sm dark:border-slate-800">
-              <div className="flex items-center justify-between">
-                <span className="font-medium text-slate-900 dark:text-slate-50">
+            <div key={r.id} style={{ borderBottom: "1px solid var(--border)", padding: "9px 0" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: "var(--text-base)", fontWeight: 600 }}>
                   {r.personName} · {r.period}
                 </span>
-                <span className="font-semibold text-emerald-600 dark:text-emerald-400">{tl(Number(r.netSalary))} net</span>
+                <span style={{ fontWeight: 700, color: "var(--strong)" }}>{tl(Number(r.netSalary))} net</span>
               </div>
-              <div className="text-xs text-slate-500 dark:text-slate-400">
+              <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
                 Brüt {tl(Number(r.grossSalary))} · SGK+İşsizlik {tl(Number(r.sgkEmployeeShare) + Number(r.unemploymentEmployeeShare))} ·
                 Gelir V. {tl(Number(r.incomeTaxWithheld))} · Damga V. {tl(Number(r.stampDutyWithheld))}
               </div>

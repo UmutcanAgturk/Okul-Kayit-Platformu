@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { authKeys, fetchMe, logout } from "@/lib/api/auth";
+import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { createStaff, deactivateStaff, fetchStaff, staffKeys, StaffUserRole } from "@/lib/api/staff";
+import { Icon } from "@/components/ui/icons";
 
 const ALLOWED_ROLES = ["BRANCH_ADMIN", "ACCOUNTING"];
 
@@ -41,12 +42,6 @@ export function PersonelDashboard() {
       router.replace("/login");
     }
   }, [isError, error, router]);
-
-  async function handleLogout() {
-    await logout();
-    queryClient.clear();
-    router.replace("/login");
-  }
 
   const staffQuery = useQuery({ queryKey: staffKeys.list(), queryFn: fetchStaff, enabled: !!me });
 
@@ -96,7 +91,7 @@ export function PersonelDashboard() {
   }
 
   if (isLoading) {
-    return <div className="animate-pulse text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</div>;
+    return <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>;
   }
 
   if (!me || (isError && error instanceof ApiError && error.status === 401)) {
@@ -105,8 +100,8 @@ export function PersonelDashboard() {
 
   if (!ALLOWED_ROLES.includes(me.role)) {
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center dark:border-red-900 dark:bg-red-950/40">
-        <p className="text-sm font-medium text-red-700 dark:text-red-300">
+      <div className="card card-pad">
+        <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
           Bu modüle erişim yetkiniz yok. Personel yalnızca Şube Yöneticisi/Muhasebe rolüne açıktır.
         </p>
       </div>
@@ -116,178 +111,129 @@ export function PersonelDashboard() {
   const staff = staffQuery.data?.staff ?? [];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-50">Personel</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            {me.firstName} {me.lastName} · {me.role === "BRANCH_ADMIN" ? "Şube Yöneticisi" : "Muhasebe"}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <a
-            href="/dashboard"
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            Ana Sayfa
-          </a>
-          <a
-            href="/muhasebe"
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            Muhasebe
-          </a>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            Çıkış Yap
-          </button>
-        </div>
-      </div>
+    <div className="screen">
+      <h1>Personel</h1>
+      <p className="lede">
+        {me.firstName} {me.lastName} · {me.role === "BRANCH_ADMIN" ? "Şube Yöneticisi" : "Muhasebe"}
+      </p>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="space-y-4">
-          <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Yeni Personel Ekle</h2>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+      <div className="grid cols-2">
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div className="card card-pad">
+            <div className="card-head">
+              <h3>Yeni Personel Ekle</h3>
+            </div>
+            <p style={{ margin: "0 0 12px", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
               Öğretmenler burada listelenmez — öğretmen kaydı için ayrı bir akış kullanılır (bkz. Bordro sekmesindeki
               öğretmen seçici). Bu form yalnızca öğretmen dışı personeli (Şube Müdürü, Ön Büro, Muhasebe, Rehber
               Öğretmen vb.) kapsar.
             </p>
-            <form onSubmit={handleSubmit} className="mt-3 space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Ad Soyad</label>
-                <input
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-                />
+            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div className="field">
+                <label>Ad Soyad</label>
+                <input value={fullName} onChange={(e) => setFullName(e.target.value)} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Sistem Rolü</label>
-                  <select
-                    value={role}
-                    onChange={(e) => setRole(e.target.value as StaffUserRole)}
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-                  >
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div className="field">
+                  <label>Sistem Rolü</label>
+                  <select value={role} onChange={(e) => setRole(e.target.value as StaffUserRole)}>
                     <option value="ACCOUNTING">Muhasebe Görevlisi</option>
                     <option value="GUIDANCE_COORDINATOR">Rehber Öğretmen</option>
                     <option value="BRANCH_ADMIN">Şube Yöneticisi</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">İşe Başlama</label>
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-                  />
+                <div className="field">
+                  <label>İşe Başlama</label>
+                  <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
                 </div>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Unvan</label>
+              <div className="field">
+                <label>Unvan</label>
                 <input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Örn. Ön Büro Görevlisi, Muhasebe Görevlisi"
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
                 />
               </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Departman (opsiyonel)</label>
+              <div className="field">
+                <label>Departman (opsiyonel)</label>
                 <input
                   value={department}
                   onChange={(e) => setDepartment(e.target.value)}
                   placeholder="Örn. Rehberlik, İdari İşler"
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
                 />
               </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Brüt Maaş (₺)</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={salary}
-                  onChange={(e) => setSalary(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-                />
+              <div className="field">
+                <label>Brüt Maaş (₺)</label>
+                <input type="number" min="0" value={salary} onChange={(e) => setSalary(e.target.value)} />
               </div>
 
-              {formError && <p className="text-xs text-red-600 dark:text-red-400">{formError}</p>}
+              {formError && <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--critical)" }}>{formError}</p>}
 
-              <button
-                type="submit"
-                disabled={createMutation.isPending}
-                className="w-full rounded-lg bg-[#0071ce] px-4 py-2 text-sm font-semibold text-white hover:bg-[#00558f] disabled:opacity-60"
-              >
+              <button type="submit" disabled={createMutation.isPending} className="btn primary" style={{ justifyContent: "center" }}>
                 {createMutation.isPending ? "Oluşturuluyor…" : "Personeli Kaydet"}
               </button>
             </form>
           </div>
 
           {credentials && (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900 dark:bg-emerald-950/40">
-              <h2 className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+            <div className="card card-pad" style={{ borderColor: "var(--strong)", background: "var(--strong-bg)" }}>
+              <h3 style={{ margin: 0, fontSize: "var(--text-base)", fontWeight: 700, color: "var(--strong)" }}>
                 Giriş Bilgileri Oluşturuldu
-              </h2>
-              <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-400">
+              </h3>
+              <p style={{ margin: "4px 0 0", fontSize: "var(--text-xs)", color: "var(--strong)" }}>
                 Bu şifre yalnızca burada gösterilir — hemen personele iletin, tekrar görüntülenemez.
               </p>
-              <dl className="mt-2 space-y-1 text-xs text-emerald-800 dark:text-emerald-300">
-                <div className="flex justify-between">
+              <dl style={{ margin: "8px 0 0", display: "flex", flexDirection: "column", gap: 4, fontSize: "var(--text-xs)", color: "var(--strong)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <dt>Kullanıcı adı</dt>
-                  <dd className="font-mono">{credentials.username}</dd>
+                  <dd style={{ margin: 0, fontFamily: "monospace" }}>{credentials.username}</dd>
                 </div>
-                <div className="flex justify-between">
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <dt>Şifre</dt>
-                  <dd className="font-mono">{credentials.password}</dd>
+                  <dd style={{ margin: 0, fontFamily: "monospace" }}>{credentials.password}</dd>
                 </div>
               </dl>
             </div>
           )}
         </div>
 
-        <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-          <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Personel Listesi</h2>
+        <div className="card card-pad">
+          <div className="card-head">
+            <h3>Personel Listesi</h3>
+          </div>
 
-          {staffQuery.isLoading && <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</p>}
+          {staffQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
           {!staffQuery.isLoading && staff.length === 0 && (
-            <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
-              Henüz personel kaydı yok. Soldaki formdan ilk personelinizi ekleyin.
-            </p>
+            <div className="empty-state">
+              <Icon name="users" />
+              <p>Henüz personel kaydı yok. Soldaki formdan ilk personelinizi ekleyin.</p>
+            </div>
           )}
 
-          <div className="mt-3 max-h-[560px] space-y-2 overflow-y-auto">
+          <div style={{ maxHeight: 560, overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}>
             {staff.map((s) => (
               <div
                 key={s.id}
-                className="flex items-center justify-between border-b border-slate-100 py-2 text-sm dark:border-slate-800"
+                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid var(--border)", padding: "9px 0" }}
               >
                 <div>
-                  <div className="font-medium text-slate-900 dark:text-slate-50">
+                  <div style={{ fontSize: "var(--text-base)", fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
                     {s.name}
-                    {!s.isActive && (
-                      <span className="ml-2 rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-slate-700 dark:text-slate-300">
-                        Devre Dışı
-                      </span>
-                    )}
+                    {!s.isActive && <span className="chip neutral">Devre Dışı</span>}
                   </div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400">
+                  <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
                     {s.title} · {ROLE_LABEL[s.role]}
                     {s.department && ` · ${s.department}`}
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="font-semibold text-slate-900 dark:text-slate-50">{tl(Number(s.salary))}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <span style={{ fontWeight: 700 }}>{tl(Number(s.salary))}</span>
                   {s.isActive && (
                     <button
                       type="button"
                       onClick={() => deactivateMutation.mutate(s.id)}
-                      className="text-xs text-slate-400 hover:text-red-600 dark:hover:text-red-400"
+                      className="btn xs"
                       aria-label="Devre Dışı Bırak"
                     >
                       Devre Dışı Bırak
