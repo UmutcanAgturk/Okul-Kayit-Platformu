@@ -627,11 +627,14 @@ seviye-360/
 
 ## Yerel Geliştirme (Veritabanı)
 
-Bu depodaki diğer tüm ekranlar/route'lar (`apps/web/app/api/teacher/exams/...` dahil)
-şu ana kadar bilinçli olarak **mock veri** kullanıyordu (bkz. route dosyalarındaki
-"Mockup endpoint" notu). Taksit Tahsilatı ve Etüt Onay/Red API'leri ise gerçek
-bir Postgres'e karşı, gerçek kimlik doğrulamayla çalışan özellikler. Yerelde
-çalıştırmak için:
+Yukarıdaki 28 modülün tamamı gerçek bir Postgres'e karşı, gerçek kimlik
+doğrulamayla (RLS + oturum çerezi) çalışır — `apps/web/app/api/teacher/exams/...`
+gibi hâlâ mock veri kullanan birkaç münferit route dışında (dosyalarındaki
+"Mockup endpoint" notuna bakın), platformun geri kalanı tamamen bu depodaki
+Postgres/Prisma/Next.js yığınına bağlıdır. Aşağıdaki adımlar, bu depoyu SIFIRDAN
+(boş bir Postgres + hiç `node_modules` olmayan bir ortamda) çalışır bir yerel
+sunucuya dönüştürür — bu adımlar bizzat sıfır bir konteynerde uçtan uca
+doğrulanmıştır:
 
 ```bash
 # 1) PostgreSQL'i başlat (Debian/Ubuntu örneği; kendi ortamınıza göre uyarlayın)
@@ -704,13 +707,20 @@ node scripts/test-crm-module.mjs             # CRM: aşama geçişleri + otomati
 node scripts/test-rls-isolation.mjs          # RLS: tenant izolasyonu + Muhasebe rol kısıtlaması (ham DB seviyesinde)
 ```
 
-> Not: `prisma/schema.prisma` her değiştiğinde (yeni model/migration), hem
-> kökte hem `apps/web` içinde AYRI birer `node_modules/@prisma/client` kopyası
-> bulunduğundan (iki bağımsız npm projesi), `npx prisma generate` yalnızca
-> kökteki kopyayı günceller. `apps/web`'in çalışan Next.js sunucusu güncel
-> modelleri görsün diye, üretilen `.prisma/client` ve `@prisma/client`
-> dosyalarını `apps/web/node_modules/` altına da kopyalamanız ve `npm run dev`
-> sunucusunu yeniden başlatmanız gerekir.
+> Not: `apps/web/package.json`'da bilinçli olarak KENDİ `@prisma/client`
+> bağımlılığı YOKTUR — yalnızca `prisma` (CLI) devDependency olarak durur.
+> Prisma'nın ürettiği gerçek client kökteki `node_modules/@prisma/client`e
+> yazılır (`schema.prisma` kökte olduğundan `prisma generate` her zaman
+> oraya hedefler, cwd'den bağımsız); `apps/web`'in kendi `@prisma/client`
+> kopyası OLSAYDI, Node'un modül çözümlemesi önce onu bulur ve hiçbir zaman
+> generate edilmemiş BOŞ bir client'a ("did not initialize yet" hatası)
+> düşerdi — bu depoda bir keresinde tam olarak bu hataya yol açmıştı. Bu
+> yüzden `apps/web`'de ayrıca `@prisma/client` KURMAYIN; `npm install`
+> sırasında yanlışlıkla eklenirse (`apps/web/package.json`'a bakın),
+> kaldırıp `rm -rf apps/web/node_modules && npm install` ile yeniden kurun.
+> Şemayı değiştirdikten sonra tek yapmanız gereken kökten (veya `apps/web`
+> içinden, ikisi de aynı yere yazar) `npx prisma generate` çalıştırıp
+> Next.js sunucusunu yeniden başlatmaktır — ayrı bir kopyalama adımı YOKTUR.
 
 Tüm seed kullanıcılarının şifresi aynıdır (`prisma/seed.ts`'deki `SEED_DEV_PASSWORD`,
 şu an `seviye360dev-pw`) — örn. `merve.aslan@seviye360.com` (Mezitli şube
