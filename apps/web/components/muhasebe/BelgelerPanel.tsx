@@ -18,6 +18,7 @@ import {
   ReceiptType,
 } from "@/lib/api/documents";
 import { ApiError } from "@/lib/api/client";
+import { Icon } from "@/components/ui/icons";
 
 function tl(n: number) {
   return "₺" + Math.round(n).toLocaleString("tr-TR");
@@ -47,25 +48,20 @@ export function BelgelerPanel() {
   const [subTab, setSubTab] = useState<SubTabId>("fatura");
 
   return (
-    <div className="space-y-4">
-      <div className="flex gap-1 border-b border-slate-200 dark:border-slate-800">
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
         {SUB_TABS.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => setSubTab(t.id)}
-            className={
-              "border-b-2 px-3 py-1.5 text-xs font-medium transition " +
-              (subTab === t.id
-                ? "border-[#0071ce] text-[#0071ce]"
-                : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200")
-            }
+            className={`screen-tab ${subTab === t.id ? "active" : ""}`}
           >
             {t.label}
           </button>
         ))}
       </div>
-      <p className="text-xs text-slate-500 dark:text-slate-400">
+      <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
         Bu belgeler Kayıt Defteri&apos;nden bağımsızdır — oluşturduğunuzda veya sildiğinizde defterdeki hiçbir kayıt
         değişmez. Deftere yansıtmak isterseniz Genel Bakış sekmesinden ayrıca manuel bir kayıt ekleyin.
       </p>
@@ -134,75 +130,60 @@ function FaturaTab() {
   const invoices = invoicesQuery.data?.invoices ?? [];
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-      <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Yeni Fatura Oluştur</h2>
-        <form onSubmit={handleSubmit} className="mt-3 space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Tarih</label>
-              <input
-                type="date"
-                value={invoiceDate}
-                onChange={(e) => setInvoiceDate(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-              />
+    <div className="grid cols-2">
+      <div className="card card-pad">
+        <div className="card-head">
+          <h3>Yeni Fatura Oluştur</h3>
+        </div>
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div className="field">
+              <label>Tarih</label>
+              <input type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} />
             </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Alıcı Vergi No</label>
-              <input
-                value={buyerTaxNo}
-                onChange={(e) => setBuyerTaxNo(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-              />
+            <div className="field">
+              <label>Alıcı Vergi No</label>
+              <input value={buyerTaxNo} onChange={(e) => setBuyerTaxNo(e.target.value)} />
             </div>
           </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Alıcı Adı</label>
-            <input
-              value={buyerName}
-              onChange={(e) => setBuyerName(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-            />
+          <div className="field">
+            <label>Alıcı Adı</label>
+            <input value={buyerName} onChange={(e) => setBuyerName(e.target.value)} />
           </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Alıcı Adresi (opsiyonel)</label>
-            <input
-              value={buyerAddress}
-              onChange={(e) => setBuyerAddress(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-            />
+          <div className="field">
+            <label>Alıcı Adresi (opsiyonel)</label>
+            <input value={buyerAddress} onChange={(e) => setBuyerAddress(e.target.value)} />
           </div>
 
-          <div className="space-y-2">
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Kalemler</label>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <label style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--ink-muted)" }}>Kalemler</label>
             {items.map((it, i) => (
-              <div key={i} className="grid grid-cols-[1fr_60px_80px_auto] gap-2">
+              <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 60px 80px auto", gap: 8, alignItems: "center" }}>
                 <input
                   value={it.description}
                   onChange={(e) => updateItem(i, { description: e.target.value })}
                   placeholder="Açıklama"
-                  className="rounded-lg border border-slate-300 px-2 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-800"
+                  style={{ padding: "8px 10px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-strong)", background: "var(--surface)", color: "var(--ink)", fontSize: "var(--text-xs)" }}
                 />
                 <input
                   type="number"
                   min="1"
                   value={it.quantity}
                   onChange={(e) => updateItem(i, { quantity: Number(e.target.value) })}
-                  className="rounded-lg border border-slate-300 px-2 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-800"
+                  style={{ padding: "8px 10px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-strong)", background: "var(--surface)", color: "var(--ink)", fontSize: "var(--text-xs)" }}
                 />
                 <input
                   type="number"
                   min="0"
                   value={it.unitPrice}
                   onChange={(e) => updateItem(i, { unitPrice: Number(e.target.value) })}
-                  className="rounded-lg border border-slate-300 px-2 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-800"
+                  style={{ padding: "8px 10px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-strong)", background: "var(--surface)", color: "var(--ink)", fontSize: "var(--text-xs)" }}
                 />
                 <button
                   type="button"
                   onClick={() => setItems((prev) => prev.filter((_, idx) => idx !== i))}
                   disabled={items.length === 1}
-                  className="text-xs text-slate-400 hover:text-red-600 disabled:opacity-30 dark:hover:text-red-400"
+                  className="btn xs"
                 >
                   Sil
                 </button>
@@ -211,76 +192,63 @@ function FaturaTab() {
             <button
               type="button"
               onClick={() => setItems((prev) => [...prev, { description: "", quantity: 1, unitPrice: 0 }])}
-              className="text-xs font-medium text-[#0071ce] hover:underline"
+              className="btn xs"
+              style={{ alignSelf: "flex-start" }}
             >
               + Kalem Ekle
             </button>
           </div>
 
-          <label className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
             <input type="checkbox" checked={kdvExempt} onChange={(e) => setKdvExempt(e.target.checked)} />
             KDV&apos;den istisna (KDV Kanunu 17/2-b — eğitim/öğretim hizmeti)
           </label>
           {!kdvExempt && (
-            <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">KDV Oranı (%)</label>
-              <input
-                type="number"
-                min="0"
-                max="100"
-                value={kdvRatePct}
-                onChange={(e) => setKdvRatePct(e.target.value)}
-                className="mt-1 w-32 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-              />
+            <div className="field" style={{ width: 128 }}>
+              <label>KDV Oranı (%)</label>
+              <input type="number" min="0" max="100" value={kdvRatePct} onChange={(e) => setKdvRatePct(e.target.value)} />
             </div>
           )}
 
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Not (opsiyonel)</label>
-            <input
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-            />
+          <div className="field">
+            <label>Not (opsiyonel)</label>
+            <input value={note} onChange={(e) => setNote(e.target.value)} />
           </div>
 
-          {formError && <p className="text-xs text-red-600 dark:text-red-400">{formError}</p>}
+          {formError && <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--critical)" }}>{formError}</p>}
 
-          <button
-            type="submit"
-            disabled={createMutation.isPending}
-            className="w-full rounded-lg bg-[#0071ce] px-4 py-2 text-sm font-semibold text-white hover:bg-[#00558f] disabled:opacity-60"
-          >
+          <button type="submit" disabled={createMutation.isPending} className="btn primary" style={{ justifyContent: "center" }}>
             {createMutation.isPending ? "Kesiliyor…" : "Faturayı Kes"}
           </button>
         </form>
       </div>
 
-      <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Kesilen Faturalar</h2>
-        {invoicesQuery.isLoading && <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</p>}
+      <div className="card card-pad">
+        <div className="card-head">
+          <h3>Kesilen Faturalar</h3>
+        </div>
+        {invoicesQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
         {!invoicesQuery.isLoading && invoices.length === 0 && (
-          <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Henüz fatura kesilmedi.</p>
+          <div className="empty-state">
+            <Icon name="cardIcon" />
+            <p>Henüz fatura kesilmedi.</p>
+          </div>
         )}
-        <div className="mt-3 max-h-[560px] space-y-2 overflow-y-auto">
+        <div style={{ maxHeight: 560, overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}>
           {invoices.map((inv) => (
-            <div key={inv.id} className="border-b border-slate-100 py-2 text-sm dark:border-slate-800">
-              <div className="flex items-center justify-between">
-                <span className="font-medium text-slate-900 dark:text-slate-50">
+            <div key={inv.id} style={{ borderBottom: "1px solid var(--border)", padding: "9px 0" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: "var(--text-base)", fontWeight: 600 }}>
                   {inv.no} · {inv.buyerName}
                 </span>
-                <div className="flex items-center gap-3">
-                  <span className="font-semibold text-slate-900 dark:text-slate-50">{tl(Number(inv.total))}</span>
-                  <button
-                    type="button"
-                    onClick={() => deleteMutation.mutate(inv.id)}
-                    className="text-xs text-slate-400 hover:text-red-600 dark:hover:text-red-400"
-                  >
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <span style={{ fontWeight: 700 }}>{tl(Number(inv.total))}</span>
+                  <button type="button" onClick={() => deleteMutation.mutate(inv.id)} className="btn xs">
                     Sil
                   </button>
                 </div>
               </div>
-              <div className="text-xs text-slate-500 dark:text-slate-400">
+              <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
                 {new Date(inv.invoiceDate).toLocaleDateString("tr-TR")}
                 {inv.kdvRate !== null ? ` · KDV %${Math.round(Number(inv.kdvRate) * 100)}` : " · KDV'den istisna"}
               </div>
@@ -343,60 +311,37 @@ function DekontTab() {
   const receipts = receiptsQuery.data?.receipts ?? [];
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-      <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Yeni Dekont Oluştur</h2>
-        <form onSubmit={handleSubmit} className="mt-3 space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Tür</label>
-              <select
-                value={type}
-                onChange={(e) => setType(e.target.value as ReceiptType)}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-              >
+    <div className="grid cols-2">
+      <div className="card card-pad">
+        <div className="card-head">
+          <h3>Yeni Dekont Oluştur</h3>
+        </div>
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div className="field">
+              <label>Tür</label>
+              <select value={type} onChange={(e) => setType(e.target.value as ReceiptType)}>
                 <option value="TAHSILAT">Tahsilat</option>
                 <option value="ODEME">Ödeme</option>
               </select>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Tarih</label>
-              <input
-                type="date"
-                value={receiptDate}
-                onChange={(e) => setReceiptDate(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-              />
+            <div className="field">
+              <label>Tarih</label>
+              <input type="date" value={receiptDate} onChange={(e) => setReceiptDate(e.target.value)} />
             </div>
           </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">
-              {type === "TAHSILAT" ? "Tahsil Edilen Kişi" : "Ödeme Yapılan Kişi"}
-            </label>
-            <input
-              value={personName}
-              onChange={(e) => setPersonName(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-            />
+          <div className="field">
+            <label>{type === "TAHSILAT" ? "Tahsil Edilen Kişi" : "Ödeme Yapılan Kişi"}</label>
+            <input value={personName} onChange={(e) => setPersonName(e.target.value)} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Tutar (₺)</label>
-              <input
-                type="number"
-                min="0"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-              />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div className="field">
+              <label>Tutar (₺)</label>
+              <input type="number" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} />
             </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Yöntem</label>
-              <select
-                value={method}
-                onChange={(e) => setMethod(e.target.value as ReceiptMethod)}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-              >
+            <div className="field">
+              <label>Yöntem</label>
+              <select value={method} onChange={(e) => setMethod(e.target.value as ReceiptMethod)}>
                 {(Object.keys(RECEIPT_METHOD_LABEL) as ReceiptMethod[]).map((m) => (
                   <option key={m} value={m}>
                     {RECEIPT_METHOD_LABEL[m]}
@@ -405,69 +350,52 @@ function DekontTab() {
               </select>
             </div>
           </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Açıklama (opsiyonel)</label>
-            <input
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-            />
+          <div className="field">
+            <label>Açıklama (opsiyonel)</label>
+            <input value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Not (opsiyonel)</label>
-            <input
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-            />
+          <div className="field">
+            <label>Not (opsiyonel)</label>
+            <input value={note} onChange={(e) => setNote(e.target.value)} />
           </div>
 
-          {formError && <p className="text-xs text-red-600 dark:text-red-400">{formError}</p>}
+          {formError && <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--critical)" }}>{formError}</p>}
 
-          <button
-            type="submit"
-            disabled={createMutation.isPending}
-            className="w-full rounded-lg bg-[#0071ce] px-4 py-2 text-sm font-semibold text-white hover:bg-[#00558f] disabled:opacity-60"
-          >
+          <button type="submit" disabled={createMutation.isPending} className="btn primary" style={{ justifyContent: "center" }}>
             {createMutation.isPending ? "Oluşturuluyor…" : "Dekontu Oluştur"}
           </button>
         </form>
       </div>
 
-      <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Dekontlar</h2>
-        {receiptsQuery.isLoading && <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</p>}
+      <div className="card card-pad">
+        <div className="card-head">
+          <h3>Dekontlar</h3>
+        </div>
+        {receiptsQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
         {!receiptsQuery.isLoading && receipts.length === 0 && (
-          <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Henüz dekont oluşturulmadı.</p>
+          <div className="empty-state">
+            <Icon name="attach" />
+            <p>Henüz dekont oluşturulmadı.</p>
+          </div>
         )}
-        <div className="mt-3 max-h-[560px] space-y-2 overflow-y-auto">
+        <div style={{ maxHeight: 560, overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}>
           {receipts.map((r) => (
-            <div key={r.id} className="border-b border-slate-100 py-2 text-sm dark:border-slate-800">
-              <div className="flex items-center justify-between">
-                <span className="font-medium text-slate-900 dark:text-slate-50">
+            <div key={r.id} style={{ borderBottom: "1px solid var(--border)", padding: "9px 0" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: "var(--text-base)", fontWeight: 600 }}>
                   {r.no} · {r.personName}
                 </span>
-                <div className="flex items-center gap-3">
-                  <span
-                    className={
-                      r.type === "TAHSILAT"
-                        ? "font-semibold text-emerald-600 dark:text-emerald-400"
-                        : "font-semibold text-red-600 dark:text-red-400"
-                    }
-                  >
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <span style={{ fontWeight: 700, color: r.type === "TAHSILAT" ? "var(--strong)" : "var(--critical)" }}>
                     {r.type === "TAHSILAT" ? "+" : "-"}
                     {tl(Number(r.amount))}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => deleteMutation.mutate(r.id)}
-                    className="text-xs text-slate-400 hover:text-red-600 dark:hover:text-red-400"
-                  >
+                  <button type="button" onClick={() => deleteMutation.mutate(r.id)} className="btn xs">
                     Sil
                   </button>
                 </div>
               </div>
-              <div className="text-xs text-slate-500 dark:text-slate-400">
+              <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
                 {new Date(r.receiptDate).toLocaleDateString("tr-TR")} · {RECEIPT_METHOD_LABEL[r.method]}
               </div>
             </div>
@@ -529,112 +457,77 @@ function SenetTab() {
   const notes = notesQuery.data?.notes ?? [];
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-      <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Yeni Senet Oluştur</h2>
-        <form onSubmit={handleSubmit} className="mt-3 space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Düzenleme Tarihi</label>
-              <input
-                type="date"
-                value={issueDate}
-                onChange={(e) => setIssueDate(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-              />
+    <div className="grid cols-2">
+      <div className="card card-pad">
+        <div className="card-head">
+          <h3>Yeni Senet Oluştur</h3>
+        </div>
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div className="field">
+              <label>Düzenleme Tarihi</label>
+              <input type="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} />
             </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Vade Tarihi</label>
-              <input
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-              />
+            <div className="field">
+              <label>Vade Tarihi</label>
+              <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
             </div>
           </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Borçlu Adı</label>
-            <input
-              value={debtorName}
-              onChange={(e) => setDebtorName(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-            />
+          <div className="field">
+            <label>Borçlu Adı</label>
+            <input value={debtorName} onChange={(e) => setDebtorName(e.target.value)} />
           </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Tutar (₺)</label>
-            <input
-              type="number"
-              min="0"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-            />
+          <div className="field">
+            <label>Tutar (₺)</label>
+            <input type="number" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} />
           </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Not (opsiyonel)</label>
-            <input
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-            />
+          <div className="field">
+            <label>Not (opsiyonel)</label>
+            <input value={note} onChange={(e) => setNote(e.target.value)} />
           </div>
 
-          {formError && <p className="text-xs text-red-600 dark:text-red-400">{formError}</p>}
+          {formError && <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--critical)" }}>{formError}</p>}
 
-          <button
-            type="submit"
-            disabled={createMutation.isPending}
-            className="w-full rounded-lg bg-[#0071ce] px-4 py-2 text-sm font-semibold text-white hover:bg-[#00558f] disabled:opacity-60"
-          >
+          <button type="submit" disabled={createMutation.isPending} className="btn primary" style={{ justifyContent: "center" }}>
             {createMutation.isPending ? "Oluşturuluyor…" : "Senedi Oluştur"}
           </button>
         </form>
       </div>
 
-      <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Senetler</h2>
-        {notesQuery.isLoading && <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</p>}
+      <div className="card card-pad">
+        <div className="card-head">
+          <h3>Senetler</h3>
+        </div>
+        {notesQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
         {!notesQuery.isLoading && notes.length === 0 && (
-          <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Henüz senet oluşturulmadı.</p>
+          <div className="empty-state">
+            <Icon name="ledger" />
+            <p>Henüz senet oluşturulmadı.</p>
+          </div>
         )}
-        <div className="mt-3 max-h-[560px] space-y-2 overflow-y-auto">
+        <div style={{ maxHeight: 560, overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}>
           {notes.map((n) => (
-            <div key={n.id} className="border-b border-slate-100 py-2 text-sm dark:border-slate-800">
-              <div className="flex items-center justify-between">
-                <span className="font-medium text-slate-900 dark:text-slate-50">
+            <div key={n.id} style={{ borderBottom: "1px solid var(--border)", padding: "9px 0" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: "var(--text-base)", fontWeight: 600 }}>
                   {n.no} · {n.debtorName}
                 </span>
-                <div className="flex items-center gap-3">
-                  <span className="font-semibold text-slate-900 dark:text-slate-50">{tl(Number(n.amount))}</span>
-                  <span
-                    className={
-                      n.status === "ODENDI"
-                        ? "rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400"
-                        : "rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950/60 dark:text-amber-400"
-                    }
-                  >
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <span style={{ fontWeight: 700 }}>{tl(Number(n.amount))}</span>
+                  <span className={`chip ${n.status === "ODENDI" ? "strong" : "weak"}`}>
                     {n.status === "ODENDI" ? "Ödendi" : "Ödenmedi"}
                   </span>
                 </div>
               </div>
-              <div className="mt-1 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+              <div style={{ marginTop: 4, display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
                 <span>Vade: {new Date(n.dueDate).toLocaleDateString("tr-TR")}</span>
-                <div className="flex items-center gap-3">
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   {n.status === "ODENMEDI" && (
-                    <button
-                      type="button"
-                      onClick={() => markPaidMutation.mutate(n.id)}
-                      className="text-xs font-medium text-[#0071ce] hover:underline"
-                    >
+                    <button type="button" onClick={() => markPaidMutation.mutate(n.id)} className="btn xs">
                       Ödendi İşaretle
                     </button>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => deleteMutation.mutate(n.id)}
-                    className="text-slate-400 hover:text-red-600 dark:hover:text-red-400"
-                  >
+                  <button type="button" onClick={() => deleteMutation.mutate(n.id)} className="btn xs">
                     Sil
                   </button>
                 </div>

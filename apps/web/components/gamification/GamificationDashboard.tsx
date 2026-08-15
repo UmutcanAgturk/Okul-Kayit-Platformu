@@ -2,31 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { authKeys, fetchMe, logout } from "@/lib/api/auth";
+import { useQuery } from "@tanstack/react-query";
+import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { fetchLeaderboard, fetchStudentGamification, gamificationKeys } from "@/lib/api/gamification";
-
-function TopBar({ title, firstName, lastName, onLogout }: { title: string; firstName: string; lastName: string; onLogout: () => void }) {
-  return (
-    <div className="flex items-center justify-between">
-      <div>
-        <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-50">{title}</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          {firstName} {lastName}
-        </p>
-      </div>
-      <div className="flex items-center gap-3">
-        <a href="/dashboard" className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
-          Ana Sayfa
-        </a>
-        <button type="button" onClick={onLogout} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
-          Çıkış Yap
-        </button>
-      </div>
-    </div>
-  );
-}
+import { Icon } from "@/components/ui/icons";
 
 function medal(i: number) {
   if (i === 0) return "🥇";
@@ -37,10 +17,8 @@ function medal(i: number) {
 
 function StudentOrParentAchievementsView({
   me,
-  onLogout,
 }: {
   me: { firstName: string; lastName: string; students?: { studentId: string; fullName: string }[] };
-  onLogout: () => void;
 }) {
   const students = me.students ?? [];
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
@@ -56,8 +34,8 @@ function StudentOrParentAchievementsView({
 
   if (students.length === 0) {
     return (
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
-        Öğrenci kaydı bulunamadı.
+      <div className="card card-pad">
+        <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--weak)" }}>Öğrenci kaydı bulunamadı.</p>
       </div>
     );
   }
@@ -65,22 +43,20 @@ function StudentOrParentAchievementsView({
   const data = query.data;
 
   return (
-    <div className="space-y-6">
-      <TopBar title="Başarı Rozetlerim" firstName={me.firstName} lastName={me.lastName} onLogout={onLogout} />
+    <div className="screen">
+      <h1>Başarı Rozetlerim</h1>
+      <p className="lede">
+        {me.firstName} {me.lastName}
+      </p>
 
       {students.length > 1 && (
-        <div className="flex gap-2">
+        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
           {students.map((s) => (
             <button
               key={s.studentId}
               type="button"
               onClick={() => setSelectedStudentId(s.studentId)}
-              className={
-                "rounded-lg border px-3 py-1.5 text-sm font-medium transition " +
-                (selectedStudentId === s.studentId
-                  ? "border-[#0071ce] bg-[#0071ce] text-white"
-                  : "border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800")
-              }
+              className={`btn sm ${selectedStudentId === s.studentId ? "primary" : ""}`}
             >
               {s.fullName}
             </button>
@@ -88,102 +64,119 @@ function StudentOrParentAchievementsView({
         </div>
       )}
 
-      {query.isLoading && <p className="text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</p>}
+      {query.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
 
       {data && (
-        <>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-              <p className="text-xs text-slate-500 dark:text-slate-400">Seviye</p>
-              <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-50">{data.level}</p>
-              <p className="text-xs text-slate-400 dark:text-slate-500">
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div className="grid cols-3">
+            <div className="card stat-card">
+              <p className="stat-label">Seviye</p>
+              <p className="stat-value">{data.level}</p>
+              <p className="stat-sub">
                 {data.xpIntoLevel} / {data.xpForNextLevel} XP
               </p>
             </div>
-            <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-              <p className="text-xs text-slate-500 dark:text-slate-400">Toplam XP</p>
-              <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-50">{data.xp}</p>
+            <div className="card stat-card">
+              <p className="stat-label">Toplam XP</p>
+              <p className="stat-value">{data.xp}</p>
             </div>
-            <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-              <p className="text-xs text-slate-500 dark:text-slate-400">Sınıf Sıralaması</p>
-              <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-50">{data.classRank ? `#${data.classRank}` : "—"}</p>
-              <p className="text-xs text-slate-400 dark:text-slate-500">{data.classSize} kişi arasında</p>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Sonraki Seviyeye İlerleme</h2>
-              <span className="text-xs text-slate-500 dark:text-slate-400">%{data.progressPct}</span>
-            </div>
-            <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-              <div className="h-full rounded-full bg-[#0071ce]" style={{ width: `${data.progressPct}%` }} />
+            <div className="card stat-card">
+              <p className="stat-label">Sınıf Sıralaması</p>
+              <p className="stat-value">{data.classRank ? `#${data.classRank}` : "—"}</p>
+              <p className="stat-sub">{data.classSize} kişi arasında</p>
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Rozetler</h2>
-              <span className="text-xs text-slate-500 dark:text-slate-400">{data.badges.filter((b) => b.earned).length}/{data.badges.length} kazanıldı</span>
+          <div className="card card-pad">
+            <div className="card-head">
+              <h3>Sonraki Seviyeye İlerleme</h3>
+              <span className="hint">%{data.progressPct}</span>
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="progress-track">
+              <div className="progress-fill" style={{ width: `${data.progressPct}%` }} />
+            </div>
+          </div>
+
+          <div className="card card-pad">
+            <div className="card-head">
+              <h3>Rozetler</h3>
+              <span className="hint">
+                {data.badges.filter((b) => b.earned).length}/{data.badges.length} kazanıldı
+              </span>
+            </div>
+            <div className="grid cols-4">
               {data.badges.map((b) => (
-                <div key={b.id} className={`rounded-xl border p-3 text-center dark:border-slate-800 ${b.earned ? "border-slate-200" : "border-slate-100 opacity-40 dark:border-slate-900"}`}>
-                  <div className="text-2xl">🏆</div>
-                  <p className="mt-1 text-xs font-semibold text-slate-900 dark:text-slate-50">{b.label}</p>
-                  <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">{b.desc}</p>
+                <div
+                  key={b.id}
+                  className="card"
+                  style={{ padding: 12, textAlign: "center", opacity: b.earned ? 1 : 0.4 }}
+                >
+                  <div style={{ fontSize: 26 }}>🏆</div>
+                  <p style={{ margin: "4px 0 0", fontSize: "var(--text-xs)", fontWeight: 700 }}>{b.label}</p>
+                  <p style={{ margin: "2px 0 0", fontSize: "var(--text-2xs)", color: "var(--ink-faint)" }}>{b.desc}</p>
                 </div>
               ))}
             </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
 }
 
-function LeaderboardView({ me, onLogout, title }: { me: { firstName: string; lastName: string }; onLogout: () => void; title: string }) {
+function LeaderboardView({ me, title }: { me: { firstName: string; lastName: string }; title: string }) {
   const query = useQuery({ queryKey: gamificationKeys.leaderboard(), queryFn: fetchLeaderboard });
   const rows = query.data?.rows ?? [];
 
   return (
-    <div className="space-y-6">
-      <TopBar title={title} firstName={me.firstName} lastName={me.lastName} onLogout={onLogout} />
-      <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Sıralama</h2>
-          <span className="text-xs text-slate-500 dark:text-slate-400">{rows.length} öğrenci</span>
+    <div className="screen">
+      <h1>{title}</h1>
+      <p className="lede">
+        {me.firstName} {me.lastName}
+      </p>
+
+      <div className="card card-pad">
+        <div className="card-head">
+          <h3>Sıralama</h3>
+          <span className="hint">{rows.length} öğrenci</span>
         </div>
-        {query.isLoading && <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</p>}
-        {!query.isLoading && rows.length === 0 && <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Öğrenci bulunamadı.</p>}
-        <div className="mt-3 overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs text-slate-500 dark:text-slate-400">
-                <th className="pb-2">Sıra</th>
-                <th className="pb-2">Öğrenci</th>
-                <th className="pb-2">Sınıf</th>
-                <th className="pb-2">Seviye</th>
-                <th className="pb-2 text-right">XP</th>
-                <th className="pb-2 text-right">Rozet</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => (
-                <tr key={r.studentId} className="border-t border-slate-100 dark:border-slate-800">
-                  <td className="py-1.5 text-base">{medal(i)}</td>
-                  <td className="py-1.5 font-medium text-slate-900 dark:text-slate-50">{r.name}</td>
-                  <td className="py-1.5">{r.classroom ?? "—"}</td>
-                  <td className="py-1.5">
-                    <span className="rounded-full bg-[#0071ce]/10 px-2 py-0.5 text-xs font-medium text-[#0071ce]">Seviye {r.level}</span>
-                  </td>
-                  <td className="py-1.5 text-right tabular-nums">{r.xp} XP</td>
-                  <td className="py-1.5 text-right">🏆 {r.badgeCount}</td>
+        {query.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
+        {!query.isLoading && rows.length === 0 && (
+          <div className="empty-state">
+            <Icon name="trophy" />
+            <p>Öğrenci bulunamadı.</p>
+          </div>
+        )}
+        {rows.length > 0 && (
+          <div className="table-wrap">
+            <table className="data">
+              <thead>
+                <tr>
+                  <th>Sıra</th>
+                  <th>Öğrenci</th>
+                  <th>Sınıf</th>
+                  <th>Seviye</th>
+                  <th style={{ textAlign: "right" }}>XP</th>
+                  <th style={{ textAlign: "right" }}>Rozet</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={r.studentId}>
+                    <td>{medal(i)}</td>
+                    <td style={{ fontWeight: 600 }}>{r.name}</td>
+                    <td>{r.classroom ?? "—"}</td>
+                    <td>
+                      <span className="chip neutral">Seviye {r.level}</span>
+                    </td>
+                    <td style={{ textAlign: "right" }}>{r.xp} XP</td>
+                    <td style={{ textAlign: "right" }}>🏆 {r.badgeCount}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -198,7 +191,6 @@ function LeaderboardView({ me, onLogout, title }: { me: { firstName: string; las
  */
 export function GamificationDashboard() {
   const router = useRouter();
-  const queryClient = useQueryClient();
 
   const { data: me, isLoading, isError, error } = useQuery({
     queryKey: authKeys.me(),
@@ -212,26 +204,20 @@ export function GamificationDashboard() {
     }
   }, [isError, error, router]);
 
-  async function handleLogout() {
-    await logout();
-    queryClient.clear();
-    router.replace("/login");
-  }
-
   if (isLoading) {
-    return <div className="animate-pulse text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</div>;
+    return <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>;
   }
   if (!me || (isError && error instanceof ApiError && error.status === 401)) {
     return null;
   }
 
-  if (me.role === "STUDENT" || me.role === "PARENT") return <StudentOrParentAchievementsView me={me} onLogout={handleLogout} />;
-  if (me.role === "BRANCH_ADMIN") return <LeaderboardView me={me} onLogout={handleLogout} title="Lider Tablosu" />;
-  if (me.role === "TEACHER") return <LeaderboardView me={me} onLogout={handleLogout} title="Sınıf Lider Tablosu" />;
+  if (me.role === "STUDENT" || me.role === "PARENT") return <StudentOrParentAchievementsView me={me} />;
+  if (me.role === "BRANCH_ADMIN") return <LeaderboardView me={me} title="Lider Tablosu" />;
+  if (me.role === "TEACHER") return <LeaderboardView me={me} title="Sınıf Lider Tablosu" />;
 
   return (
-    <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center dark:border-red-900 dark:bg-red-950/40">
-      <p className="text-sm font-medium text-red-700 dark:text-red-300">
+    <div className="card card-pad">
+      <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
         Bu modüle erişim yetkiniz yok. Lider Tablosu/Başarı Rozetleri yalnızca Öğrenci/Veli/Öğretmen/Şube Yöneticisi
         rolüne açıktır.
       </p>

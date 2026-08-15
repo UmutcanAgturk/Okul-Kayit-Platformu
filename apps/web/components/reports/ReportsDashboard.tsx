@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { authKeys, fetchMe, logout } from "@/lib/api/auth";
+import { useQuery } from "@tanstack/react-query";
+import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { downloadReport, fetchFinancialSummary, reportsKeys } from "@/lib/api/reports";
 
@@ -15,18 +15,14 @@ function formatTl(n: number) {
 
 function ReportCard({ icon, title, description, actionLabel, onAction }: { icon: string; title: string; description: string; actionLabel: string; onAction: () => void }) {
   return (
-    <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+    <div className="card card-pad">
+      <div className="card-head">
+        <h3>
           {icon} {title}
         </h3>
       </div>
-      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{description}</p>
-      <button
-        type="button"
-        onClick={onAction}
-        className="mt-3 rounded-lg bg-[#0071ce] px-4 py-2 text-sm font-semibold text-white hover:bg-[#00558f]"
-      >
+      <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>{description}</p>
+      <button type="button" onClick={onAction} className="btn primary sm" style={{ marginTop: 14 }}>
         {actionLabel}
       </button>
     </div>
@@ -43,7 +39,6 @@ function ReportCard({ icon, title, description, actionLabel, onAction }: { icon:
  */
 export function ReportsDashboard() {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const [showFinancial, setShowFinancial] = useState(false);
 
   const { data: me, isLoading, isError, error } = useQuery({
@@ -58,12 +53,6 @@ export function ReportsDashboard() {
     }
   }, [isError, error, router]);
 
-  async function handleLogout() {
-    await logout();
-    queryClient.clear();
-    router.replace("/login");
-  }
-
   const financialQuery = useQuery({
     queryKey: reportsKeys.financialSummary(),
     queryFn: fetchFinancialSummary,
@@ -71,15 +60,15 @@ export function ReportsDashboard() {
   });
 
   if (isLoading) {
-    return <div className="animate-pulse text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</div>;
+    return <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>;
   }
   if (!me || (isError && error instanceof ApiError && error.status === 401)) {
     return null;
   }
   if (!ALLOWED_ROLES.includes(me.role)) {
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center dark:border-red-900 dark:bg-red-950/40">
-        <p className="text-sm font-medium text-red-700 dark:text-red-300">
+      <div className="card card-pad">
+        <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
           Bu modüle erişim yetkiniz yok. Raporlar/Dışa Aktarım yalnızca Şube Yöneticisi rolüne açıktır.
         </p>
       </div>
@@ -89,36 +78,11 @@ export function ReportsDashboard() {
   const financial = financialQuery.data;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-50">Raporlar / Dışa Aktarım</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            {me.firstName} {me.lastName}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <a
-            href="/dashboard"
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            Ana Sayfa
-          </a>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            Çıkış Yap
-          </button>
-        </div>
-      </div>
+    <div className="screen">
+      <h1>Raporlar / Dışa Aktarım</h1>
+      <p className="lede">Mevcut kurum verinizden anında oluşan raporlar — CSV olarak indirin veya görüntüleyin.</p>
 
-      <p className="text-sm text-slate-500 dark:text-slate-400">
-        Mevcut kurum verinizden anında oluşan raporlar — CSV olarak indirin veya görüntüleyin.
-      </p>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid cols-3">
         <ReportCard
           icon="👥"
           title="Öğrenci Listesi"
@@ -157,53 +121,53 @@ export function ReportsDashboard() {
       </div>
 
       {showFinancial && (
-        <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Mali Özet Raporu</h2>
-            <button type="button" onClick={() => setShowFinancial(false)} className="text-xs text-slate-500 hover:underline dark:text-slate-400">
+        <div className="card card-pad" style={{ marginTop: 14 }}>
+          <div className="card-head">
+            <h3>Mali Özet Raporu</h3>
+            <button type="button" onClick={() => setShowFinancial(false)} className="btn xs">
               Kapat
             </button>
           </div>
-          {financialQuery.isLoading && <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</p>}
+          {financialQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
           {financial && (
             <>
-              <div className="mt-3 overflow-x-auto">
-                <table className="w-full text-sm">
+              <div className="table-wrap">
+                <table className="data">
                   <thead>
-                    <tr className="text-left text-xs text-slate-500 dark:text-slate-400">
-                      <th className="pb-2">Tür</th>
-                      <th className="pb-2">Kategori</th>
-                      <th className="pb-2 text-right">Tutar</th>
+                    <tr>
+                      <th>Tür</th>
+                      <th>Kategori</th>
+                      <th style={{ textAlign: "right" }}>Tutar</th>
                     </tr>
                   </thead>
                   <tbody>
                     {financial.rows.length === 0 && (
                       <tr>
-                        <td colSpan={3} className="py-3 text-center text-slate-500 dark:text-slate-400">
+                        <td colSpan={3} style={{ textAlign: "center", color: "var(--ink-faint)" }}>
                           Kayıt yok
                         </td>
                       </tr>
                     )}
                     {financial.rows.map((r, i) => (
-                      <tr key={i} className="border-t border-slate-100 dark:border-slate-800">
-                        <td className="py-1.5">{r.type === "GELIR" ? "Gelir" : "Gider"}</td>
-                        <td className="py-1.5">{r.category}</td>
-                        <td className="py-1.5 text-right">{formatTl(r.amount)}</td>
+                      <tr key={i}>
+                        <td>{r.type === "GELIR" ? "Gelir" : "Gider"}</td>
+                        <td>{r.category}</td>
+                        <td style={{ textAlign: "right" }}>{formatTl(r.amount)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <div className="mt-4 space-y-1 border-t border-slate-200 pt-3 text-sm dark:border-slate-800">
-                <div className="flex justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Toplam Gelir</span>
-                  <span className="font-medium text-slate-900 dark:text-slate-50">{formatTl(financial.totalIncome)}</span>
+              <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 4, fontSize: "var(--text-sm)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: "var(--ink-muted)" }}>Toplam Gelir</span>
+                  <span style={{ fontWeight: 600 }}>{formatTl(financial.totalIncome)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">Toplam Gider</span>
-                  <span className="font-medium text-slate-900 dark:text-slate-50">{formatTl(financial.totalExpense)}</span>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: "var(--ink-muted)" }}>Toplam Gider</span>
+                  <span style={{ fontWeight: 600 }}>{formatTl(financial.totalExpense)}</span>
                 </div>
-                <div className="flex justify-between text-base font-semibold">
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "var(--text-md)", fontWeight: 700 }}>
                   <span>Net Kâr</span>
                   <span>{formatTl(financial.netProfit)}</span>
                 </div>
