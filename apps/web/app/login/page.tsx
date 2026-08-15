@@ -35,16 +35,18 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 dark:bg-slate-950">
-      <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-50">Seviye 360</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Kurum yönetim paneline giriş yapın.</p>
+    <main style={{ display: "flex", minHeight: "100vh", alignItems: "center", justifyContent: "center", background: "var(--surface-2)", padding: "16px" }}>
+      <div className="card card-pad" style={{ width: "100%", maxWidth: 380 }}>
+        <div className="brand-block" style={{ padding: 0, marginBottom: 22 }}>
+          <div className="mark" style={{ fontSize: 20 }}>Seviye 360</div>
+          <p style={{ margin: "6px 0 0", fontSize: "var(--text-sm)", color: "var(--ink-muted)" }}>
+            Kurum yönetim paneline giriş yapın.
+          </p>
+        </div>
 
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
-              E-posta
-            </label>
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div className="field">
+            <label htmlFor="email">E-posta</label>
             <input
               id="email"
               type="email"
@@ -52,13 +54,10 @@ export default function LoginPage() {
               autoComplete="username"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-[#0071ce] focus:outline-none focus:ring-1 focus:ring-[#0071ce] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50"
             />
           </div>
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
-              Şifre
-            </label>
+          <div className="field">
+            <label htmlFor="password">Şifre</label>
             <input
               id="password"
               type="password"
@@ -66,21 +65,16 @@ export default function LoginPage() {
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-[#0071ce] focus:outline-none focus:ring-1 focus:ring-[#0071ce] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50"
             />
           </div>
 
           {error && (
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
+            <p className="chip critical" style={{ display: "block", width: "100%", boxSizing: "border-box", padding: "8px 12px", fontWeight: 600 }}>
               {error}
             </p>
           )}
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full rounded-lg bg-[#0071ce] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#00558f] disabled:cursor-not-allowed disabled:opacity-60"
-          >
+          <button type="submit" disabled={submitting} className="btn primary" style={{ width: "100%", justifyContent: "center" }}>
             {submitting ? "Giriş yapılıyor…" : "Giriş Yap"}
           </button>
         </form>

@@ -1,0 +1,63 @@
+import type { UserRole } from "@/lib/api/auth";
+
+export interface ModuleCard {
+  href: string;
+  title: string;
+  description: string;
+  icon: string;
+  group: string;
+}
+
+export const ROLE_LABEL: Record<UserRole, string> = {
+  SUPERADMIN: "Genel Merkez Yöneticisi",
+  BRANCH_ADMIN: "Şube Yöneticisi",
+  GUIDANCE_COORDINATOR: "Rehber Öğretmen",
+  ACCOUNTING: "Muhasebe Görevlisi",
+  TEACHER: "Öğretmen",
+  STUDENT: "Öğrenci",
+  PARENT: "Veli",
+};
+
+const BUGUN_CARD: ModuleCard = { href: "/bugun", title: "Bugün", description: "Devamsızlık, ödeme, veli görüşmesi ve aktivite akışının günlük özeti.", icon: "chart", group: "Genel Bakış" };
+const GUNLUK_OPS_CARD: ModuleCard = { href: "/gunluk-operasyon", title: "Günlük Operasyon", description: "Geciken/yaklaşan ödemeler ve bugünkü etüt doluluğu.", icon: "clock", group: "Yönetim & Finans" };
+const CRM_CARD: ModuleCard = { href: "/crm", title: "CRM", description: "Ön Kayıt öncesi aday öğrencileri statü bazında takip edin.", icon: "kanban", group: "Kayıt İşlemleri" };
+const ON_KAYIT_CARD: ModuleCard = { href: "/on-kayit", title: "Öğrenci Ön Kayıt", description: "Aday öğrenci ön kaydı oluşturma ve tam kayda dönüştürme.", icon: "users", group: "Kayıt İşlemleri" };
+const MUHASEBE_CARD: ModuleCard = { href: "/muhasebe", title: "Muhasebe", description: "Kayıt defteri, tahsilat takibi, bordro, belgeler.", icon: "ledger", group: "Yönetim & Finans" };
+const PERSONEL_CARD: ModuleCard = { href: "/personel", title: "Personel", description: "Öğretmen dışı personel (Şube Müdürü, Ön Büro, Muhasebe, Rehber Öğretmen).", icon: "users", group: "Yönetim & Finans" };
+const DEVAMSIZLIK_CARD: ModuleCard = { href: "/devamsizlik", title: "Devamsızlık", description: "Sınıf bazlı yoklama alma ve devamsızlık geçmişi.", icon: "calendar", group: "Akademik" };
+const KARNE_CARD: ModuleCard = { href: "/karne", title: "Karne", description: "Sınav geçmişi, ders bazlı başarı ve devamsızlık özeti.", icon: "ledger", group: "Akademik" };
+const DISIPLIN_CARD: ModuleCard = { href: "/disiplin", title: "Disiplin", description: "Olumlu/olumsuz davranış kaydı ekleme ve geçmişi.", icon: "shield", group: "Öğrenci Yaşamı" };
+const VELI_GORUSME_CARD: ModuleCard = { href: "/veli-gorusme", title: "Veli Görüşmeleri", description: "Veli-öğretmen görüşme randevusu talep etme ve onaylama.", icon: "users", group: "Öğrenci Yaşamı" };
+const KULUPLER_CARD: ModuleCard = { href: "/kulupler", title: "Kulüpler", description: "Kulüp oluşturma, danışman atama ve üyelik yönetimi.", icon: "flag", group: "Öğrenci Yaşamı" };
+const AKTIVITE_CARD: ModuleCard = { href: "/aktivite", title: "Aktivite Akışı", description: "Kritik işlemlerin denetim izi.", icon: "clock", group: "Yönetim & Finans" };
+const SERVIS_CARD: ModuleCard = { href: "/servis", title: "Servis", description: "Servis güzergahları, şoför bilgisi ve öğrenci ataması.", icon: "bus", group: "Öğrenci Yaşamı" };
+const QUIZ_CARD: ModuleCard = { href: "/quiz", title: "Pratik Quiz", description: "Ders bazlı hızlı pratik denemeleri ve geçmiş sonuçlar.", icon: "help", group: "Akademik" };
+const RAPORLAR_CARD: ModuleCard = { href: "/raporlar", title: "Raporlar", description: "Öğrenci, personel, devamsızlık, sınav ve mali özet raporları.", icon: "download", group: "Yönetim & Finans" };
+const KURUMLAR_CARD: ModuleCard = { href: "/kurumlar", title: "Kurum Yönetimi", description: "Tüm şubelerin öğrenci/personel/sınıf sayıları ve konsolide mali özet.", icon: "briefcase", group: "Genel Bakış" };
+const ILETISIM_CARD: ModuleCard = { href: "/iletisim", title: "İletişim", description: "Öğrenci/veli/öğretmenlere mesaj gönderme ve gelen kutusu.", icon: "bell", group: "Diğer" };
+const MENTOR_CARD: ModuleCard = { href: "/mentor", title: "Seviye Mentör", description: "Otomatik atanan mentör öğretmenle online randevu talebi.", icon: "road", group: "Öğrenci Yaşamı" };
+const BASARI_CARD: ModuleCard = { href: "/basari", title: "Başarı Rozetlerim", description: "XP, seviye ve rozetler.", icon: "trophy", group: "Ben" };
+const LEADERBOARD_CARD: ModuleCard = { href: "/basari", title: "Lider Tablosu", description: "Öğrencilerin gerçek katılım/başarı verisinden hesaplanan XP sıralaması.", icon: "trophy", group: "Akademik" };
+const ROADMAP_CARD: ModuleCard = { href: "/yol-haritasi", title: "Akademik Yol Haritam", description: "Net ortalama, hedef ve sınav/kazanım verisinden hesaplanan kişiye özel AI tavsiyesi.", icon: "road", group: "Akademik" };
+
+export const MODULES_BY_ROLE: Record<UserRole, ModuleCard[]> = {
+  BRANCH_ADMIN: [BUGUN_CARD, GUNLUK_OPS_CARD, CRM_CARD, ON_KAYIT_CARD, MUHASEBE_CARD, PERSONEL_CARD, DEVAMSIZLIK_CARD, DISIPLIN_CARD, VELI_GORUSME_CARD, KULUPLER_CARD, SERVIS_CARD, AKTIVITE_CARD, RAPORLAR_CARD, ILETISIM_CARD, MENTOR_CARD, LEADERBOARD_CARD],
+  ACCOUNTING: [GUNLUK_OPS_CARD, MUHASEBE_CARD, PERSONEL_CARD],
+  GUIDANCE_COORDINATOR: [CRM_CARD, ON_KAYIT_CARD, DEVAMSIZLIK_CARD, DISIPLIN_CARD, VELI_GORUSME_CARD],
+  TEACHER: [DEVAMSIZLIK_CARD, DISIPLIN_CARD, VELI_GORUSME_CARD, KULUPLER_CARD, ILETISIM_CARD, MENTOR_CARD, LEADERBOARD_CARD],
+  STUDENT: [KARNE_CARD, ROADMAP_CARD, KULUPLER_CARD, SERVIS_CARD, QUIZ_CARD, ILETISIM_CARD, MENTOR_CARD, BASARI_CARD],
+  PARENT: [KARNE_CARD, ROADMAP_CARD, VELI_GORUSME_CARD, SERVIS_CARD, QUIZ_CARD, ILETISIM_CARD, MENTOR_CARD, BASARI_CARD],
+  SUPERADMIN: [KURUMLAR_CARD],
+};
+
+// Grup görüntüleme sırası — demo'daki sidebar grup sıralamasıyla aynı mantık.
+export const GROUP_ORDER = ["Genel Bakış", "Kayıt İşlemleri", "Akademik", "Öğrenci Yaşamı", "Yönetim & Finans", "Ben", "Diğer"];
+
+export function groupModules(modules: ModuleCard[]): { label: string; items: ModuleCard[] }[] {
+  const byLabel = new Map<string, ModuleCard[]>();
+  for (const m of modules) {
+    if (!byLabel.has(m.group)) byLabel.set(m.group, []);
+    byLabel.get(m.group)!.push(m);
+  }
+  return GROUP_ORDER.filter((g) => byLabel.has(g)).map((label) => ({ label, items: byLabel.get(label)! }));
+}
