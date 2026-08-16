@@ -19,15 +19,23 @@ import {
 import { Icon } from "@/components/ui/icons";
 import { LineChart } from "@/components/ui/charts/LineChart";
 import { HBarChart } from "@/components/ui/charts/HBarChart";
+import { KazanimYuklemeTab } from "./KazanimYuklemeTab";
 
 const VIEW_ROLES = ["BRANCH_ADMIN", "GUIDANCE_COORDINATOR", "TEACHER"];
 const CREATE_ROLES = ["BRANCH_ADMIN"];
+// Kazanım Yükleme (ders bazlı kazanım taksonomisi yönetimi) yalnızca Genel
+// Merkez veya Şube Yöneticisi'ne açıktır — demo'daki kazanimYuklemeAllowed()
+// ile aynı kural. `CurriculumNode` tenant'a özgü olmadığından (bkz.
+// app/api/curriculum/achievements/route.ts), SUPERADMIN için actingTenantId
+// ZORUNLU DEĞİLDİR — bu yüzden `canCreate`'ten ayrı bir kontrol.
+const MANAGE_CURRICULUM_ROLES = ["BRANCH_ADMIN", "SUPERADMIN"];
 
 const TABS = [
   { id: "durum", label: "Sınav Genel Durumu" },
   { id: "kazanim", label: "Kazanım Analizi" },
   { id: "uygulama", label: "Sınav Uygulaması" },
   { id: "sonuc", label: "Sonuç Girişi" },
+  { id: "kazanimYukle", label: "Kazanım Yükleme" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 
@@ -48,9 +56,18 @@ export function OlcmeDegerlendirmeView() {
     if (isError && error instanceof ApiError && error.status === 401) router.replace("/login");
   }, [isError, error, router]);
 
+  // Kazanım Yükleme, tenant'a özgü olmayan (RLS taşımayan) tek sekme —
+  // bare SUPERADMIN (henüz bir şubeyi "acting" seçmemiş) bu ekrana yalnızca
+  // o sekmeyi kullanmak için girebilir; diğer sekmeler şube verisine ihtiyaç
+  // duyduğundan gizli kalır.
+  const bareSuperadmin = me?.role === "SUPERADMIN" && !me.actingTenantId;
+  useEffect(() => {
+    if (bareSuperadmin) setTab("kazanimYukle");
+  }, [bareSuperadmin]);
+
   if (isLoading) return <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>;
   if (!me || (isError && error instanceof ApiError && error.status === 401)) return null;
-  if (!VIEW_ROLES.includes(me.role) && !(me.role === "SUPERADMIN" && me.actingTenantId)) {
+  if (!VIEW_ROLES.includes(me.role) && me.role !== "SUPERADMIN") {
     return (
       <div className="card card-pad">
         <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
@@ -61,7 +78,14 @@ export function OlcmeDegerlendirmeView() {
   }
 
   const canCreate = CREATE_ROLES.includes(me.role) || (me.role === "SUPERADMIN" && !!me.actingTenantId);
-  const visibleTabs = TABS.filter((t) => canCreate || (t.id !== "uygulama" && t.id !== "sonuc"));
+  const canManageCurriculum = MANAGE_CURRICULUM_ROLES.includes(me.role);
+  const hasTenantScope = VIEW_ROLES.includes(me.role) || (me.role === "SUPERADMIN" && !!me.actingTenantId);
+  const visibleTabs = TABS.filter((t) => {
+    if (t.id === "kazanimYukle") return canManageCurriculum;
+    if (!hasTenantScope) return false;
+    if (t.id === "uygulama" || t.id === "sonuc") return canCreate;
+    return true;
+  });
 
   return (
     <div className="screen">
@@ -80,6 +104,7 @@ export function OlcmeDegerlendirmeView() {
       {tab === "kazanim" && <KazanimTab />}
       {tab === "uygulama" && canCreate && <UygulamaTab />}
       {tab === "sonuc" && canCreate && <SonucTab />}
+      {tab === "kazanimYukle" && canManageCurriculum && <KazanimYuklemeTab />}
     </div>
   );
 }

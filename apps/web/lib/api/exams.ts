@@ -73,11 +73,44 @@ export interface CurriculumAchievement {
   id: string;
   code: string;
   label: string;
+  gradeLevel: number;
   subject: string;
 }
 
 export function fetchCurriculumAchievements() {
   return apiFetch<{ achievements: CurriculumAchievement[] }>("/api/curriculum/achievements", { cache: "no-store" });
+}
+
+export function createCurriculumAchievement(input: { code: string; label: string; gradeLevel: number }) {
+  return apiFetch<{ achievement: CurriculumAchievement }>("/api/curriculum/achievements", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteCurriculumAchievement(achievementId: string) {
+  return apiFetch<{ ok: true }>(`/api/curriculum/achievements/${achievementId}`, { method: "DELETE" });
+}
+
+export function updateCurriculumAchievementGrade(achievementId: string, gradeLevel: number) {
+  return apiFetch<{ achievement: CurriculumAchievement }>(`/api/curriculum/achievements/${achievementId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ gradeLevel }),
+  });
+}
+
+export interface BulkAchievementRowResult {
+  row: number;
+  ok: boolean;
+  message?: string;
+  achievement?: CurriculumAchievement;
+}
+
+export function bulkImportCurriculumAchievements(rows: { code: string; label: string; gradeLevel: number }[]) {
+  return apiFetch<{ results: BulkAchievementRowResult[]; successCount: number; errorCount: number }>(
+    "/api/curriculum/achievements/bulk",
+    { method: "POST", body: JSON.stringify({ rows }) },
+  );
 }
 
 export const examKeys = {

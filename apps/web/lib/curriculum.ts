@@ -16,3 +16,6 @@ export function subjectFromCode(code: string): string {
   const prefix = code.split(".")[0];
   return SUBJECT_LABELS[prefix] ?? prefix;
 }
+
+// Kazanım Yükleme'de ders seçici için — prefix + Türkçe etiket çiftleri.
+export const SUBJECT_PREFIXES = Object.entries(SUBJECT_LABELS).map(([prefix, label]) => ({ prefix, label }));
