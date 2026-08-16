@@ -9,7 +9,7 @@ const LEGEND_ITEMS: { level: MasteryLevel; label: string; swatchClass: string }[
 
 export function HeatmapLegend() {
   return (
-    <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+    <div className="flex flex-wrap items-center gap-4 text-sm" style={{ color: "var(--ink-faint)" }}>
       {LEGEND_ITEMS.map((item) => (
         <div key={item.level} className="flex items-center gap-2">
           <span className={cn("h-3 w-3 rounded-sm", item.swatchClass)} />

@@ -3,16 +3,13 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { authKeys, fetchMe, logout } from "@/lib/api/auth";
+import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { CRM_STAGE_LABEL, CRM_STAGES, createCrmLead, CrmLead, crmKeys, deleteCrmLead, fetchCrmLeads, updateCrmLead } from "@/lib/api/crm";
 import { GRADE_LEVEL_LABEL } from "@/lib/api/enrollments";
 
 const ALLOWED_ROLES = ["BRANCH_ADMIN", "GUIDANCE_COORDINATOR"];
 const GRADE_OPTIONS = Object.keys(GRADE_LEVEL_LABEL);
-
-const inputCls =
-  "mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800";
 
 /**
  * CRM — demo/seviye360-app.html'deki SCREENS["branch:crm"] Kanban'ının
@@ -36,12 +33,6 @@ export function CrmDashboard() {
       router.replace("/login");
     }
   }, [isError, error, router]);
-
-  async function handleLogout() {
-    await logout();
-    queryClient.clear();
-    router.replace("/login");
-  }
 
   const leadsQuery = useQuery({ queryKey: crmKeys.list(), queryFn: fetchCrmLeads, enabled: !!me });
 
@@ -124,15 +115,15 @@ export function CrmDashboard() {
   }
 
   if (isLoading) {
-    return <div className="animate-pulse text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</div>;
+    return <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>;
   }
   if (!me || (isError && error instanceof ApiError && error.status === 401)) {
     return null;
   }
   if (!ALLOWED_ROLES.includes(me.role)) {
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center dark:border-red-900 dark:bg-red-950/40">
-        <p className="text-sm font-medium text-red-700 dark:text-red-300">
+      <div className="card card-pad">
+        <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
           Bu modüle erişim yetkiniz yok. CRM yalnızca Şube Yöneticisi/Rehber Öğretmen rolüne açıktır.
         </p>
       </div>
@@ -142,202 +133,190 @@ export function CrmDashboard() {
   const leads = leadsQuery.data?.leads ?? [];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-50">CRM</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">Aday öğrencileri statü bazında takip edin.</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <a
-            href="/dashboard"
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            Ana Sayfa
-          </a>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            Çıkış Yap
-          </button>
-        </div>
-      </div>
+    <div className="screen">
+      <h1>CRM</h1>
+      <p className="lede">Aday öğrencileri statü bazında takip edin.</p>
 
-      <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Yeni Aday Ekle</h2>
-        <form onSubmit={handleSubmit} className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Aday Adı Soyadı</label>
-            <input value={candidateFullName} onChange={(e) => setCandidateFullName(e.target.value)} className={inputCls} />
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div className="card card-pad">
+          <div className="card-head">
+            <h3>Yeni Aday Ekle</h3>
           </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Sınıf Düzeyi</label>
-            <select value={candidateGradeLevel} onChange={(e) => setCandidateGradeLevel(e.target.value)} className={inputCls}>
-              {GRADE_OPTIONS.map((g) => (
-                <option key={g} value={g}>
-                  {GRADE_LEVEL_LABEL[g]}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Öğrencinin Okuduğu Okul (opsiyonel)</label>
-            <input value={school} onChange={(e) => setSchool(e.target.value)} className={inputCls} />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Veli E-postası (opsiyonel)</label>
-            <input value={guardianEmail} onChange={(e) => setGuardianEmail(e.target.value)} type="email" className={inputCls} />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Veli Adı Soyadı</label>
-            <input value={guardianFullName} onChange={(e) => setGuardianFullName(e.target.value)} className={inputCls} />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Veli Telefonu</label>
-            <input value={guardianPhone} onChange={(e) => setGuardianPhone(e.target.value)} placeholder="05xx xxx xx xx" className={inputCls} />
-          </div>
-          <div className="sm:col-span-2">
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Velinin Düşünceleri (opsiyonel)</label>
-            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} className={inputCls} rows={2} />
-          </div>
-
-          {formError && <p className="text-xs text-red-600 dark:text-red-400 sm:col-span-2">{formError}</p>}
-
-          <div className="sm:col-span-2">
-            <button
-              type="submit"
-              disabled={createMutation.isPending}
-              className="rounded-lg bg-[#0071ce] px-4 py-2 text-sm font-semibold text-white hover:bg-[#00558f] disabled:opacity-60"
-            >
-              {createMutation.isPending ? "Ekleniyor…" : "Ekle"}
-            </button>
-          </div>
-        </form>
-      </div>
-
-      {leadsQuery.isLoading && <p className="text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</p>}
-      {!leadsQuery.isLoading && leads.length === 0 && (
-        <p className="text-sm text-slate-500 dark:text-slate-400">Henüz aday yok. Yukarıdaki formdan ilk adayınızı ekleyin.</p>
-      )}
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {CRM_STAGES.map((stage, stageIdx) => {
-          const stageLeads = leads.filter((l) => l.stage === stage);
-          return (
-            <div key={stage} className="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
-              <div className="mb-2 flex items-center justify-between">
-                <h3 className="text-xs font-semibold text-slate-700 dark:text-slate-300">{CRM_STAGE_LABEL[stage]}</h3>
-                <span className="text-xs text-slate-400">{stageLeads.length}</span>
-              </div>
-              <div className="space-y-2">
-                {stageLeads.map((lead) => {
-                  if (deletingId === lead.id) {
-                    return (
-                      <div key={lead.id} className="rounded-lg border border-red-200 p-2 text-xs dark:border-red-900">
-                        <p className="text-red-700 dark:text-red-300">
-                          <b>{lead.candidateFullName}</b> silinsin mi?
-                        </p>
-                        <div className="mt-1.5 flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => deleteMutation.mutate(lead.id)}
-                            disabled={deleteMutation.isPending}
-                            className="rounded bg-red-600 px-2 py-1 font-semibold text-white hover:bg-red-700 disabled:opacity-60"
-                          >
-                            Evet, Sil
-                          </button>
-                          <button type="button" onClick={() => setDeletingId(null)} className="rounded border border-slate-300 px-2 py-1 dark:border-slate-700">
-                            Vazgeç
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  }
-
-                  if (editingId === lead.id) {
-                    return (
-                      <div key={lead.id} className="space-y-1.5 rounded-lg border border-slate-300 p-2 text-xs dark:border-slate-700">
-                        <input
-                          value={editDraft.candidateFullName}
-                          onChange={(e) => setEditDraft((d) => ({ ...d, candidateFullName: e.target.value }))}
-                          className={inputCls}
-                        />
-                        <input
-                          value={editDraft.guardianFullName}
-                          onChange={(e) => setEditDraft((d) => ({ ...d, guardianFullName: e.target.value }))}
-                          placeholder="Veli adı soyadı"
-                          className={inputCls}
-                        />
-                        <input
-                          value={editDraft.guardianPhone}
-                          onChange={(e) => setEditDraft((d) => ({ ...d, guardianPhone: e.target.value }))}
-                          placeholder="Veli telefonu"
-                          className={inputCls}
-                        />
-                        <textarea
-                          value={editDraft.notes}
-                          onChange={(e) => setEditDraft((d) => ({ ...d, notes: e.target.value }))}
-                          placeholder="Velinin düşünceleri"
-                          className={inputCls}
-                          rows={2}
-                        />
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => saveEdit(lead.id)}
-                            disabled={updateMutation.isPending}
-                            className="rounded bg-[#0071ce] px-2 py-1 font-semibold text-white hover:bg-[#00558f] disabled:opacity-60"
-                          >
-                            Kaydet
-                          </button>
-                          <button type="button" onClick={() => setEditingId(null)} className="rounded border border-slate-300 px-2 py-1 dark:border-slate-700">
-                            Vazgeç
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div key={lead.id} className="rounded-lg border border-slate-100 p-2 text-xs dark:border-slate-800">
-                      <div className="font-medium text-slate-900 dark:text-slate-50">{lead.candidateFullName}</div>
-                      <div className="text-slate-500 dark:text-slate-400">
-                        {GRADE_LEVEL_LABEL[lead.candidateGradeLevel] ?? lead.candidateGradeLevel} · Veli: {lead.guardianFullName}
-                      </div>
-                      {lead.enrollmentId && (
-                        <span className="mt-1 inline-block rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
-                          Ön Kayıt oluşturuldu
-                        </span>
-                      )}
-                      <div className="mt-1.5 flex flex-wrap gap-2">
-                        {stageIdx > 0 && (
-                          <button type="button" onClick={() => moveStage(lead, -1)} className="text-slate-500 hover:text-slate-700 dark:text-slate-400">
-                            ← Geri Al
-                          </button>
-                        )}
-                        {stageIdx < CRM_STAGES.length - 1 && (
-                          <button type="button" onClick={() => moveStage(lead, 1)} className="font-medium text-[#0071ce] hover:text-[#00558f]">
-                            İleri Al →
-                          </button>
-                        )}
-                        <button type="button" onClick={() => startEdit(lead)} className="text-slate-500 hover:text-slate-700 dark:text-slate-400">
-                          Düzenle
-                        </button>
-                        {!lead.enrollmentId && (
-                          <button type="button" onClick={() => setDeletingId(lead.id)} className="text-slate-400 hover:text-red-600 dark:hover:text-red-400">
-                            Sil
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+          <form onSubmit={handleSubmit} style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
+            <div className="field">
+              <label>Aday Adı Soyadı</label>
+              <input value={candidateFullName} onChange={(e) => setCandidateFullName(e.target.value)} />
             </div>
-          );
-        })}
+            <div className="field">
+              <label>Sınıf Düzeyi</label>
+              <select value={candidateGradeLevel} onChange={(e) => setCandidateGradeLevel(e.target.value)}>
+                {GRADE_OPTIONS.map((g) => (
+                  <option key={g} value={g}>
+                    {GRADE_LEVEL_LABEL[g]}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label>Öğrencinin Okuduğu Okul (opsiyonel)</label>
+              <input value={school} onChange={(e) => setSchool(e.target.value)} />
+            </div>
+            <div className="field">
+              <label>Veli E-postası (opsiyonel)</label>
+              <input value={guardianEmail} onChange={(e) => setGuardianEmail(e.target.value)} type="email" />
+            </div>
+            <div className="field">
+              <label>Veli Adı Soyadı</label>
+              <input value={guardianFullName} onChange={(e) => setGuardianFullName(e.target.value)} />
+            </div>
+            <div className="field">
+              <label>Veli Telefonu</label>
+              <input value={guardianPhone} onChange={(e) => setGuardianPhone(e.target.value)} placeholder="05xx xxx xx xx" />
+            </div>
+            <div className="field" style={{ gridColumn: "span 2" }}>
+              <label>Velinin Düşünceleri (opsiyonel)</label>
+              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+            </div>
+
+            {formError && (
+              <p style={{ gridColumn: "span 2", margin: 0, fontSize: "var(--text-xs)", color: "var(--critical)" }}>{formError}</p>
+            )}
+
+            <div style={{ gridColumn: "span 2" }}>
+              <button type="submit" disabled={createMutation.isPending} className="btn primary">
+                {createMutation.isPending ? "Ekleniyor…" : "Ekle"}
+              </button>
+            </div>
+          </form>
+        </div>
+
+        {leadsQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
+        {!leadsQuery.isLoading && leads.length === 0 && (
+          <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Henüz aday yok. Yukarıdaki formdan ilk adayınızı ekleyin.</p>
+        )}
+
+        <div className="grid cols-4">
+          {CRM_STAGES.map((stage, stageIdx) => {
+            const stageLeads = leads.filter((l) => l.stage === stage);
+            return (
+              <div key={stage} className="card card-pad">
+                <div className="card-head">
+                  <h3>{CRM_STAGE_LABEL[stage]}</h3>
+                  <span className="chip neutral">{stageLeads.length}</span>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {stageLeads.map((lead) => {
+                    if (deletingId === lead.id) {
+                      return (
+                        <div
+                          key={lead.id}
+                          style={{ border: "1px solid var(--critical)", borderRadius: "var(--radius-sm)", padding: 10, fontSize: "var(--text-xs)" }}
+                        >
+                          <p style={{ margin: 0, color: "var(--critical)" }}>
+                            <b>{lead.candidateFullName}</b> silinsin mi?
+                          </p>
+                          <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
+                            <button type="button" onClick={() => deleteMutation.mutate(lead.id)} disabled={deleteMutation.isPending} className="btn danger solid xs">
+                              Evet, Sil
+                            </button>
+                            <button type="button" onClick={() => setDeletingId(null)} className="btn xs">
+                              Vazgeç
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    if (editingId === lead.id) {
+                      return (
+                        <div
+                          key={lead.id}
+                          style={{ display: "flex", flexDirection: "column", gap: 6, border: "1px solid var(--border-strong)", borderRadius: "var(--radius-sm)", padding: 10 }}
+                        >
+                          <input value={editDraft.candidateFullName} onChange={(e) => setEditDraft((d) => ({ ...d, candidateFullName: e.target.value }))} />
+                          <input
+                            value={editDraft.guardianFullName}
+                            onChange={(e) => setEditDraft((d) => ({ ...d, guardianFullName: e.target.value }))}
+                            placeholder="Veli adı soyadı"
+                          />
+                          <input
+                            value={editDraft.guardianPhone}
+                            onChange={(e) => setEditDraft((d) => ({ ...d, guardianPhone: e.target.value }))}
+                            placeholder="Veli telefonu"
+                          />
+                          <textarea
+                            value={editDraft.notes}
+                            onChange={(e) => setEditDraft((d) => ({ ...d, notes: e.target.value }))}
+                            placeholder="Velinin düşünceleri"
+                            rows={2}
+                          />
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <button type="button" onClick={() => saveEdit(lead.id)} disabled={updateMutation.isPending} className="btn primary xs">
+                              Kaydet
+                            </button>
+                            <button type="button" onClick={() => setEditingId(null)} className="btn xs">
+                              Vazgeç
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div key={lead.id} style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: 10, fontSize: "var(--text-xs)" }}>
+                        <div style={{ fontWeight: 600, color: "var(--ink)" }}>{lead.candidateFullName}</div>
+                        <div style={{ color: "var(--ink-faint)" }}>
+                          {GRADE_LEVEL_LABEL[lead.candidateGradeLevel] ?? lead.candidateGradeLevel} · Veli: {lead.guardianFullName}
+                        </div>
+                        {lead.enrollmentId && (
+                          <span className="chip strong" style={{ marginTop: 4 }}>
+                            Ön Kayıt oluşturuldu
+                          </span>
+                        )}
+                        <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 10 }}>
+                          {stageIdx > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => moveStage(lead, -1)}
+                              style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--ink-muted)", fontSize: "var(--text-xs)" }}
+                            >
+                              ← Geri Al
+                            </button>
+                          )}
+                          {stageIdx < CRM_STAGES.length - 1 && (
+                            <button
+                              type="button"
+                              onClick={() => moveStage(lead, 1)}
+                              style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--brand)", fontWeight: 600, fontSize: "var(--text-xs)" }}
+                            >
+                              İleri Al →
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => startEdit(lead)}
+                            style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--ink-muted)", fontSize: "var(--text-xs)" }}
+                          >
+                            Düzenle
+                          </button>
+                          {!lead.enrollmentId && (
+                            <button
+                              type="button"
+                              onClick={() => setDeletingId(lead.id)}
+                              style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--ink-faint)", fontSize: "var(--text-xs)" }}
+                            >
+                              Sil
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

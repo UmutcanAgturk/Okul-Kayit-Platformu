@@ -76,15 +76,11 @@ export function ClassXRayHeatmap({ examId, classroomId }: ClassXRayHeatmapProps)
 
   if (isError || !data) {
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center dark:border-red-900 dark:bg-red-950/40">
-        <p className="text-sm font-medium text-red-700 dark:text-red-300">
+      <div className="card card-pad" style={{ textAlign: "center" }}>
+        <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
           {error instanceof Error ? error.message : "Sınıf röntgeni yüklenemedi."}
         </p>
-        <button
-          type="button"
-          onClick={() => refetch()}
-          className="mt-3 rounded-lg border border-red-300 px-4 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100 dark:border-red-800 dark:text-red-300"
-        >
+        <button type="button" onClick={() => refetch()} className="btn danger sm" style={{ marginTop: 12 }}>
           Tekrar Dene
         </button>
       </div>
@@ -92,27 +88,29 @@ export function ClassXRayHeatmap({ examId, classroomId }: ClassXRayHeatmapProps)
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-xl font-semibold text-foreground">AI Sınıf Röntgeni</h1>
-        <p className="text-sm text-muted-foreground">
-          {data.examName} · {data.classroomName} · Güncelleme:{" "}
-          {new Date(data.generatedAt).toLocaleString("tr-TR")}
-        </p>
+    <div className="screen">
+      <h1>AI Sınıf Röntgeni</h1>
+      <p className="lede">
+        {data.examName} · {data.classroomName} · Güncelleme:{" "}
+        {new Date(data.generatedAt).toLocaleString("tr-TR")}
+      </p>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        <ClassSummaryStats summary={data.classSummary} />
+
+        <div>
+          <div className="card-head">
+            <h3>Ortak Eksik Kazanım Matrisi</h3>
+            <HeatmapLegend />
+          </div>
+
+          <AchievementHeatmapGrid
+            achievementColumns={data.achievementColumns}
+            students={data.students}
+            onCellSelect={handleCellSelect}
+          />
+        </div>
       </div>
-
-      <ClassSummaryStats summary={data.classSummary} />
-
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-foreground">Ortak Eksik Kazanım Matrisi</h2>
-        <HeatmapLegend />
-      </div>
-
-      <AchievementHeatmapGrid
-        achievementColumns={data.achievementColumns}
-        students={data.students}
-        onCellSelect={handleCellSelect}
-      />
 
       <StudentDetailDrawer
         student={selected?.student ?? null}
@@ -128,14 +126,14 @@ export function ClassXRayHeatmap({ examId, classroomId }: ClassXRayHeatmapProps)
 
 function ClassXRaySkeleton() {
   return (
-    <div className="space-y-6 animate-pulse">
-      <div className="h-6 w-64 rounded bg-slate-200 dark:bg-slate-800" />
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+    <div className="screen">
+      <div style={{ height: 24, width: 260, borderRadius: "var(--radius-sm)", background: "var(--surface-3)" }} />
+      <div className="grid cols-3" style={{ marginTop: 20 }}>
         {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="h-20 rounded-xl bg-slate-200 dark:bg-slate-800" />
+          <div key={i} className="card" style={{ height: 80, background: "var(--surface-3)" }} />
         ))}
       </div>
-      <div className="h-72 rounded-xl bg-slate-200 dark:bg-slate-800" />
+      <div className="card" style={{ marginTop: 14, height: 288, background: "var(--surface-3)" }} />
     </div>
   );
 }
