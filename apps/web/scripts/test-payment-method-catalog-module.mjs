@@ -7,8 +7,9 @@
 // bir model: studentId taşımaz, tenant (şube) düzeyinde bir katalogdur.
 //
 // Kontrol ettikleri:
-//   1. Yetki: yalnızca BRANCH_ADMIN/ACCOUNTING erişebilir (TEACHER 403,
-//      oturumsuz 401).
+//   1. Yetki: BRANCH_ADMIN/ACCOUNTING/PARENT görüntüleyebilir (TEACHER 403,
+//      oturumsuz 401); yalnızca BRANCH_ADMIN/ACCOUNTING ekleyebilir/düzenleyebilir/
+//      silebilir (PARENT dahil diğer roller 403 — bkz. task #55).
 //   2. Oluşturma: type/label/extra doğru kaydediliyor.
 //   3. Varsayılan işaretleme: bir kayıt varsayılan yapılınca diğerlerinin
 //      isDefault'u otomatik false'a düşüyor.
@@ -17,6 +18,9 @@
 //   6. Tenant izolasyonu: başka bir şubenin BRANCH_ADMIN'i bu kaydı ne
 //      görebiliyor ne silebiliyor (404).
 //   7. Aktivite Akışı'na yansıma.
+//   8. PARENT: pasif (isActive=false) kayıtları listede GÖRMÜYOR (bkz.
+//      task #55 — Ödeme İşlemleri'nde veliye yalnızca aktif yöntemler
+//      gösterilmeli), ve POST/PATCH/DELETE ile hiçbir şeyi değiştiremiyor.
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient({
@@ -44,7 +48,8 @@ async function main() {
   const mezitliAdminCookie = await loginAs("merve.aslan@seviye360.com", SEED_DEV_PASSWORD);
   const cankayaAdminCookie = await loginAs("onur.kaya@seviye360.com", SEED_DEV_PASSWORD);
   const teacherCookie = await loginAs("ayse.demir@seviye360.com", SEED_DEV_PASSWORD);
-  check("Kurulum: girişler başarılı", !!mezitliAdminCookie && !!cankayaAdminCookie && !!teacherCookie);
+  const parentCookie = await loginAs("hakan.yilmaz@veli.seviye360.com", SEED_DEV_PASSWORD);
+  check("Kurulum: girişler başarılı", !!mezitliAdminCookie && !!cankayaAdminCookie && !!teacherCookie && !!parentCookie);
 
   const noAuthRes = await fetch(`${BASE}/api/branch/payment-method-catalog`);
   check("GET: oturumsuz 401", noAuthRes.status === 401, noAuthRes.status);
@@ -58,6 +63,17 @@ async function main() {
     body: JSON.stringify({ type: "NAKIT", label: "x" }),
   });
   check("TEACHER ekleyemez: 403", teacherCreateRes.status === 403, teacherCreateRes.status);
+
+  // ===== PARENT: görüntüleyebilir (task #55) ama değiştiremez =====
+  const parentGetRes = await fetch(`${BASE}/api/branch/payment-method-catalog`, { headers: { Cookie: parentCookie } });
+  check("PARENT görüntüleyebilir: 200", parentGetRes.status === 200, parentGetRes.status);
+
+  const parentCreateRes = await fetch(`${BASE}/api/branch/payment-method-catalog`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: parentCookie },
+    body: JSON.stringify({ type: "NAKIT", label: "x" }),
+  });
+  check("PARENT ekleyemez: 403", parentCreateRes.status === 403, parentCreateRes.status);
 
   // ===== Oluşturma =====
   const createRes = await fetch(`${BASE}/api/branch/payment-method-catalog`, {
@@ -104,6 +120,19 @@ async function main() {
   check("PATCH: extra güncellendi", patchBody.method?.extra === "TR111111111111111111111111", patchBody.method?.extra);
   check("PATCH: isActive false yapıldı", patchBody.method?.isActive === false, patchBody.method?.isActive);
 
+  const parentPatchRes = await fetch(`${BASE}/api/branch/payment-method-catalog/${methodId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: parentCookie },
+    body: JSON.stringify({ label: "x" }),
+  });
+  check("PARENT düzenleyemez: 403", parentPatchRes.status === 403, parentPatchRes.status);
+
+  // ===== PARENT: yalnızca aktif kayıtları görür (task #55) =====
+  const parentListRes = await fetch(`${BASE}/api/branch/payment-method-catalog`, { headers: { Cookie: parentCookie } });
+  const parentListBody = await parentListRes.json();
+  check("PARENT pasif kaydı listede görmüyor", !parentListBody.methods?.some((m) => m.id === methodId), parentListBody.methods?.length);
+  check("PARENT aktif kaydı listede görüyor", parentListBody.methods?.some((m) => m.id === secondBody.method.id));
+
   // ===== Tenant izolasyonu =====
   const crossTenantGetRes = await fetch(`${BASE}/api/branch/payment-method-catalog`, { headers: { Cookie: cankayaAdminCookie } });
   const crossTenantGetBody = await crossTenantGetRes.json();
@@ -125,6 +154,12 @@ async function main() {
     headers: { Cookie: cankayaAdminCookie },
   });
   check("Başka şube silemez: 404", crossTenantDeleteRes.status === 404, crossTenantDeleteRes.status);
+
+  const parentDeleteRes = await fetch(`${BASE}/api/branch/payment-method-catalog/${methodId}`, {
+    method: "DELETE",
+    headers: { Cookie: parentCookie },
+  });
+  check("PARENT silemez: 403", parentDeleteRes.status === 403, parentDeleteRes.status);
 
   // ===== Aktivite Akışı =====
   const activityRes = await fetch(`${BASE}/api/branch/activity-log`, { headers: { Cookie: mezitliAdminCookie } });

@@ -12,10 +12,16 @@ import {
   submitPaymentReceipt,
   type SelfInstallmentRow,
 } from "@/lib/api/self-payments";
+import {
+  fetchPaymentMethodCatalog,
+  INSTITUTION_PAYMENT_METHOD_EXTRA_LABEL,
+  type InstitutionPaymentMethodRow,
+} from "@/lib/api/payment-methods";
 import { Icon } from "@/components/ui/icons";
 
 const ACCEPTED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf"];
 const MAX_FILE_SIZE = 2_500_000;
+const DEMO_OTP_CODE = "123456";
 
 function ReceiptUploadForm({
   studentId,
@@ -85,6 +91,141 @@ function ReceiptUploadForm({
   );
 }
 
+type PaymentMethodChoice = "KART" | "HAVALE" | "NAKIT";
+
+/**
+ * Kredi kartı akışı — demo/seviye360-app.html'deki renderGuardianCardFlow'un
+ * karşılığı: sahte kart formu + sahte 3D Secure OTP adımı (gerçek bir ödeme
+ * sağlayıcısı YOKTUR, OTP kodu demo'daki gibi sabit "123456"). Doğrulama
+ * başarılı olunca gerçek taksit-öde endpoint'i (paySelfInstallment) çağrılır.
+ */
+function CardPaymentFlow({ onPay, paying, error }: { onPay: () => void; paying: boolean; error?: string }) {
+  const [step, setStep] = useState<"form" | "otp">("form");
+  const [cardName, setCardName] = useState("");
+  const [cardNumber, setCardNumber] = useState("");
+  const [expiry, setExpiry] = useState("");
+  const [cvc, setCvc] = useState("");
+  const [otp, setOtp] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
+  const [otpError, setOtpError] = useState<string | null>(null);
+
+  function handleSubmitCard(e: React.FormEvent) {
+    e.preventDefault();
+    const digits = cardNumber.replace(/\s/g, "");
+    if (!cardName.trim() || !/^\d{16}$/.test(digits) || !/^\d{2}\/\d{2}$/.test(expiry) || !/^\d{3}$/.test(cvc)) {
+      setFormError("Kart bilgilerini kontrol edin: 16 haneli kart no, AA/YY son kullanma, 3 haneli CVC.");
+      return;
+    }
+    setFormError(null);
+    setStep("otp");
+  }
+
+  function handleSubmitOtp(e: React.FormEvent) {
+    e.preventDefault();
+    if (otp !== DEMO_OTP_CODE) {
+      setOtpError(`Kod hatalı. (Demo kodu: ${DEMO_OTP_CODE})`);
+      return;
+    }
+    setOtpError(null);
+    onPay();
+  }
+
+  if (step === "otp") {
+    return (
+      <form onSubmit={handleSubmitOtp} style={{ marginTop: 8, padding: 10, borderRadius: 8, background: "var(--surface-sunken, var(--surface))", border: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 8 }}>
+        <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
+          3D Secure — bankanızın gönderdiği tek kullanımlık kodu girin. (Demo ortamı: <b>{DEMO_OTP_CODE}</b>)
+        </p>
+        <div className="field">
+          <label>SMS Doğrulama Kodu</label>
+          <input value={otp} onChange={(e) => setOtp(e.target.value)} maxLength={6} placeholder="123456" />
+        </div>
+        {(otpError || error) && <p style={{ margin: 0, fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--critical)" }}>{otpError ?? error}</p>}
+        <button type="submit" className="btn primary xs" disabled={paying}>
+          {paying ? "Onaylanıyor…" : "Ödemeyi Onayla"}
+        </button>
+      </form>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmitCard} style={{ marginTop: 8, padding: 10, borderRadius: 8, background: "var(--surface-sunken, var(--surface))", border: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 8 }}>
+      <div className="field">
+        <label>Kart Üzerindeki Ad Soyad</label>
+        <input value={cardName} onChange={(e) => setCardName(e.target.value)} />
+      </div>
+      <div className="field">
+        <label>Kart Numarası</label>
+        <input value={cardNumber} onChange={(e) => setCardNumber(e.target.value)} placeholder="•••• •••• •••• ••••" maxLength={19} />
+      </div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <div className="field" style={{ flex: 1 }}>
+          <label>Son Kullanma (AA/YY)</label>
+          <input value={expiry} onChange={(e) => setExpiry(e.target.value)} placeholder="12/28" maxLength={5} />
+        </div>
+        <div className="field" style={{ flex: 1 }}>
+          <label>CVC</label>
+          <input value={cvc} onChange={(e) => setCvc(e.target.value)} placeholder="123" maxLength={3} />
+        </div>
+      </div>
+      {formError && <p style={{ margin: 0, fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--critical)" }}>{formError}</p>}
+      <button type="submit" className="btn primary xs">
+        Devam Et — 3D Secure
+      </button>
+    </form>
+  );
+}
+
+function TransferPaymentFlow({
+  studentId,
+  installmentId,
+  catalog,
+  onDone,
+}: {
+  studentId: string;
+  installmentId: string;
+  catalog: InstitutionPaymentMethodRow[];
+  onDone: () => void;
+}) {
+  const method = catalog.find((m) => m.type === "BANKA_HAVALESI");
+  return (
+    <div style={{ marginTop: 8 }}>
+      <div style={{ padding: 10, borderRadius: 8, background: "var(--surface-sunken, var(--surface))", border: "1px solid var(--border)" }}>
+        {method ? (
+          <>
+            <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600 }}>{method.label}</p>
+            <p style={{ margin: "4px 0 0", fontSize: "var(--text-sm)" }}>
+              {INSTITUTION_PAYMENT_METHOD_EXTRA_LABEL.BANKA_HAVALESI}: <b>{method.extra ?? "—"}</b>
+            </p>
+          </>
+        ) : (
+          <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>Şube henüz bir banka hesabı kaydetmedi.</p>
+        )}
+        <p style={{ margin: "6px 0 0", fontSize: "var(--text-2xs)", color: "var(--ink-faint)" }}>
+          Açıklama kısmına öğrenci adını ve taksit numarasını yazmayı unutmayın. Havale sonrası dekontunuzu aşağıdan yükleyin.
+        </p>
+      </div>
+      <ReceiptUploadForm studentId={studentId} installmentId={installmentId} onDone={onDone} />
+    </div>
+  );
+}
+
+function CashPaymentFlow({ catalog }: { catalog: InstitutionPaymentMethodRow[] }) {
+  const method = catalog.find((m) => m.type === "NAKIT");
+  return (
+    <div style={{ marginTop: 8, padding: 10, borderRadius: 8, background: "var(--surface-sunken, var(--surface))", border: "1px solid var(--border)" }}>
+      <p style={{ margin: 0, fontSize: "var(--text-sm)" }}>
+        Nakit ödemeler yalnızca şubede, elden teslim sırasında kayda alınır. Bu ekrandan nakit ödeme işaretlenemez.
+      </p>
+      {method?.extra && (
+        <p style={{ margin: "6px 0 0", fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
+          {INSTITUTION_PAYMENT_METHOD_EXTRA_LABEL.NAKIT}: <b>{method.extra}</b>
+        </p>
+      )}
+    </div>
+  );
+}
+
 const STATUS_LABEL: Record<SelfInstallmentRow["status"], string> = {
   PENDING: "Bekliyor",
   PAID: "Ödendi",
@@ -98,22 +239,36 @@ const STATUS_CHIP: Record<SelfInstallmentRow["status"], string> = {
   CANCELLED: "neutral",
 };
 
-function tl(amount: string) {
+const RECEIPT_STATUS_LABEL: Record<string, string> = {
+  BEKLIYOR: "İnceleniyor",
+  ONAYLANDI: "Onaylandı",
+  REDDEDILDI: "Reddedildi",
+};
+const RECEIPT_STATUS_CHIP: Record<string, string> = {
+  BEKLIYOR: "weak",
+  ONAYLANDI: "strong",
+  REDDEDILDI: "critical",
+};
+
+function tl(amount: string | number) {
   return "₺" + Math.round(Number(amount)).toLocaleString("tr-TR");
 }
 
 /**
  * Ödeme İşlemleri — demo/seviye360-app.html'deki "student:payment" (yalnızca
- * veli) ekranının gerçek karşılığı. Gerçek bir ödeme sağlayıcısı simülasyonu
- * (3D Secure vb.) YOKTUR — taksitler doğrudan ödendi olarak işaretlenir
- * (bkz. app/api/students/[id]/installments/[id]/pay), tıpkı personel
- * tarafındaki "Tahsil Et" akışının aynısı gibi.
+ * veli) ekranının gerçek karşılığı. Gerçek bir ödeme sağlayıcısı entegrasyonu
+ * YOKTUR — KART akışı sahte bir 3D Secure adımından sonra taksidi doğrudan
+ * ödendi işaretler (bkz. app/api/students/[id]/installments/[id]/pay);
+ * HAVALE akışı şubenin kayıtlı IBAN'ını gösterip dekont yükletir (onay şube
+ * personelinde); NAKİT akışı yalnızca bilgilendirme amaçlıdır (demo'daki gibi
+ * nakit yalnızca elden teslimde kayda alınır, bu ekrandan işaretlenemez).
  */
 export function SelfPaymentsView() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [errorByInstallment, setErrorByInstallment] = useState<Record<string, string>>({});
-  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [openFlowId, setOpenFlowId] = useState<string | null>(null);
+  const [method, setMethod] = useState<PaymentMethodChoice | null>(null);
 
   const { data: me, isLoading, isError, error } = useQuery({
     queryKey: authKeys.me(),
@@ -143,11 +298,18 @@ export function SelfPaymentsView() {
     queryFn: () => fetchSelfPaymentReceipts(selectedStudentId!),
     enabled: !!selectedStudentId,
   });
+  const catalogQuery = useQuery({
+    queryKey: ["self-payment-method-catalog"],
+    queryFn: fetchPaymentMethodCatalog,
+    enabled: !!me,
+  });
 
   const payMutation = useMutation({
     mutationFn: (installmentId: string) => paySelfInstallment(selectedStudentId!, installmentId),
     onSuccess: (_result, installmentId) => {
       setErrorByInstallment((prev) => ({ ...prev, [installmentId]: "" }));
+      setOpenFlowId(null);
+      setMethod(null);
       queryClient.invalidateQueries({ queryKey: ["self-installments", selectedStudentId] });
     },
     onError: (err, installmentId) => {
@@ -175,6 +337,15 @@ export function SelfPaymentsView() {
   }
 
   const installments = installmentsQuery.data?.installments ?? [];
+  const receipts = receiptsQuery.data?.receipts ?? [];
+  const catalog = catalogQuery.data?.methods ?? [];
+
+  const totalTuition = installments.reduce((sum, i) => sum + Number(i.amount), 0);
+  const paidInstallments = installments.filter((i) => i.status === "PAID");
+  const remainingBalance = installments.filter((i) => i.status !== "PAID" && i.status !== "CANCELLED").reduce((sum, i) => sum + Number(i.amount), 0);
+  const nextDue = installments
+    .filter((i) => i.status === "PENDING" || i.status === "OVERDUE")
+    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0];
 
   return (
     <div className="screen">
@@ -187,7 +358,11 @@ export function SelfPaymentsView() {
             <button
               key={s.studentId}
               type="button"
-              onClick={() => setSelectedStudentId(s.studentId)}
+              onClick={() => {
+                setSelectedStudentId(s.studentId);
+                setOpenFlowId(null);
+                setMethod(null);
+              }}
               className={`btn sm ${selectedStudentId === s.studentId ? "primary" : ""}`}
             >
               {s.fullName}
@@ -196,7 +371,31 @@ export function SelfPaymentsView() {
         </div>
       )}
 
-      <div className="card card-pad">
+      {installments.length > 0 && (
+        <div className="grid cols-3" style={{ marginBottom: 16 }}>
+          <div className="card stat-card">
+            <p className="stat-label">Toplam Ücret</p>
+            <p className="stat-value">{tl(totalTuition)}</p>
+          </div>
+          <div className="card stat-card">
+            <p className="stat-label">Ödenen</p>
+            <p className="stat-value">
+              {paidInstallments.length}/{installments.length} taksit
+            </p>
+          </div>
+          <div className={`card stat-card ${remainingBalance > 0 ? "tone-weak" : ""}`}>
+            <p className="stat-label">Kalan Bakiye</p>
+            <p className="stat-value">{tl(remainingBalance)}</p>
+            {nextDue && (
+              <p style={{ margin: "2px 0 0", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
+                Sonraki vade: {new Date(nextDue.dueDate).toLocaleDateString("tr-TR")}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="card card-pad" style={{ marginBottom: 16 }}>
         {installmentsQuery.isLoading ? (
           <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>
         ) : installments.length === 0 ? (
@@ -220,10 +419,9 @@ export function SelfPaymentsView() {
                 {installments
                   .sort((a, b) => a.installmentNo - b.installmentNo)
                   .map((i) => {
-                    const pendingReceipt = (receiptsQuery.data?.receipts ?? []).find(
-                      (r) => r.installmentId === i.id && r.status === "BEKLIYOR",
-                    );
+                    const pendingReceipt = receipts.find((r) => r.installmentId === i.id && r.status === "BEKLIYOR");
                     const canAct = i.status === "PENDING" || i.status === "OVERDUE";
+                    const flowOpen = openFlowId === i.id;
                     return (
                       <Fragment key={i.id}>
                         <tr>
@@ -238,23 +436,21 @@ export function SelfPaymentsView() {
                               <span className="chip weak">Dekont İnceleniyor</span>
                             ) : canAct ? (
                               <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-                                <div style={{ display: "flex", gap: 6 }}>
-                                  <button
-                                    type="button"
-                                    className="btn primary xs"
-                                    disabled={payMutation.isPending}
-                                    onClick={() => payMutation.mutate(i.id)}
-                                  >
-                                    Öde
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="btn xs"
-                                    onClick={() => setUploadingId(uploadingId === i.id ? null : i.id)}
-                                  >
-                                    Dekont Yükle
-                                  </button>
-                                </div>
+                                <button
+                                  type="button"
+                                  className={`btn xs ${flowOpen ? "primary" : ""}`}
+                                  onClick={() => {
+                                    if (flowOpen) {
+                                      setOpenFlowId(null);
+                                      setMethod(null);
+                                    } else {
+                                      setOpenFlowId(i.id);
+                                      setMethod(null);
+                                    }
+                                  }}
+                                >
+                                  {flowOpen ? "Vazgeç" : "Öde"}
+                                </button>
                                 {errorByInstallment[i.id] && (
                                   <span style={{ fontSize: "var(--text-2xs)", color: "var(--critical)" }}>{errorByInstallment[i.id]}</span>
                                 )}
@@ -262,17 +458,41 @@ export function SelfPaymentsView() {
                             ) : null}
                           </td>
                         </tr>
-                        {uploadingId === i.id && selectedStudentId && (
+                        {flowOpen && selectedStudentId && (
                           <tr>
                             <td colSpan={5}>
-                              <ReceiptUploadForm
-                                studentId={selectedStudentId}
-                                installmentId={i.id}
-                                onDone={() => {
-                                  setUploadingId(null);
-                                  queryClient.invalidateQueries({ queryKey: ["self-payment-receipts", selectedStudentId] });
-                                }}
-                              />
+                              {!method ? (
+                                <div style={{ display: "flex", gap: 8, padding: "8px 0" }}>
+                                  <button type="button" className="btn sm" onClick={() => setMethod("KART")}>
+                                    Kredi Kartı
+                                  </button>
+                                  <button type="button" className="btn sm" onClick={() => setMethod("HAVALE")}>
+                                    Banka Havalesi
+                                  </button>
+                                  <button type="button" className="btn sm" onClick={() => setMethod("NAKIT")}>
+                                    Nakit
+                                  </button>
+                                </div>
+                              ) : method === "KART" ? (
+                                <CardPaymentFlow
+                                  onPay={() => payMutation.mutate(i.id)}
+                                  paying={payMutation.isPending}
+                                  error={errorByInstallment[i.id] || undefined}
+                                />
+                              ) : method === "HAVALE" ? (
+                                <TransferPaymentFlow
+                                  studentId={selectedStudentId}
+                                  installmentId={i.id}
+                                  catalog={catalog}
+                                  onDone={() => {
+                                    setOpenFlowId(null);
+                                    setMethod(null);
+                                    queryClient.invalidateQueries({ queryKey: ["self-payment-receipts", selectedStudentId] });
+                                  }}
+                                />
+                              ) : (
+                                <CashPaymentFlow catalog={catalog} />
+                              )}
                             </td>
                           </tr>
                         )}
@@ -284,6 +504,39 @@ export function SelfPaymentsView() {
           </div>
         )}
       </div>
+
+      {receipts.length > 0 && (
+        <div className="card card-pad">
+          <div className="card-head">
+            <h3>Dekont Gönderim Geçmişim</h3>
+            <span className="hint">{receipts.length} kayıt</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {[...receipts]
+              .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())
+              .map((r) => {
+                const installment = installments.find((i) => i.id === r.installmentId);
+                return (
+                  <div
+                    key={r.id}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, borderBottom: "1px solid var(--border)", padding: "9px 0" }}
+                  >
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>
+                        {installment ? `Taksit #${installment.installmentNo}` : "Taksit"}
+                      </div>
+                      <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
+                        {new Date(r.submittedAt).toLocaleString("tr-TR", { dateStyle: "medium", timeStyle: "short" })}
+                        {r.note ? ` · ${r.note}` : ""}
+                      </div>
+                    </div>
+                    <span className={`chip ${RECEIPT_STATUS_CHIP[r.status]}`}>{RECEIPT_STATUS_LABEL[r.status]}</span>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

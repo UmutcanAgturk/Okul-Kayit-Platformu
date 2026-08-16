@@ -10,21 +10,28 @@ import { actorLabel, logActivity } from "@/lib/audit-log";
  * app/api/branch/students/[studentId]/payment-methods) bir VELİNİN kayıtlı
  * kartı/tercihidir; bu route ise ŞUBENİN kendi tahsilat araçlarının (banka
  * hesabı/POS/kasa/senet) kurum geneli kataloğudur — studentId taşımaz.
+ *
+ * GET, ayrıca PARENT rolüne de açıktır (bkz. task #55 — Ödeme İşlemleri'ndeki
+ * havale/nakit akışlarının şubenin IBAN'ını/teslim noktasını göstermesi
+ * gerekir). PARENT yalnızca AKTİF kayıtları görür ve POST/PATCH/DELETE'e
+ * erişemez — RLS politikası da PARENT'ı kapsayacak şekilde güncellendi (bkz.
+ * prisma/migrations/20260816193000_institution_payment_method_parent_read).
  */
-const ROLES_ALLOWED: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.ACCOUNTING];
+const READ_ROLES: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.ACCOUNTING, UserRole.PARENT];
+const WRITE_ROLES: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.ACCOUNTING];
 
 export async function GET(request: NextRequest) {
   const actor = await getSessionActor(request);
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
+  if (!READ_ROLES.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol ödeme yöntemi kataloğunu görüntüleyemez" }, { status: 403 });
   }
 
   const methods = await withBranchTenantContext(actor, (tx) =>
     tx.institutionPaymentMethod.findMany({
-      where: { tenantId: effectiveTenantId(actor) },
+      where: { tenantId: effectiveTenantId(actor), ...(actor.role === UserRole.PARENT ? { isActive: true } : {}) },
       orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
     }),
   );
@@ -37,7 +44,7 @@ export async function POST(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
+  if (!WRITE_ROLES.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol ödeme yöntemi kataloğuna ekleme yapamaz" }, { status: 403 });
   }
 
