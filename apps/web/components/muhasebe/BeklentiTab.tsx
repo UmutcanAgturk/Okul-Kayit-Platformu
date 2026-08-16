@@ -27,7 +27,7 @@ const FORECAST_SCENARIOS = [
  * açıkça SENARYO VARSAYIMI olarak sunulur — gerçek veri gibi gösterilmez.
  */
 export function BeklentiTab() {
-  const ledgerQuery = useQuery({ queryKey: accountingKeys.ledger(), queryFn: fetchLedger });
+  const ledgerQuery = useQuery({ queryKey: accountingKeys.ledger(), queryFn: () => fetchLedger() });
   const pendingQuery = useQuery({ queryKey: accountingKeys.installments("PENDING"), queryFn: () => fetchInstallments("PENDING") });
 
   if (ledgerQuery.isLoading || pendingQuery.isLoading) {

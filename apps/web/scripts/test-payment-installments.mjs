@@ -60,6 +60,23 @@ async function main() {
   check("GET: 9 taksit listeleniyor", listBody.installments.length === 9, listBody.installments.length);
   check("GET: en az 2 taksit PAID", paidCount >= 2, paidCount);
 
+  // ===== 1b) Şube geneli taksit listesi — status parametresiz "tam tablo" (task #59) =====
+  const allRes = await fetch(`${BASE}/api/branch/payment-installments`, { headers: { Cookie: adminCookie } });
+  const allBody = await allRes.json();
+  check("GET branch/payment-installments (status yok): 200 dönüyor", allRes.status === 200, allRes.status);
+  check(
+    "GET branch/payment-installments (status yok): hem PENDING hem PAID satırlar dönüyor (tam tablo)",
+    allBody.installments?.some((i) => i.status === "PENDING") && allBody.installments?.some((i) => i.status === "PAID"),
+    allBody.installments?.map((i) => i.status),
+  );
+  const pendingOnlyRes = await fetch(`${BASE}/api/branch/payment-installments?status=PENDING`, { headers: { Cookie: adminCookie } });
+  const pendingOnlyBody = await pendingOnlyRes.json();
+  check(
+    "GET branch/payment-installments?status=PENDING: yalnızca PENDING satırlar dönüyor",
+    pendingOnlyBody.installments?.every((i) => i.status === "PENDING"),
+    pendingOnlyBody.installments?.map((i) => i.status),
+  );
+
   const nextPending = listBody.installments.find((i) => i.status === "PENDING");
   if (!nextPending) throw new Error("Tahsil edilecek PENDING taksit kalmamış — veritabanını sıfırlayıp seed'i tekrar çalıştırın.");
 

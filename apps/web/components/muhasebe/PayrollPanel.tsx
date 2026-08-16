@@ -39,7 +39,7 @@ export function PayrollPanel() {
     mutationFn: createPayroll,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: accountingKeys.payroll() });
-      queryClient.invalidateQueries({ queryKey: accountingKeys.ledger() });
+      queryClient.invalidateQueries({ queryKey: ["accounting", "ledger"] });
       setGrossSalary("");
       setFormError(null);
     },

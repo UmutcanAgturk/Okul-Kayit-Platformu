@@ -23,7 +23,7 @@ function categoryBreakdown(entries: LedgerEntry[], type: "GELIR" | "GIDER") {
  * kategori bazlı kırılımı.
  */
 export function StatistikTab() {
-  const ledgerQuery = useQuery({ queryKey: accountingKeys.ledger(), queryFn: fetchLedger });
+  const ledgerQuery = useQuery({ queryKey: accountingKeys.ledger(), queryFn: () => fetchLedger() });
   const entries = ledgerQuery.data?.entries ?? [];
   const gelirCats = categoryBreakdown(entries, "GELIR");
   const giderCats = categoryBreakdown(entries, "GIDER");

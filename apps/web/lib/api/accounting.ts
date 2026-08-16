@@ -17,8 +17,12 @@ export interface LedgerResponse {
   summary: { totalGelir: number; totalGider: number; net: number };
 }
 
-export function fetchLedger() {
-  return apiFetch<LedgerResponse>("/api/branch/accounting-ledger", { cache: "no-store" });
+export function fetchLedger(filter?: { type?: "GELIR" | "GIDER"; search?: string }) {
+  const params = new URLSearchParams();
+  if (filter?.type) params.set("type", filter.type);
+  if (filter?.search) params.set("search", filter.search);
+  const qs = params.toString();
+  return apiFetch<LedgerResponse>(`/api/branch/accounting-ledger${qs ? `?${qs}` : ""}`, { cache: "no-store" });
 }
 
 export function createLedgerEntry(input: {
@@ -32,6 +36,24 @@ export function createLedgerEntry(input: {
 }) {
   return apiFetch<{ entry: LedgerEntry }>("/api/branch/accounting-ledger", {
     method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateLedgerEntry(
+  entryId: string,
+  input: {
+    type: "GELIR" | "GIDER";
+    category: string;
+    amount: number;
+    entryDate: string;
+    note?: string;
+    vatRate?: number | null;
+    withholdingRate?: number | null;
+  },
+) {
+  return apiFetch<{ entry: LedgerEntry }>(`/api/branch/accounting-ledger/${entryId}`, {
+    method: "PATCH",
     body: JSON.stringify(input),
   });
 }
@@ -67,7 +89,7 @@ export interface Installment {
   amount: string;
   dueDate: string;
   paidAt: string | null;
-  status: "PENDING" | "PAID";
+  status: "PENDING" | "PAID" | "OVERDUE" | "CANCELLED";
 }
 
 export function fetchInstallments(status?: "PENDING" | "PAID") {
@@ -117,7 +139,8 @@ export function createPayroll(input: { teacherId?: string; staffProfileId?: stri
 }
 
 export const accountingKeys = {
-  ledger: () => ["accounting", "ledger"] as const,
+  ledger: (filter?: { type?: string; search?: string }) =>
+    ["accounting", "ledger", filter?.type ?? "ALL", filter?.search ?? ""] as const,
   vatSummary: () => ["accounting", "vat-summary"] as const,
   installments: (status?: string) => ["accounting", "installments", status ?? "ALL"] as const,
   aging: () => ["accounting", "aging"] as const,

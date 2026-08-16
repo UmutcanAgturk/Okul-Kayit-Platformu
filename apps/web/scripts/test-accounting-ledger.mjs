@@ -94,6 +94,72 @@ async function main() {
   const cankayaBody = await cankayaList.json();
   check("Tenant izolasyonu: Çankaya yöneticisi Mezitli kategorilerini GÖREMİYOR", !cankayaBody.entries?.some((e) => e.category === "Kira" || e.category === "Kırtasiye"), cankayaBody.entries?.map((e) => e.category));
 
+  // ===== 8) PATCH: kayıt düzenleme (task #59) =====
+  const patchRes = await fetch(`${BASE}/api/branch/accounting-ledger/${postBody.entry.id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({ type: "GIDER", category: "Kırtasiye (düzenlendi)", amount: 900, entryDate: "2026-07-21", note: "Düzenlendi" }),
+  });
+  const patchBody = await patchRes.json();
+  check("PATCH accounting-ledger: 200 dönüyor", patchRes.status === 200, patchRes.status);
+  check("PATCH accounting-ledger: kategori güncellendi", patchBody.entry?.category === "Kırtasiye (düzenlendi)", patchBody.entry?.category);
+  check("PATCH accounting-ledger: tutar güncellendi", Number(patchBody.entry?.amount) === 900, patchBody.entry?.amount);
+
+  const dbEntryAfterPatch = await prisma.accountingLedgerEntry.findUnique({ where: { id: postBody.entry.id } });
+  check("DB: PATCH sonrası tutar gerçekten güncellenmiş", Number(dbEntryAfterPatch?.amount) === 900, dbEntryAfterPatch?.amount?.toString());
+
+  const patchInvalid = await fetch(`${BASE}/api/branch/accounting-ledger/${postBody.entry.id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({ type: "GIDER", category: "", amount: -5, entryDate: "not-a-date" }),
+  });
+  check("PATCH accounting-ledger: geçersiz girdi 400 dönüyor", patchInvalid.status === 400, patchInvalid.status);
+
+  const patchNotFound = await fetch(`${BASE}/api/branch/accounting-ledger/not-a-real-id`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({ type: "GIDER", category: "Test", amount: 10, entryDate: "2026-07-21" }),
+  });
+  check("PATCH accounting-ledger: var olmayan kayıt 404 dönüyor", patchNotFound.status === 404, patchNotFound.status);
+
+  const teacherPatch = await fetch(`${BASE}/api/branch/accounting-ledger/${postBody.entry.id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: teacherCookie },
+    body: JSON.stringify({ type: "GIDER", category: "Test", amount: 10, entryDate: "2026-07-21" }),
+  });
+  check("Yetki: TEACHER rolü kaydı düzenleyemiyor (403)", teacherPatch.status === 403, teacherPatch.status);
+
+  const cankayaPatch = await fetch(`${BASE}/api/branch/accounting-ledger/${postBody.entry.id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: cankayaCookie },
+    body: JSON.stringify({ type: "GIDER", category: "Test", amount: 10, entryDate: "2026-07-21" }),
+  });
+  check("Tenant izolasyonu: Çankaya yöneticisi Mezitli'nin kaydını düzenleyemiyor (404)", cankayaPatch.status === 404, cankayaPatch.status);
+
+  // ===== 9) GET filtreleme (tür + kategori arama) =====
+  const filterTypeRes = await fetch(`${BASE}/api/branch/accounting-ledger?type=GIDER`, { headers: { Cookie: branchAdminCookie } });
+  const filterTypeBody = await filterTypeRes.json();
+  check("GET accounting-ledger?type=GIDER: yalnızca GIDER kayıtları dönüyor", filterTypeBody.entries?.every((e) => e.type === "GIDER"), filterTypeBody.entries?.map((e) => e.type));
+
+  const filterSearchRes = await fetch(`${BASE}/api/branch/accounting-ledger?search=düzenlendi`, { headers: { Cookie: branchAdminCookie } });
+  const filterSearchBody = await filterSearchRes.json();
+  check(
+    "GET accounting-ledger?search=düzenlendi: yalnızca eşleşen kategori dönüyor",
+    filterSearchBody.entries?.length >= 1 && filterSearchBody.entries.every((e) => e.category.toLowerCase().includes("düzenlendi")),
+    filterSearchBody.entries?.map((e) => e.category),
+  );
+
+  const filterNoMatchRes = await fetch(`${BASE}/api/branch/accounting-ledger?search=xyzabc-yok`, { headers: { Cookie: branchAdminCookie } });
+  const filterNoMatchBody = await filterNoMatchRes.json();
+  check("GET accounting-ledger?search=xyzabc-yok: boş liste dönüyor", filterNoMatchBody.entries?.length === 0, filterNoMatchBody.entries?.length);
+
+  // ===== 10) Temizlik: bu script'in oluşturduğu test kaydını sil =====
+  const cleanupRes = await fetch(`${BASE}/api/branch/accounting-ledger/${postBody.entry.id}`, {
+    method: "DELETE",
+    headers: { Cookie: branchAdminCookie },
+  });
+  check("Temizlik: test kaydı silindi", cleanupRes.status === 200, cleanupRes.status);
+
   console.log("\n=== ÖZET ===");
   const fails = results.filter((r) => !r.ok);
   console.log(`Toplam: ${results.length} | Başarılı: ${results.length - fails.length} | Başarısız: ${fails.length}`);

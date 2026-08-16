@@ -30,8 +30,20 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: "Bu rol Muhasebe defterini görüntüleyemez" }, { status: 403 });
   }
 
+  // Demo'daki (seviye360-app.html renderLedgerRows) filtre iki alanla
+  // sınırlıydı: tür (Tümü/Yalnızca Gelir/Yalnızca Gider) ve kategori arama —
+  // tarih aralığı demoda da yoktu, burada da eklenmedi (parite hedefi).
+  const typeFilter = request.nextUrl.searchParams.get("type");
+  const search = request.nextUrl.searchParams.get("search")?.trim();
+
   const entries = await withBranchTenantContext(actor, (tx) =>
-    tx.accountingLedgerEntry.findMany({ orderBy: { entryDate: "desc" } }),
+    tx.accountingLedgerEntry.findMany({
+      where: {
+        type: typeFilter === "GELIR" || typeFilter === "GIDER" ? typeFilter : undefined,
+        category: search ? { contains: search, mode: "insensitive" } : undefined,
+      },
+      orderBy: { entryDate: "desc" },
+    }),
   );
 
   const totalGelir = entries.filter((e) => e.type === "GELIR").reduce((sum, e) => sum + Number(e.amount), 0);
