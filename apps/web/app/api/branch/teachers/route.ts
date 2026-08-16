@@ -10,9 +10,11 @@ import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
  * doğrudan bir tenantId kolonu yok), bu yüzden filtre burada `User.tenantId`
  * üzerinden uygulama katmanında yapılır — aynı deseni tekrarlar. PARENT de
  * dahil edilmiştir: Veli-Öğretmen Görüşme Randevusu formunda velinin
- * öğretmen seçebilmesi için kullanılır.
+ * öğretmen seçebilmesi için kullanılır. STUDENT de dahildir: Etüt
+ * Randevularım formunda öğrencinin kendi etüt talebi için öğretmen
+ * seçebilmesi için kullanılır (bkz. app/api/students/[studentId]/study-sessions).
  */
-const ROLES_ALLOWED: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.ACCOUNTING, UserRole.PARENT];
+const ROLES_ALLOWED: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.ACCOUNTING, UserRole.PARENT, UserRole.STUDENT];
 
 export async function GET(request: NextRequest) {
   const actor = await getSessionActor(request);

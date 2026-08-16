@@ -2,10 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
-import { fetchStudentStudySessions, STUDY_SESSION_STATUS_LABEL, type StudySessionStatus } from "@/lib/api/study-sessions";
+import {
+  createStudySession,
+  fetchStudentStudySessions,
+  STUDY_SESSION_STATUS_LABEL,
+  type StudySessionStatus,
+} from "@/lib/api/study-sessions";
+import { fetchTeachers } from "@/lib/api/teachers";
+import { fetchCurriculumAchievements } from "@/lib/api/exams";
 import { Icon } from "@/components/ui/icons";
 
 const ALLOWED_ROLES = ["STUDENT", "PARENT"];
@@ -18,6 +25,99 @@ const STATUS_CHIP: Record<StudySessionStatus, string> = {
   CANCELLED: "neutral",
 };
 
+function NewRequestForm({ studentId, onCreated }: { studentId: string; onCreated: () => void }) {
+  const teachersQuery = useQuery({ queryKey: ["teachers", "list"], queryFn: fetchTeachers });
+  const achievementsQuery = useQuery({ queryKey: ["curriculum-achievements"], queryFn: fetchCurriculumAchievements });
+
+  const [teacherId, setTeacherId] = useState("");
+  const [achievementId, setAchievementId] = useState("");
+  const [date, setDate] = useState("");
+  const [startTime, setStartTime] = useState("15:00");
+  const [endTime, setEndTime] = useState("15:40");
+  const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+
+  const createMutation = useMutation({
+    mutationFn: () =>
+      createStudySession(studentId, {
+        teacherId,
+        achievementId,
+        scheduledStart: `${date}T${startTime}:00`,
+        scheduledEnd: `${date}T${endTime}:00`,
+      }),
+    onSuccess: () => {
+      setStatus("Etüt talebiniz öğretmenin onayına gönderildi.");
+      setError(null);
+      setTeacherId("");
+      setAchievementId("");
+      setDate("");
+      onCreated();
+    },
+    onError: (e) => setError(e instanceof ApiError ? e.message : "Talep oluşturulamadı."),
+  });
+
+  function handleSubmit() {
+    setError(null);
+    setStatus(null);
+    if (!teacherId || !achievementId || !date) {
+      setError("Öğretmen, kazanım ve tarih zorunludur.");
+      return;
+    }
+    createMutation.mutate();
+  }
+
+  return (
+    <div className="card card-pad" style={{ marginBottom: 14 }}>
+      <div className="card-head">
+        <h3>Yeni Etüt Talebi</h3>
+      </div>
+      <div className="grid cols-2">
+        <div className="field">
+          <label>Öğretmen</label>
+          <select value={teacherId} onChange={(e) => setTeacherId(e.target.value)}>
+            <option value="">— Seçin —</option>
+            {teachersQuery.data?.teachers.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name} ({t.branch})
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label>Kazanım</label>
+          <select value={achievementId} onChange={(e) => setAchievementId(e.target.value)}>
+            <option value="">— Seçin —</option>
+            {achievementsQuery.data?.achievements.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.code} — {a.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div className="grid cols-3" style={{ marginTop: 12 }}>
+        <div className="field">
+          <label>Tarih</label>
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        </div>
+        <div className="field">
+          <label>Başlangıç</label>
+          <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+        </div>
+        <div className="field">
+          <label>Bitiş</label>
+          <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+        </div>
+      </div>
+      {error && <p style={{ margin: "8px 0 0", fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--critical)" }}>{error}</p>}
+      {status && <p style={{ margin: "8px 0 0", fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--strong)" }}>{status}</p>}
+      <button type="button" onClick={handleSubmit} disabled={createMutation.isPending} className="btn primary" style={{ marginTop: 12 }}>
+        {createMutation.isPending ? "Gönderiliyor…" : "Talep Oluştur"}
+      </button>
+    </div>
+  );
+}
+
 /**
  * Etüt Randevularım — demo/seviye360-app.html'deki "student:etut" ekranının
  * gerçek karşılığı. Karne/Akademik Yol Haritam'la aynı çoklu-çocuk seçici
@@ -25,6 +125,7 @@ const STATUS_CHIP: Record<StudySessionStatus, string> = {
  */
 export function StudentStudySessionsView() {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const { data: me, isLoading, isError, error } = useQuery({
     queryKey: authKeys.me(),
@@ -71,7 +172,7 @@ export function StudentStudySessionsView() {
   return (
     <div className="screen">
       <h1>Etüt Randevularım</h1>
-      <p className="lede">Yapay zeka tarafından önerilen ve öğretmen onayı bekleyen/onaylanmış etüt seanslarınız.</p>
+      <p className="lede">Yapay zeka tarafından önerilen ve öğretmen onayı bekleyen/onaylanmış etüt seanslarınız — kendiniz de yeni bir talep oluşturabilirsiniz.</p>
 
       {students.length > 1 && (
         <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
@@ -86,6 +187,13 @@ export function StudentStudySessionsView() {
             </button>
           ))}
         </div>
+      )}
+
+      {selectedStudentId && (
+        <NewRequestForm
+          studentId={selectedStudentId}
+          onCreated={() => queryClient.invalidateQueries({ queryKey: ["student-study-sessions", selectedStudentId] })}
+        />
       )}
 
       <div className="card card-pad">

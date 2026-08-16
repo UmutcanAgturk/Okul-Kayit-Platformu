@@ -45,7 +45,7 @@ export function TeacherStudySessionsView() {
   const sessionsQuery = useQuery({ queryKey: ["teacher-study-sessions"], queryFn: fetchTeacherStudySessions, enabled: !!me });
 
   const respondMutation = useMutation({
-    mutationFn: ({ sessionId, decision }: { sessionId: string; decision: "APPROVE" | "REJECT" }) =>
+    mutationFn: ({ sessionId, decision }: { sessionId: string; decision: "APPROVE" | "REJECT" | "COMPLETE" }) =>
       respondToStudySession(sessionId, decision),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["teacher-study-sessions"] }),
   });
@@ -68,7 +68,8 @@ export function TeacherStudySessionsView() {
 
   const sessions = sessionsQuery.data?.sessions ?? [];
   const pending = sessions.filter((s) => s.status === "AI_SUGGESTED");
-  const others = sessions.filter((s) => s.status !== "AI_SUGGESTED");
+  const approved = sessions.filter((s) => s.status === "TEACHER_APPROVED");
+  const others = sessions.filter((s) => s.status !== "AI_SUGGESTED" && s.status !== "TEACHER_APPROVED");
 
   return (
     <div className="screen">
@@ -120,6 +121,45 @@ export function TeacherStudySessionsView() {
                     Reddet
                   </button>
                 </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="card card-pad" style={{ marginBottom: 14 }}>
+        <div className="card-head">
+          <h3>Onaylanmış — Tamamlanmayı Bekliyor</h3>
+          <span className="hint">{approved.length} seans</span>
+        </div>
+        {approved.length === 0 ? (
+          <div className="empty-state">
+            <Icon name="clock" />
+            <p>Tamamlanmayı bekleyen onaylı seans yok.</p>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {approved.map((s) => (
+              <div
+                key={s.id}
+                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid var(--border)", padding: "9px 0" }}
+              >
+                <div>
+                  <div style={{ fontSize: "var(--text-base)", fontWeight: 600 }}>
+                    {s.student.user.firstName} {s.student.user.lastName}
+                  </div>
+                  <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
+                    {s.achievement?.label ?? "—"} · {new Date(s.scheduledStart).toLocaleString("tr-TR", { dateStyle: "medium", timeStyle: "short" })}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn xs"
+                  disabled={respondMutation.isPending}
+                  onClick={() => respondMutation.mutate({ sessionId: s.id, decision: "COMPLETE" })}
+                >
+                  Tamamlandı
+                </button>
               </div>
             ))}
           </div>
