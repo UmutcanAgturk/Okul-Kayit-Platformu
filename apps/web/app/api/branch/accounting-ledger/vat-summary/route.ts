@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { withBranchTenantContext } from "@/lib/db-context";
 import { vatBreakdown } from "@/lib/tax";
 
 /**
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol KDV özetini görüntüleyemez" }, { status: 403 });
   }
 
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
   const from = fromParam && !isNaN(Date.parse(fromParam)) ? new Date(fromParam) : null;
   const to = toParam && !isNaN(Date.parse(toParam)) ? new Date(toParam) : null;
 
-  const entries = await withTenantContext(actor, (tx) =>
+  const entries = await withBranchTenantContext(actor, (tx) =>
     tx.accountingLedgerEntry.findMany({
       where: {
         vatRate: { not: null },

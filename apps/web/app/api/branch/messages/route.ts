@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { actorLabel, logActivity } from "@/lib/audit-log";
 
 /**
@@ -30,11 +30,11 @@ export async function GET(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol gönderilen mesajları göremez" }, { status: 403 });
   }
 
-  const messages = await withTenantContext(actor, (tx) =>
+  const messages = await withBranchTenantContext(actor, (tx) =>
     tx.message.findMany({
       where: { senderUserId: actor.id },
       include: { _count: { select: { recipients: true } } },
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol mesaj gönderemez" }, { status: 403 });
   }
 
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: "Öğretmenler yalnızca öğrenci/veli hedefleyebilir" }, { status: 403 });
   }
 
-  const result = await withTenantContext(actor, async (tx) => {
+  const result = await withBranchTenantContext(actor, async (tx) => {
     if (classroomId) {
       const classroom = await tx.classroom.findUnique({ where: { id: classroomId } });
       if (!classroom) return { error: "Sınıf bulunamadı" as const };
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
 
     const message = await tx.message.create({
       data: {
-        tenantId: actor.tenantId!,
+        tenantId: effectiveTenantId(actor),
         senderUserId: actor.id,
         senderLabel: actorLabel(actor),
         title,
@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
     });
 
     await logActivity(tx, {
-      tenantId: actor.tenantId!,
+      tenantId: effectiveTenantId(actor),
       actorUserId: actor.id,
       actorLabel: actorLabel(actor),
       action: "Mesaj gönderildi",

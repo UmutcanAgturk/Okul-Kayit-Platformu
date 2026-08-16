@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { vatBreakdown, withholdingBreakdown } from "@/lib/tax";
 
 /**
@@ -13,11 +13,11 @@ import { vatBreakdown, withholdingBreakdown } from "@/lib/tax";
  * Bu route, aynı deseni (gerçek Postgres + RLS + oturum tabanlı kimlik)
  * doğrudan bu tabloya uygular.
  *
- * SUPERADMIN kasıtlı olarak dışarıda bırakıldı: bu route `/api/branch/...`
- * altında, TEK bir şubenin defterini hedefler; SUPERADMIN'in `tenantId`'si
- * olmadığından (Genel Merkez, tek bir tenant'a bağlı değildir) hem "hangi
- * şubenin defteri" sorusu hem de POST'ta hangi tenantId'ye yazılacağı
- * belirsiz kalırdı — Genel Merkez'in konsolide görünümü kapsam dışıdır.
+ * SUPERADMIN, Kurumlar sayfasından "Bu Şube Olarak Yönet" ile bir şube
+ * seçtiğinde (bkz. lib/db-context.ts withBranchTenantContext) buraya da
+ * erişebilir — "hangi şubenin defteri" ve POST'ta hangi tenantId'ye
+ * yazılacağı belirsizliği böylece açıkça çözülür; Genel Merkez'in konsolide
+ * görünümü için ayrıca /api/hq/accounting-ledger kullanılır.
  */
 const ROLES_ALLOWED: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.ACCOUNTING];
 
@@ -26,11 +26,11 @@ export async function GET(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol Muhasebe defterini görüntüleyemez" }, { status: 403 });
   }
 
-  const entries = await withTenantContext(actor, (tx) =>
+  const entries = await withBranchTenantContext(actor, (tx) =>
     tx.accountingLedgerEntry.findMany({ orderBy: { entryDate: "desc" } }),
   );
 
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol Muhasebe defterine kayıt ekleyemez" }, { status: 403 });
   }
 
@@ -92,10 +92,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: "withholdingRate 0 ile 1 arasında bir sayı olmalıdır" }, { status: 400 });
   }
 
-  const entry = await withTenantContext(actor, (tx) =>
+  const entry = await withBranchTenantContext(actor, (tx) =>
     tx.accountingLedgerEntry.create({
       data: {
-        tenantId: actor.tenantId!,
+        tenantId: effectiveTenantId(actor),
         type,
         category,
         amount,

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 
 /**
  * Bordro formunun "hangi öğretmen için?" seçicisini doldurmak için — bordro
@@ -19,16 +19,16 @@ export async function GET(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol öğretmen listesini görüntüleyemez" }, { status: 403 });
   }
-  if (!actor.tenantId) {
+  if (!actor.tenantId && !actor.actingTenantId) {
     return NextResponse.json({ teachers: [] });
   }
 
-  const teachers = await withTenantContext(actor, (tx) =>
+  const teachers = await withBranchTenantContext(actor, (tx) =>
     tx.teacherProfile.findMany({
-      where: { user: { tenantId: actor.tenantId!, role: UserRole.TEACHER, isActive: true } },
+      where: { user: { tenantId: effectiveTenantId(actor), role: UserRole.TEACHER, isActive: true } },
       include: { user: true },
       orderBy: { user: { firstName: "asc" } },
     }),

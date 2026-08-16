@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { withBranchTenantContext } from "@/lib/db-context";
 
 /**
  * Yoklama (Devamsızlık) ekranındaki sınıf seçicisini doldurur — öğretmenin
@@ -14,11 +14,11 @@ export async function GET(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol sınıf listesini görüntüleyemez" }, { status: 403 });
   }
 
-  const classrooms = await withTenantContext(actor, (tx) =>
+  const classrooms = await withBranchTenantContext(actor, (tx) =>
     tx.classroom.findMany({
       include: { _count: { select: { students: true } } },
       orderBy: { name: "asc" },

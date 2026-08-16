@@ -17,6 +17,7 @@ export interface StudentRoadmap {
   latestNet: number | null;
   maxPossibleNet: number | null;
   netPct: number;
+  netTrend: { label: string; value: number }[];
   criticalAchievements: CriticalAchievement[];
 }
 

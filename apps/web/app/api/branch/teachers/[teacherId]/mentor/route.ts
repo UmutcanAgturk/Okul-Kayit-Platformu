@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { actorLabel, logActivity } from "@/lib/audit-log";
 
 /**
@@ -17,13 +17,13 @@ export async function POST(request: NextRequest, { params }: { params: { teacher
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol mentör atamasını değiştiremez" }, { status: 403 });
   }
 
-  const result = await withTenantContext(actor, async (tx) => {
+  const result = await withBranchTenantContext(actor, async (tx) => {
     const teacher = await tx.teacherProfile.findFirst({
-      where: { id: params.teacherId, user: { tenantId: actor.tenantId!, role: UserRole.TEACHER } },
+      where: { id: params.teacherId, user: { tenantId: effectiveTenantId(actor), role: UserRole.TEACHER } },
       include: { user: true },
     });
     if (!teacher) return null;
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest, { params }: { params: { teacher
     });
 
     await logActivity(tx, {
-      tenantId: actor.tenantId!,
+      tenantId: effectiveTenantId(actor),
       actorUserId: actor.id,
       actorLabel: actorLabel(actor),
       action: updated.isMentor ? "Mentör havuzuna eklendi" : "Mentör havuzundan çıkarıldı",

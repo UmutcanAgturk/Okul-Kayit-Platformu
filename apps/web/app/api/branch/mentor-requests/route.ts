@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { withBranchTenantContext } from "@/lib/db-context";
 
 /**
  * Kurum (tenant) genelindeki tüm Seviye Mentör randevu taleplerinin salt
@@ -15,11 +15,11 @@ export async function GET(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol mentör randevu taleplerini görüntüleyemez" }, { status: 403 });
   }
 
-  const requests = await withTenantContext(actor, (tx) =>
+  const requests = await withBranchTenantContext(actor, (tx) =>
     tx.mentorRequest.findMany({
       include: { student: { include: { user: true } }, mentorTeacher: { include: { user: true } } },
       orderBy: { createdAt: "desc" },

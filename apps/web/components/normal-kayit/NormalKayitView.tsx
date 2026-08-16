@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
-import { completeEnrollment, enrollmentKeys, fetchEnrollments, type CompleteEnrollmentResult } from "@/lib/api/enrollments";
+import { completeEnrollment, enrollmentKeys, fetchEnrollments, GRADE_LEVEL_LABEL, type CompleteEnrollmentResult } from "@/lib/api/enrollments";
 import { Icon } from "@/components/ui/icons";
 import { BulkImportPanel } from "./BulkImportPanel";
+import { PrintDocumentViewer } from "@/components/documents/PrintDocumentViewer";
+import { EnrollmentContractPrintBody } from "@/components/documents/DocumentPrintBodies";
 
 const ALLOWED_ROLES = ["BRANCH_ADMIN", "GUIDANCE_COORDINATOR"];
 const LOCKED_STAGES = ["KAYIT_TAMAMLANDI", "IPTAL_EDILDI"];
@@ -32,6 +34,8 @@ export function NormalKayitView() {
   const [firstDueDate, setFirstDueDate] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [credentials, setCredentials] = useState<CompleteEnrollmentResult["credentials"] | null>(null);
+  const [lastCompleted, setLastCompleted] = useState<CompleteEnrollmentResult | null>(null);
+  const [showContract, setShowContract] = useState(false);
 
   const { data: me, isLoading, isError, error } = useQuery({
     queryKey: authKeys.me(),
@@ -51,6 +55,7 @@ export function NormalKayitView() {
     mutationFn: (vars: { id: string; input: Parameters<typeof completeEnrollment>[1] }) => completeEnrollment(vars.id, vars.input),
     onSuccess: (result) => {
       setCredentials(result.credentials);
+      setLastCompleted(result);
       setFormError(null);
       queryClient.invalidateQueries({ queryKey: enrollmentKeys.list() });
     },
@@ -216,6 +221,9 @@ export function NormalKayitView() {
                         <dd style={{ margin: 0, fontFamily: "monospace" }}>{credentials.password}</dd>
                       </div>
                     </dl>
+                    <button type="button" className="btn xs" style={{ marginTop: 10 }} onClick={() => setShowContract(true)}>
+                      Kayıt Sözleşmesini Yazdır
+                    </button>
                   </div>
                 )}
               </div>
@@ -224,6 +232,21 @@ export function NormalKayitView() {
         </div>
       </div>
       )}
+      <PrintDocumentViewer open={showContract && !!lastCompleted} onClose={() => setShowContract(false)} documentNo={lastCompleted?.enrollment.candidateFullName ?? ""}>
+        {lastCompleted && (
+          <EnrollmentContractPrintBody
+            enrollment={{
+              candidateFullName: lastCompleted.enrollment.candidateFullName,
+              candidateGradeLevel: lastCompleted.enrollment.candidateGradeLevel,
+              guardianFullName: lastCompleted.enrollment.guardianFullName,
+              guardianPhone: lastCompleted.enrollment.guardianPhone,
+              contractSignedAt: null,
+              installments: lastCompleted.installments.map((i) => ({ installmentNo: i.installmentNo, amount: String(i.amount), dueDate: i.dueDate })),
+            }}
+            gradeLabel={GRADE_LEVEL_LABEL[lastCompleted.enrollment.candidateGradeLevel] ?? lastCompleted.enrollment.candidateGradeLevel}
+          />
+        )}
+      </PrintDocumentViewer>
     </div>
   );
 }

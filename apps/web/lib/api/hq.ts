@@ -159,6 +159,32 @@ export function fetchHqAnalytics() {
   return apiFetch<HqAnalytics>("/api/hq/analytics", { cache: "no-store" });
 }
 
+export interface HqExamBranchBreakdownRow {
+  tenantId: string;
+  tenantCode: string;
+  tenantName: string;
+  studentCount: number;
+  totalFee: number;
+}
+
+export function fetchHqExamBranchBreakdown(examId: string) {
+  return apiFetch<{ exam: { id: string; name: string; examDate: string; feePerStudent: number | null }; branches: HqExamBranchBreakdownRow[] }>(
+    `/api/hq/exams/${examId}/branch-breakdown`,
+    { cache: "no-store" },
+  );
+}
+
+export function setActingTenant(tenantId: string) {
+  return apiFetch<{ tenantId: string; tenantName: string }>("/api/hq/acting-tenant", {
+    method: "POST",
+    body: JSON.stringify({ tenantId }),
+  });
+}
+
+export function clearActingTenant() {
+  return apiFetch<{ ok: true }>("/api/hq/acting-tenant", { method: "DELETE" });
+}
+
 export const hqKeys = {
   tenants: () => ["hq", "tenants"] as const,
   accountingSummary: () => ["hq", "accounting-summary"] as const,

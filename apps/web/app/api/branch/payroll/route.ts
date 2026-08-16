@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { computePayroll } from "@/lib/payroll";
 
 /**
@@ -12,9 +12,9 @@ import { computePayroll } from "@/lib/payroll";
  * bir "Personel Maaşı" gider kalemi olarak Muhasebe defterine de yazar —
  * PaymentInstallment.collect'in ledger'a satır düşme deseniyle aynı.
  *
- * SUPERADMIN kasıtlı olarak dışarıda: diğer `/api/branch/...` route'larıyla
- * aynı gerekçe (tek bir şubeyi hedefler, Genel Merkez konsolide görünümü
- * kapsam dışı).
+ * SUPERADMIN, Kurumlar sayfasından "Bu Şube Olarak Yönet" ile bir şube
+ * seçtiğinde (bkz. lib/db-context.ts withBranchTenantContext) buraya da
+ * erişebilir; RLS o seçilen tek şubeyle sınırlar.
  */
 const ROLES_ALLOWED: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.ACCOUNTING];
 
@@ -23,11 +23,11 @@ export async function GET(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol bordroları görüntüleyemez" }, { status: 403 });
   }
 
-  const records = await withTenantContext(actor, (tx) =>
+  const records = await withBranchTenantContext(actor, (tx) =>
     tx.payrollRecord.findMany({
       include: {
         teacher: { include: { user: true } },
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol bordro oluşturamaz" }, { status: 403 });
   }
 
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const outcome = await withTenantContext(actor, async (tx) => {
+  const outcome = await withBranchTenantContext(actor, async (tx) => {
     let personName: string;
 
     if (teacherId) {
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
       // prisma/rls/README.md) — bu yüzden "bu öğretmen gerçekten bu şubede mi"
       // kontrolü burada, uygulama katmanında elle yapılır.
       const teacher = await tx.teacherProfile.findUnique({ where: { id: teacherId }, include: { user: true } });
-      if (!teacher || teacher.user.tenantId !== actor.tenantId) {
+      if (!teacher || teacher.user.tenantId !== effectiveTenantId(actor)) {
         return { kind: "not_found" as const };
       }
       personName = `${teacher.user.firstName} ${teacher.user.lastName}`;
@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
 
     const ledgerEntry = await tx.accountingLedgerEntry.create({
       data: {
-        tenantId: actor.tenantId!,
+        tenantId: effectiveTenantId(actor),
         type: "GIDER",
         category: "Personel Maaşı",
         amount: breakdown.employerCost,
@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
 
     const record = await tx.payrollRecord.create({
       data: {
-        tenantId: actor.tenantId!,
+        tenantId: effectiveTenantId(actor),
         teacherId: teacherId ?? undefined,
         staffProfileId: staffProfileId ?? undefined,
         period,

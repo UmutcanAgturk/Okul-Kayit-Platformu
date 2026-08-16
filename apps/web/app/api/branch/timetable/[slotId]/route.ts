@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { actorLabel, logActivity } from "@/lib/audit-log";
 
 const WRITE_ROLES: UserRole[] = [UserRole.BRANCH_ADMIN];
@@ -11,18 +11,18 @@ export async function DELETE(request: NextRequest, { params }: { params: { slotI
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!WRITE_ROLES.includes(actor.role)) {
+  if (!WRITE_ROLES.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol ders programından silme yapamaz" }, { status: 403 });
   }
 
-  const outcome = await withTenantContext(actor, async (tx) => {
+  const outcome = await withBranchTenantContext(actor, async (tx) => {
     const slot = await tx.timetableSlot.findUnique({ where: { id: params.slotId }, include: { classroom: true } });
     if (!slot) return { kind: "not_found" as const };
 
     await tx.timetableSlot.delete({ where: { id: slot.id } });
 
     await logActivity(tx, {
-      tenantId: actor.tenantId!,
+      tenantId: effectiveTenantId(actor),
       actorUserId: actor.id,
       actorLabel: actorLabel(actor),
       action: "Ders programından silindi",

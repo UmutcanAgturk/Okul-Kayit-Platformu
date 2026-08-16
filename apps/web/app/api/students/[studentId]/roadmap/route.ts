@@ -75,6 +75,10 @@ export async function GET(request: NextRequest, { params }: { params: { studentI
       .sort((a, b) => a.avgRatio - b.avgRatio)
       .slice(0, 5);
 
+    const netTrend = [...examResults]
+      .reverse()
+      .map((r) => ({ label: r.exam.name, value: Math.round(r.netScore * 10) / 10 }));
+
     return {
       kind: "ok" as const,
       studentId: student.id,
@@ -85,6 +89,7 @@ export async function GET(request: NextRequest, { params }: { params: { studentI
       latestNet,
       maxPossibleNet,
       netPct,
+      netTrend,
       criticalAchievements,
     };
   });

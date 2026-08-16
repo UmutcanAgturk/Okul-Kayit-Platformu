@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { subjectFromCode } from "@/lib/curriculum";
 
 /**
@@ -22,16 +22,16 @@ export async function GET(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol öğretmen performansını görüntüleyemez" }, { status: 403 });
   }
 
-  const teachers = await withTenantContext(actor, async (tx) => {
+  const teachers = await withBranchTenantContext(actor, async (tx) => {
     // DİKKAT: TeacherProfile'da da (StudentAchievementResult gibi) RLS yok —
     // tabloda doğrudan bir tenantId kolonu yok (bkz. app/api/branch/teachers'daki
     // aynı not). Tenant filtresi burada `User.tenantId` üzerinden AÇIKÇA uygulanır.
     const teacherProfiles = await tx.teacherProfile.findMany({
-      where: { user: { tenantId: actor.tenantId!, role: UserRole.TEACHER, isActive: true } },
+      where: { user: { tenantId: effectiveTenantId(actor), role: UserRole.TEACHER, isActive: true } },
       include: { user: true },
       orderBy: { user: { firstName: "asc" } },
     });
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     // var). Bu yüzden tenant filtresi burada AÇIKÇA `student.tenantId` üzerinden
     // uygulanır — aksi halde bir BRANCH_ADMIN tüm şubelerin verisini görürdü.
     const achievementRows = await tx.studentAchievementResult.findMany({
-      where: { student: { tenantId: actor.tenantId! } },
+      where: { student: { tenantId: effectiveTenantId(actor) } },
       include: { achievement: true },
     });
 

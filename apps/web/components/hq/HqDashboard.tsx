@@ -10,13 +10,18 @@ import {
   createTenant,
   fetchHqAccountingSummary,
   fetchHqAnalytics,
+  fetchHqExamBranchBreakdown,
   fetchHqExams,
   fetchHqStudents,
   fetchHqTenants,
   hqKeys,
   toggleTenantActive,
+  type HqExam,
   type HqTenant,
 } from "@/lib/api/hq";
+import { downloadLogoTigerCsv } from "@/lib/logo-tiger-csv";
+import { HBarChart } from "@/components/ui/charts/HBarChart";
+import { setActingTenant } from "@/lib/api/hq";
 
 const ALLOWED_ROLES = ["SUPERADMIN"];
 const TENANT_TYPE_LABEL: Record<string, string> = { GENEL_MERKEZ: "Genel Merkez", SUBE: "Şube", BOLUM: "Bölüm" };
@@ -40,7 +45,19 @@ function formatTl(n: number) {
   return `₺${n.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function TenantCard({ tenant, onToggleActive, toggling }: { tenant: HqTenant; onToggleActive: (tenantId: string) => void; toggling: boolean }) {
+function TenantCard({
+  tenant,
+  onToggleActive,
+  toggling,
+  onActAs,
+  actingAs,
+}: {
+  tenant: HqTenant;
+  onToggleActive: (tenantId: string) => void;
+  toggling: boolean;
+  onActAs: (tenantId: string) => void;
+  actingAs: boolean;
+}) {
   const occupancyPct = tenant.capacity && tenant.capacity > 0 ? Math.round((tenant.studentCount / tenant.capacity) * 100) : null;
   return (
     <div className="card card-pad">
@@ -87,9 +104,16 @@ function TenantCard({ tenant, onToggleActive, toggling }: { tenant: HqTenant; on
         Şube Müdürü: <span style={{ fontWeight: 600, color: "var(--ink-muted)" }}>{tenant.branchAdminName ?? "Atanmamış"}</span>
       </p>
       {tenant.type !== "GENEL_MERKEZ" && (
-        <button type="button" onClick={() => onToggleActive(tenant.id)} disabled={toggling} className="btn xs" style={{ marginTop: 12 }}>
-          {tenant.isActive ? "Devre Dışı Bırak" : "Yeniden Etkinleştir"}
-        </button>
+        <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+          <button type="button" onClick={() => onToggleActive(tenant.id)} disabled={toggling} className="btn xs">
+            {tenant.isActive ? "Devre Dışı Bırak" : "Yeniden Etkinleştir"}
+          </button>
+          {tenant.type === "SUBE" && tenant.isActive && (
+            <button type="button" onClick={() => onActAs(tenant.id)} disabled={actingAs} className="btn xs primary">
+              {actingAs ? "Geçiliyor…" : "Bu Şube Olarak Yönet"}
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
@@ -330,6 +354,38 @@ function HqStudentsPanel({ tenants }: { tenants: HqTenant[] }) {
   );
 }
 
+function ExportLogoTigerButton({ exam }: { exam: HqExam }) {
+  const [state, setState] = useState<"idle" | "loading" | "error">("idle");
+
+  async function handleClick() {
+    setState("loading");
+    try {
+      const { branches } = await fetchHqExamBranchBreakdown(exam.id);
+      if (branches.length === 0) {
+        setState("error");
+        return;
+      }
+      downloadLogoTigerCsv(exam, branches);
+      setState("idle");
+    } catch {
+      setState("error");
+    }
+  }
+
+  return (
+    <>
+      <button type="button" className="btn xs" onClick={handleClick} disabled={state === "loading"}>
+        {state === "loading" ? "Hazırlanıyor…" : "Logo/Tiger CSV İndir"}
+      </button>
+      {state === "error" && (
+        <span style={{ marginLeft: 8, fontSize: "var(--text-2xs)", color: "var(--critical)" }}>
+          İndirilemedi — bu sınavda henüz kayıtlı öğrencisi olan şube yok.
+        </span>
+      )}
+    </>
+  );
+}
+
 function HqExamsPanel() {
   const queryClient = useQueryClient();
   const examsQuery = useQuery({ queryKey: hqKeys.exams(), queryFn: fetchHqExams });
@@ -442,28 +498,12 @@ function HqExamsPanel() {
                 <span>{exam.opticFormCount} optik form</span>
                 <span>{exam.feePerStudent ? formatTl2(exam.totalFee) : "—"}</span>
               </div>
+              <div style={{ marginTop: 8 }}>
+                <ExportLogoTigerButton exam={exam} />
+              </div>
             </div>
           ))}
         </div>
-      </div>
-    </div>
-  );
-}
-
-function HBar({ label, sub, value, max, valueLabel, tone }: { label: string; sub?: string; value: number; max: number; valueLabel: string; tone?: "strong" | "weak" | "critical" }) {
-  const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
-  const barColor = tone === "strong" ? "var(--strong)" : tone === "critical" ? "var(--critical)" : tone === "weak" ? "var(--weak)" : "var(--brand)";
-  return (
-    <div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
-        <span>
-          {label}
-          {sub && <span style={{ marginLeft: 4, color: "var(--ink-faint)" }}>· {sub}</span>}
-        </span>
-        <span>{valueLabel}</span>
-      </div>
-      <div className="progress-track" style={{ marginTop: 4, height: 6 }}>
-        <div style={{ height: "100%", borderRadius: 999, width: `${pct}%`, background: barColor, transition: "width .5s var(--ease)" }} />
       </div>
     </div>
   );
@@ -525,19 +565,16 @@ function HqAnalyticsPanel() {
               {data.subjectPerformance.length === 0 ? (
                 <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Henüz kazanım sonucu yok.</p>
               ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {data.subjectPerformance.map((s) => (
-                    <HBar
-                      key={s.subject}
-                      label={s.subject}
-                      sub={`${s.count} sonuç`}
-                      value={s.avgMasteryPct}
-                      max={100}
-                      valueLabel={`%${s.avgMasteryPct}`}
-                      tone={s.avgMasteryPct >= 70 ? "strong" : s.avgMasteryPct >= 40 ? "weak" : "critical"}
-                    />
-                  ))}
-                </div>
+                <HBarChart
+                  max={100}
+                  unit="%"
+                  rows={data.subjectPerformance.map((s) => ({
+                    label: s.subject,
+                    sub: `${s.count} sonuç`,
+                    value: s.avgMasteryPct,
+                    tone: s.avgMasteryPct >= 70 ? "strong" : s.avgMasteryPct >= 40 ? "weak" : "critical",
+                  }))}
+                />
               )}
             </div>
             <div>
@@ -545,18 +582,9 @@ function HqAnalyticsPanel() {
               {data.branchRevenue.length === 0 ? (
                 <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Kurum yok.</p>
               ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {data.branchRevenue.map((b) => (
-                    <HBar
-                      key={b.tenantId}
-                      label={b.tenantName}
-                      sub={b.city ?? undefined}
-                      value={b.totalGelir}
-                      max={Math.max(...data.branchRevenue.map((r) => r.totalGelir), 1)}
-                      valueLabel={formatTl2(b.totalGelir)}
-                    />
-                  ))}
-                </div>
+                <HBarChart
+                  rows={data.branchRevenue.map((b) => ({ label: b.tenantName, sub: b.city ?? undefined, value: b.totalGelir, valueLabel: formatTl2(b.totalGelir) }))}
+                />
               )}
             </div>
           </div>
@@ -582,6 +610,14 @@ export function HqDashboard() {
   const toggleActiveMutation = useMutation({
     mutationFn: toggleTenantActive,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: hqKeys.tenants() }),
+  });
+
+  const actAsMutation = useMutation({
+    mutationFn: setActingTenant,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: authKeys.me() });
+      router.push("/dashboard");
+    },
   });
 
   const { data: me, isLoading, isError, error } = useQuery({
@@ -650,7 +686,14 @@ export function HqDashboard() {
           <h2 style={{ margin: "0 0 12px", fontSize: "var(--text-md)", fontWeight: 700 }}>Tüm Kurumlar</h2>
           <div className="grid cols-2">
             {tenants.map((t) => (
-              <TenantCard key={t.id} tenant={t} onToggleActive={(id) => toggleActiveMutation.mutate(id)} toggling={toggleActiveMutation.isPending} />
+              <TenantCard
+                key={t.id}
+                tenant={t}
+                onToggleActive={(id) => toggleActiveMutation.mutate(id)}
+                toggling={toggleActiveMutation.isPending}
+                onActAs={(id) => actAsMutation.mutate(id)}
+                actingAs={actAsMutation.isPending && actAsMutation.variables === t.id}
+              />
             ))}
           </div>
         </div>

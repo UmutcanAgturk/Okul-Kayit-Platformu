@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { withBranchTenantContext } from "@/lib/db-context";
 
 /**
  * Şubenin taksitlerini listeler — `/collect` route'u yalnızca tek bir
  * `installmentId` üzerinden çalışıyordu, o ID'yi önceden bulacak bir liste
  * yoktu. Muhasebe defteri route'undaki desenle aynı (accounting-ledger):
- * SUPERADMIN kasıtlı olarak dışarıda bırakıldı, çünkü "hangi şubenin
- * taksitleri" sorusu Genel Merkez için belirsiz kalır.
+ * SUPERADMIN, "hangi şubenin taksitleri" belirsizliğini Kurumlar sayfasından
+ * "Bu Şube Olarak Yönet" ile açıkça seçerek çözer (bkz. lib/db-context.ts
+ * withBranchTenantContext) — o zaman bu route'a erişebilir.
  */
 const ROLES_ALLOWED: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.ACCOUNTING];
 
@@ -17,13 +18,13 @@ export async function GET(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol taksitleri görüntüleyemez" }, { status: 403 });
   }
 
   const statusFilter = request.nextUrl.searchParams.get("status");
 
-  const installments = await withTenantContext(actor, (tx) =>
+  const installments = await withBranchTenantContext(actor, (tx) =>
     tx.paymentInstallment.findMany({
       where: statusFilter === "PENDING" || statusFilter === "PAID" ? { status: statusFilter } : undefined,
       orderBy: { dueDate: "asc" },

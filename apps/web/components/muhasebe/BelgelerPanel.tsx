@@ -14,11 +14,16 @@ import {
   fetchPromissoryNotes,
   fetchReceipts,
   markPromissoryNotePaid,
+  type Invoice,
+  type PromissoryNote,
+  type Receipt,
   ReceiptMethod,
   ReceiptType,
 } from "@/lib/api/documents";
 import { ApiError } from "@/lib/api/client";
 import { Icon } from "@/components/ui/icons";
+import { PrintDocumentViewer } from "@/components/documents/PrintDocumentViewer";
+import { InvoicePrintBody, PromissoryNotePrintBody, ReceiptPrintBody } from "@/components/documents/DocumentPrintBodies";
 
 function tl(n: number) {
   return "₺" + Math.round(n).toLocaleString("tr-TR");
@@ -85,6 +90,7 @@ function FaturaTab() {
   const [note, setNote] = useState("");
   const [items, setItems] = useState([{ description: "", quantity: 1, unitPrice: 0 }]);
   const [formError, setFormError] = useState<string | null>(null);
+  const [printInvoice, setPrintInvoice] = useState<Invoice | null>(null);
 
   const createMutation = useMutation({
     mutationFn: createInvoice,
@@ -243,6 +249,9 @@ function FaturaTab() {
                 </span>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <span style={{ fontWeight: 700 }}>{tl(Number(inv.total))}</span>
+                  <button type="button" onClick={() => setPrintInvoice(inv)} className="btn xs">
+                    Yazdır
+                  </button>
                   <button type="button" onClick={() => deleteMutation.mutate(inv.id)} className="btn xs">
                     Sil
                   </button>
@@ -256,6 +265,9 @@ function FaturaTab() {
           ))}
         </div>
       </div>
+      <PrintDocumentViewer open={!!printInvoice} onClose={() => setPrintInvoice(null)} documentNo={printInvoice?.no ?? ""}>
+        {printInvoice && <InvoicePrintBody invoice={printInvoice} />}
+      </PrintDocumentViewer>
     </div>
   );
 }
@@ -272,6 +284,7 @@ function DekontTab() {
   const [description, setDescription] = useState("");
   const [note, setNote] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
+  const [printReceipt, setPrintReceipt] = useState<Receipt | null>(null);
 
   const createMutation = useMutation({
     mutationFn: createReceipt,
@@ -390,6 +403,9 @@ function DekontTab() {
                     {r.type === "TAHSILAT" ? "+" : "-"}
                     {tl(Number(r.amount))}
                   </span>
+                  <button type="button" onClick={() => setPrintReceipt(r)} className="btn xs">
+                    Yazdır
+                  </button>
                   <button type="button" onClick={() => deleteMutation.mutate(r.id)} className="btn xs">
                     Sil
                   </button>
@@ -402,6 +418,9 @@ function DekontTab() {
           ))}
         </div>
       </div>
+      <PrintDocumentViewer open={!!printReceipt} onClose={() => setPrintReceipt(null)} documentNo={printReceipt?.no ?? ""}>
+        {printReceipt && <ReceiptPrintBody receipt={printReceipt} />}
+      </PrintDocumentViewer>
     </div>
   );
 }
@@ -416,6 +435,7 @@ function SenetTab() {
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
+  const [printNote, setPrintNote] = useState<PromissoryNote | null>(null);
 
   const createMutation = useMutation({
     mutationFn: createPromissoryNote,
@@ -527,6 +547,9 @@ function SenetTab() {
                       Ödendi İşaretle
                     </button>
                   )}
+                  <button type="button" onClick={() => setPrintNote(n)} className="btn xs">
+                    Yazdır
+                  </button>
                   <button type="button" onClick={() => deleteMutation.mutate(n.id)} className="btn xs">
                     Sil
                   </button>
@@ -536,6 +559,9 @@ function SenetTab() {
           ))}
         </div>
       </div>
+      <PrintDocumentViewer open={!!printNote} onClose={() => setPrintNote(null)} documentNo={printNote?.no ?? ""}>
+        {printNote && <PromissoryNotePrintBody note={printNote} />}
+      </PrintDocumentViewer>
     </div>
   );
 }

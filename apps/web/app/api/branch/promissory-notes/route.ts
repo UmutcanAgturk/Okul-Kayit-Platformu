@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { formatDocumentNo } from "@/lib/documents";
 
 /**
@@ -19,11 +19,11 @@ export async function GET(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol senetleri görüntüleyemez" }, { status: 403 });
   }
 
-  const notes = await withTenantContext(actor, (tx) =>
+  const notes = await withBranchTenantContext(actor, (tx) =>
     tx.promissoryNote.findMany({ orderBy: { createdAt: "desc" } }),
   );
 
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol senet oluşturamaz" }, { status: 403 });
   }
 
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
   }
 
   const year = new Date().getFullYear();
-  const outcome = await withTenantContext(actor, async (tx) => {
+  const outcome = await withBranchTenantContext(actor, async (tx) => {
     if (studentId) {
       const student = await tx.studentProfile.findUnique({ where: { id: studentId } });
       if (!student) return { kind: "student_not_found" as const };
@@ -62,16 +62,16 @@ export async function POST(request: NextRequest) {
     // çalışmaz (bkz. invoices/route.ts'teki aynı yorum) — önce boş bir `no`
     // bulunur (yalnızca SELECT'lerle), INSERT en sonda ve yalnızca BİR KEZ
     // çalıştırılır.
-    const count = await tx.promissoryNote.count({ where: { tenantId: actor.tenantId! } });
+    const count = await tx.promissoryNote.count({ where: { tenantId: effectiveTenantId(actor) } });
     let no = formatDocumentNo("SNT", year, count + 1);
     for (let attempt = 1; attempt < 20; attempt++) {
-      const existing = await tx.promissoryNote.findUnique({ where: { tenantId_no: { tenantId: actor.tenantId!, no } } });
+      const existing = await tx.promissoryNote.findUnique({ where: { tenantId_no: { tenantId: effectiveTenantId(actor), no } } });
       if (!existing) break;
       no = formatDocumentNo("SNT", year, count + 1 + attempt);
     }
 
     const promissoryNote = await tx.promissoryNote.create({
-      data: { tenantId: actor.tenantId!, no, issueDate, dueDate, debtorName, amount, note, studentId, createdByUserId: actor.id },
+      data: { tenantId: effectiveTenantId(actor), no, issueDate, dueDate, debtorName, amount, note, studentId, createdByUserId: actor.id },
     });
     return { kind: "created" as const, promissoryNote };
   });

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PaymentStatus, UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { withBranchTenantContext } from "@/lib/db-context";
 
 /**
  * Taksit tahsilatı yaşlandırma raporu — demo/seviye360-app.html'deki
@@ -12,10 +12,10 @@ import { withTenantContext } from "@/lib/db-context";
  * göre gruplar; her öğrenci için en eski vadeyi baz alarak standart bir
  * muhasebe yaşlandırma aralığına (0-30/31-60/61-90/90+ gün) atar.
  *
- * SUPERADMIN kasıtlı olarak dışarıda bırakıldı — aynı `/api/branch/...`
- * altındaki accounting-ledger ve payment-installments route'larıyla aynı
- * gerekçe: "hangi şubenin raporu" sorusu Genel Merkez için belirsiz kalır
- * (bkz. /api/hq/accounting-ledger, konsolide çoklu-kurum görünümü için).
+ * SUPERADMIN, Kurumlar sayfasından "Bu Şube Olarak Yönet" ile bir şube
+ * seçtiğinde (bkz. lib/db-context.ts withBranchTenantContext) buraya da
+ * erişebilir; çoklu-kurum konsolide görünüm için ayrıca /api/hq/accounting-ledger
+ * kullanılır.
  */
 const ROLES_ALLOWED: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.ACCOUNTING];
 
@@ -35,13 +35,13 @@ export async function GET(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol yaşlandırma raporunu görüntüleyemez" }, { status: 403 });
   }
 
   const now = new Date();
 
-  const overdue = await withTenantContext(actor, (tx) =>
+  const overdue = await withBranchTenantContext(actor, (tx) =>
     tx.paymentInstallment.findMany({
       where: { status: PaymentStatus.PENDING, dueDate: { lt: now } },
       include: { student: { include: { user: true } } },

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma, UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { withBranchTenantContext } from "@/lib/db-context";
 
 /**
  * `../route.ts`'teki GET/POST'a eksik kalan DELETE — demo'daki (seviye360-app.html)
@@ -18,12 +18,12 @@ export async function DELETE(request: NextRequest, { params }: { params: { entry
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol Muhasebe defterinden kayıt silemez" }, { status: 403 });
   }
 
   try {
-    const outcome = await withTenantContext(actor, async (tx) => {
+    const outcome = await withBranchTenantContext(actor, async (tx) => {
       const entry = await tx.accountingLedgerEntry.findUnique({ where: { id: params.entryId } });
       if (!entry) return { kind: "not_found" as const };
       await tx.accountingLedgerEntry.delete({ where: { id: params.entryId } });

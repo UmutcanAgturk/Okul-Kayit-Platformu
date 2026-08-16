@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { EnrollmentType, GradeLevel, UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { actorLabel, logActivity } from "@/lib/audit-log";
 
 /**
@@ -13,8 +13,9 @@ import { actorLabel, logActivity } from "@/lib/audit-log";
  * StudentProfile/User olmadan) tenant'a kaydeder — asıl User/StudentProfile/
  * taksit planı `[enrollmentId]/complete`'te oluşturulur.
  *
- * SUPERADMIN kasıtlı olarak dışarıda: diğer `/api/branch/...` route'larıyla
- * aynı gerekçe (tek bir şubeyi hedefler).
+ * SUPERADMIN, yalnızca Kurumlar sayfasından "Bu Şube Olarak Yönet" ile bir
+ * şube seçtiğinde (bkz. lib/db-context.ts withBranchTenantContext) buraya
+ * erişebilir — RLS o seçilen tek şubeyle sınırlar.
  */
 const ROLES_ALLOWED: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.GUIDANCE_COORDINATOR];
 const VALID_STAGES = ["ON_KAYIT_ALINDI", "SOZLESME_BEKLENIYOR", "ODEME_PLANI_OLUSTURULDU", "KAYIT_TAMAMLANDI", "IPTAL_EDILDI"];
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol kayıt adaylarını görüntüleyemez" }, { status: 403 });
   }
 
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: `stage şunlardan biri olmalıdır: ${VALID_STAGES.join(", ")}` }, { status: 400 });
   }
 
-  const enrollments = await withTenantContext(actor, (tx) =>
+  const enrollments = await withBranchTenantContext(actor, (tx) =>
     tx.enrollment.findMany({
       where: stage ? { stage: stage as any } : undefined,
       orderBy: { createdAt: "desc" },
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol kayıt adayı oluşturamaz" }, { status: 403 });
   }
 
@@ -68,14 +69,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const enrollment = await withTenantContext(actor, async (tx) => {
+  const enrollment = await withBranchTenantContext(actor, async (tx) => {
     if (targetClassroomId) {
       const classroom = await tx.classroom.findUnique({ where: { id: targetClassroomId } });
       if (!classroom) return null;
     }
     const created = await tx.enrollment.create({
       data: {
-        tenantId: actor.tenantId!,
+        tenantId: effectiveTenantId(actor),
         type,
         candidateFullName,
         candidateGradeLevel,
@@ -87,7 +88,7 @@ export async function POST(request: NextRequest) {
     });
 
     await logActivity(tx, {
-      tenantId: actor.tenantId!,
+      tenantId: effectiveTenantId(actor),
       actorUserId: actor.id,
       actorLabel: actorLabel(actor),
       action: "Kayıt adayı eklendi",

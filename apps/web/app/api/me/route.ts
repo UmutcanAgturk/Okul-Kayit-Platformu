@@ -17,6 +17,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
 
+  let actingTenantName: string | null = null;
+  if (actor.role === UserRole.SUPERADMIN && actor.actingTenantId) {
+    const actingTenant = await withTenantContext(actor, (tx) => tx.tenant.findUnique({ where: { id: actor.actingTenantId! } }));
+    actingTenantName = actingTenant?.name ?? null;
+  }
+
   const base = {
     id: actor.id,
     email: actor.email,
@@ -24,6 +30,8 @@ export async function GET(request: NextRequest) {
     lastName: actor.lastName,
     role: actor.role,
     tenantId: actor.tenantId,
+    actingTenantId: actor.actingTenantId,
+    actingTenantName,
   };
 
   if (actor.role === UserRole.STUDENT) {

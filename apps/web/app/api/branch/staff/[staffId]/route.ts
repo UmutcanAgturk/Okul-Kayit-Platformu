@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { actorLabel, logActivity } from "@/lib/audit-log";
 
 const ROLES_ALLOWED: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.ACCOUNTING];
@@ -31,14 +31,14 @@ export async function PATCH(request: NextRequest, { params }: { params: { staffI
     return NextResponse.json({ message: `role şunlardan biri olmalı: ${STAFF_USER_ROLES.join(", ")}` }, { status: 400 });
   }
 
-  const outcome = await withTenantContext(actor, async (tx) => {
+  const outcome = await withBranchTenantContext(actor, async (tx) => {
     const staff = await tx.staffProfile.findUnique({ where: { id: params.staffId }, include: { user: true } });
     if (!staff) return { kind: "not_found" as const };
 
     await tx.user.update({ where: { id: staff.userId }, data: { role } });
 
     await logActivity(tx, {
-      tenantId: actor.tenantId!,
+      tenantId: effectiveTenantId(actor),
       actorUserId: actor.id,
       actorLabel: actorLabel(actor),
       action: "Personel rolü değiştirildi",
@@ -65,11 +65,11 @@ export async function DELETE(request: NextRequest, { params }: { params: { staff
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol personeli devre dışı bırakamaz" }, { status: 403 });
   }
 
-  const outcome = await withTenantContext(actor, async (tx) => {
+  const outcome = await withBranchTenantContext(actor, async (tx) => {
     // StaffProfile RLS ile tenant'a scope edilmiştir — başka bir tenant'a ait
     // bir id burada zaten görünmez (null döner).
     const staff = await tx.staffProfile.findUnique({ where: { id: params.staffId } });

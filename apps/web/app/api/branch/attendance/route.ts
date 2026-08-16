@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AttendanceStatus, UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 
 /**
  * Devamsızlık/Yoklama — demo/seviye360-app.html'deki "teacher:attendance" /
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol yoklama görüntüleyemez" }, { status: 403 });
   }
 
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: "classroomId ve date (YYYY-MM-DD) zorunludur" }, { status: 400 });
   }
 
-  const outcome = await withTenantContext(actor, async (tx) => {
+  const outcome = await withBranchTenantContext(actor, async (tx) => {
     const classroom = await tx.classroom.findUnique({ where: { id: classroomId } });
     if (!classroom) return { kind: "not_found" as const };
 
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol yoklama kaydedemez" }, { status: 403 });
   }
 
@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const outcome = await withTenantContext(actor, async (tx) => {
+  const outcome = await withBranchTenantContext(actor, async (tx) => {
     const classroom = await tx.classroom.findUnique({ where: { id: classroomId } });
     if (!classroom) return { kind: "not_found" as const };
 
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
       await tx.attendanceRecord.upsert({
         where: { studentId_date: { studentId: r.studentId, date } },
         create: {
-          tenantId: actor.tenantId!,
+          tenantId: effectiveTenantId(actor),
           studentId: r.studentId,
           classroomId,
           date,

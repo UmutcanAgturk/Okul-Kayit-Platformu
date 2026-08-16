@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PaymentStatus, StudySessionStatus, UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { withBranchTenantContext } from "@/lib/db-context";
 import { subjectFromCode } from "@/lib/curriculum";
 
 /**
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol Günlük Operasyon Paneli'ni görüntüleyemez" }, { status: 403 });
   }
 
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
   const todayEnd = new Date(`${today}T23:59:59.999Z`);
   const in7Days = new Date(todayStart.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-  const result = await withTenantContext(actor, async (tx) => {
+  const result = await withBranchTenantContext(actor, async (tx) => {
     const [overdueRows, upcomingRows, todaySessions] = await Promise.all([
       tx.paymentInstallment.findMany({
         where: { status: PaymentStatus.PENDING, dueDate: { lt: todayStart } },

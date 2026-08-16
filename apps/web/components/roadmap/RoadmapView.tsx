@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { fetchRoadmap, roadmapKeys } from "@/lib/api/roadmap";
+import { LineChart } from "@/components/ui/charts/LineChart";
 
 const ALLOWED_ROLES = ["STUDENT", "PARENT"];
 
@@ -107,6 +108,12 @@ export function RoadmapView() {
               <p style={{ margin: "12px 0 0", fontSize: "var(--text-sm)", color: "var(--ink-muted)" }}>
                 Hedef: <span style={{ fontWeight: 600, color: "var(--ink)" }}>{roadmap.targetGoal}</span>
               </p>
+            )}
+            {roadmap.netTrend.length >= 2 && (
+              <div style={{ marginTop: 16 }}>
+                <p style={{ margin: "0 0 6px", fontSize: "var(--text-xs)", fontWeight: 700, color: "var(--ink-muted)" }}>Net Trendi</p>
+                <LineChart points={roadmap.netTrend} color="var(--strong)" height={130} unit=" net" />
+              </div>
             )}
           </div>
 

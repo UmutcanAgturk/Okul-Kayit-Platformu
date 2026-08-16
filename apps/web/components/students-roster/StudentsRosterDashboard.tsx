@@ -13,6 +13,8 @@ import {
 } from "@/lib/api/students-roster";
 import { GRADE_LEVEL_LABEL } from "@/lib/api/enrollments";
 import { Icon } from "@/components/ui/icons";
+import { StudentDetailDrawer } from "./StudentDetailDrawer";
+import type { BranchStudentRow } from "@/lib/api/students-roster";
 
 const ALLOWED_ROLES = ["BRANCH_ADMIN", "GUIDANCE_COORDINATOR"];
 
@@ -26,6 +28,7 @@ export function StudentsRosterDashboard() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
 
   const { data: me, isLoading, isError, error } = useQuery({
     queryKey: authKeys.me(),
@@ -78,6 +81,8 @@ export function StudentsRosterDashboard() {
   }
 
   const unassignedCount = (studentsQuery.data?.students ?? []).filter((s) => !s.classroomId).length;
+  const selectedStudent: BranchStudentRow | null =
+    (studentsQuery.data?.students ?? []).find((s) => s.id === selectedStudentId) ?? null;
 
   return (
     <div className="screen">
@@ -129,7 +134,7 @@ export function StudentsRosterDashboard() {
                 {filtered.map((s) => {
                   const options = classroomsByGrade.get(s.gradeLevel) ?? [];
                   return (
-                    <tr key={s.id}>
+                    <tr key={s.id} className="row-clickable" onClick={() => setSelectedStudentId(s.id)}>
                       <td>{s.studentNo}</td>
                       <td style={{ fontWeight: 600 }}>{s.name}</td>
                       <td>{GRADE_LEVEL_LABEL[s.gradeLevel] ?? s.gradeLevel}</td>
@@ -137,7 +142,7 @@ export function StudentsRosterDashboard() {
                         {s.guardianName ?? "—"}
                         {s.guardianPhone && <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>{s.guardianPhone}</div>}
                       </td>
-                      <td>
+                      <td onClick={(e) => e.stopPropagation()}>
                         <select
                           value={s.classroomId ?? ""}
                           disabled={assignMutation.isPending}
@@ -161,6 +166,7 @@ export function StudentsRosterDashboard() {
           </div>
         )}
       </div>
+      <StudentDetailDrawer student={selectedStudent} onClose={() => setSelectedStudentId(null)} />
     </div>
   );
 }

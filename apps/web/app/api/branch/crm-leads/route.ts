@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CrmLeadStage, GradeLevel, UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { actorLabel, logActivity } from "@/lib/audit-log";
 
 /**
@@ -10,8 +10,9 @@ import { actorLabel, logActivity } from "@/lib/audit-log";
  * finansal bir taahhüt (kapora) olmayan "aday havuzu" — bkz.
  * prisma/schema.prisma CrmLead modelindeki not.
  *
- * SUPERADMIN kasıtlı olarak dışarıda: diğer `/api/branch/...` route'larıyla
- * aynı gerekçe (tek bir şubeyi hedefler).
+ * SUPERADMIN, yalnızca Kurumlar sayfasından "Bu Şube Olarak Yönet" ile bir
+ * şube seçtiğinde (bkz. lib/db-context.ts withBranchTenantContext) buraya
+ * erişebilir — RLS o seçilen tek şubeyle sınırlar.
  */
 const ROLES_ALLOWED: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.GUIDANCE_COORDINATOR];
 const VALID_STAGES = ["ARANDI", "GORUSULDU", "DENEME_SINAVINA_GIRDI", "KAYIT_OLDU"];
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol CRM aday havuzunu görüntüleyemez" }, { status: 403 });
   }
 
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: `stage şunlardan biri olmalıdır: ${VALID_STAGES.join(", ")}` }, { status: 400 });
   }
 
-  const leads = await withTenantContext(actor, (tx) =>
+  const leads = await withBranchTenantContext(actor, (tx) =>
     tx.crmLead.findMany({
       where: stage ? { stage: stage as CrmLeadStage } : undefined,
       orderBy: { createdAt: "desc" },
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol CRM adayı ekleyemez" }, { status: 403 });
   }
 
@@ -65,10 +66,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const lead = await withTenantContext(actor, async (tx) => {
+  const lead = await withBranchTenantContext(actor, async (tx) => {
     const created = await tx.crmLead.create({
       data: {
-        tenantId: actor.tenantId!,
+        tenantId: effectiveTenantId(actor),
         candidateFullName,
         candidateGradeLevel,
         guardianFullName,
@@ -80,7 +81,7 @@ export async function POST(request: NextRequest) {
     });
 
     await logActivity(tx, {
-      tenantId: actor.tenantId!,
+      tenantId: effectiveTenantId(actor),
       actorUserId: actor.id,
       actorLabel: actorLabel(actor),
       action: "CRM adayı eklendi",

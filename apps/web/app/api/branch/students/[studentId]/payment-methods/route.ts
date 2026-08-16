@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PaymentMethodType, UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { actorLabel, logActivity } from "@/lib/audit-log";
 
 /**
@@ -19,11 +19,11 @@ export async function GET(request: NextRequest, { params }: { params: { studentI
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol ödeme yöntemlerini görüntüleyemez" }, { status: 403 });
   }
 
-  const outcome = await withTenantContext(actor, async (tx) => {
+  const outcome = await withBranchTenantContext(actor, async (tx) => {
     const student = await tx.studentProfile.findUnique({ where: { id: params.studentId } });
     if (!student) return { kind: "not_found" as const };
     const methods = await tx.paymentMethod.findMany({
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest, { params }: { params: { student
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol ödeme yöntemi ekleyemez" }, { status: 403 });
   }
 
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest, { params }: { params: { student
   const maskedCardNumber = typeof body.maskedCardNumber === "string" && body.maskedCardNumber.trim() ? body.maskedCardNumber.trim() : null;
   const isDefault = body.isDefault === true;
 
-  const outcome = await withTenantContext(actor, async (tx) => {
+  const outcome = await withBranchTenantContext(actor, async (tx) => {
     const student = await tx.studentProfile.findUnique({ where: { id: params.studentId }, include: { user: true } });
     if (!student) return { kind: "not_found" as const };
 
@@ -66,11 +66,11 @@ export async function POST(request: NextRequest, { params }: { params: { student
     }
 
     const method = await tx.paymentMethod.create({
-      data: { tenantId: actor.tenantId!, studentId: params.studentId, type, provider, maskedCardNumber, isDefault },
+      data: { tenantId: effectiveTenantId(actor), studentId: params.studentId, type, provider, maskedCardNumber, isDefault },
     });
 
     await logActivity(tx, {
-      tenantId: actor.tenantId!,
+      tenantId: effectiveTenantId(actor),
       actorUserId: actor.id,
       actorLabel: actorLabel(actor),
       action: "Ödeme yöntemi eklendi",

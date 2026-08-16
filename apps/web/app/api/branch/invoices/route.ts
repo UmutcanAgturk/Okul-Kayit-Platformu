@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma, UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { formatDocumentNo, invoiceTotals } from "@/lib/documents";
 
 /**
@@ -38,11 +38,11 @@ export async function GET(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol faturaları görüntüleyemez" }, { status: 403 });
   }
 
-  const invoices = await withTenantContext(actor, (tx) =>
+  const invoices = await withBranchTenantContext(actor, (tx) =>
     tx.invoice.findMany({ orderBy: { createdAt: "desc" } }),
   );
 
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol fatura oluşturamaz" }, { status: 403 });
   }
 
@@ -82,23 +82,23 @@ export async function POST(request: NextRequest) {
   const { kdvAmount, total } = invoiceTotals(subtotal, kdvRate);
   const year = new Date().getFullYear();
 
-  const invoice = await withTenantContext(actor, async (tx) => {
+  const invoice = await withBranchTenantContext(actor, async (tx) => {
     // Bir INSERT'i catch(P2002) ile AYNI transaction içinde yeniden denemek
     // çalışmaz — Postgres bir statement hata verdiğinde transaction'ın tamamını
     // "aborted" durumuna sokar, sonraki her statement (retry dahil) 25P02 ile
     // patlar. Bu yüzden önce boş bir `no` bulunur (yalnızca SELECT'lerle),
     // INSERT en sonda ve yalnızca BİR KEZ çalıştırılır.
-    const count = await tx.invoice.count({ where: { tenantId: actor.tenantId! } });
+    const count = await tx.invoice.count({ where: { tenantId: effectiveTenantId(actor) } });
     let no = formatDocumentNo("FT", year, count + 1);
     for (let attempt = 1; attempt < 20; attempt++) {
-      const existing = await tx.invoice.findUnique({ where: { tenantId_no: { tenantId: actor.tenantId!, no } } });
+      const existing = await tx.invoice.findUnique({ where: { tenantId_no: { tenantId: effectiveTenantId(actor), no } } });
       if (!existing) break;
       no = formatDocumentNo("FT", year, count + 1 + attempt);
     }
 
     return tx.invoice.create({
       data: {
-        tenantId: actor.tenantId!,
+        tenantId: effectiveTenantId(actor),
         no,
         invoiceDate,
         buyerName,

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 
 /**
  * Bir kulübün üye yönetimi için tam öğrenci listesi (roster) + üyelik
@@ -9,11 +9,12 @@ import { withTenantContext } from "@/lib/db-context";
  * görebilir — demo'daki "branch:kulup"/"teacher:kulup" ekranlarındaki
  * "Üyeleri Yönet" panelinin karşılığı.
  */
-async function authorizeClubManage(tx: any, actor: { id: string; role: UserRole }, clubId: string) {
+async function authorizeClubManage(tx: any, actor: { id: string; role: UserRole; actingTenantId?: string | null }, clubId: string) {
   const club = await tx.club.findUnique({ where: { id: clubId } });
   if (!club) return { kind: "not_found" as const };
 
   if (actor.role === UserRole.BRANCH_ADMIN) return { kind: "ok" as const, club };
+  if (actor.role === UserRole.SUPERADMIN && actor.actingTenantId) return { kind: "ok" as const, club };
   if (actor.role === UserRole.TEACHER) {
     const teacherProfile = await tx.teacherProfile.findUnique({ where: { userId: actor.id } });
     if (teacherProfile && club.advisorTeacherId === teacherProfile.id) return { kind: "ok" as const, club };
@@ -27,13 +28,17 @@ export async function GET(request: NextRequest, { params }: { params: { clubId: 
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
 
-  const result = await withTenantContext(actor, async (tx) => {
+  if (actor.role === UserRole.SUPERADMIN && !actor.actingTenantId) {
+    return NextResponse.json({ message: "Bu işlem için önce Kurumlar sayfasından bir şube seçmelisiniz" }, { status: 403 });
+  }
+
+  const result = await withBranchTenantContext(actor, async (tx) => {
     const auth = await authorizeClubManage(tx, actor, params.clubId);
     if (auth.kind !== "ok") return auth;
 
     const [roster, memberships] = await Promise.all([
       tx.studentProfile.findMany({
-        where: { tenantId: actor.tenantId! },
+        where: { tenantId: effectiveTenantId(actor) },
         include: { user: true, classroom: true },
         orderBy: { user: { firstName: "asc" } },
       }),

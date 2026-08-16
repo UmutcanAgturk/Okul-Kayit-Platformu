@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GradeLevel, UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { actorLabel, logActivity } from "@/lib/audit-log";
 
 /**
@@ -23,7 +23,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { leadId
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol CRM adayını düzenleyemez" }, { status: 403 });
   }
 
@@ -37,9 +37,9 @@ export async function PATCH(request: NextRequest, { params }: { params: { leadId
   const notes = body.notes === null ? null : typeof body.notes === "string" && body.notes.trim() ? body.notes.trim() : undefined;
   const stage = typeof body.stage === "string" && VALID_STAGES.includes(body.stage) ? body.stage : undefined;
 
-  const outcome = await withTenantContext(actor, async (tx) => {
+  const outcome = await withBranchTenantContext(actor, async (tx) => {
     const lead = await tx.crmLead.findUnique({ where: { id: params.leadId } });
-    if (!lead || lead.tenantId !== actor.tenantId) {
+    if (!lead || lead.tenantId !== effectiveTenantId(actor)) {
       return { kind: "not_found" as const };
     }
 
@@ -47,7 +47,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { leadId
     if (stage === "KAYIT_OLDU" && !enrollmentId) {
       const enrollment = await tx.enrollment.create({
         data: {
-          tenantId: actor.tenantId!,
+          tenantId: effectiveTenantId(actor),
           type: "ON_KAYIT",
           candidateFullName: candidateFullName ?? lead.candidateFullName,
           candidateGradeLevel: candidateGradeLevel ?? lead.candidateGradeLevel,
@@ -58,7 +58,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { leadId
       enrollmentId = enrollment.id;
 
       await logActivity(tx, {
-        tenantId: actor.tenantId!,
+        tenantId: effectiveTenantId(actor),
         actorUserId: actor.id,
         actorLabel: actorLabel(actor),
         action: "CRM adayından Ön Kayıt oluşturuldu",
@@ -72,7 +72,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { leadId
     });
 
     await logActivity(tx, {
-      tenantId: actor.tenantId!,
+      tenantId: effectiveTenantId(actor),
       actorUserId: actor.id,
       actorLabel: actorLabel(actor),
       action: "CRM adayı düzenlendi",
@@ -93,13 +93,13 @@ export async function DELETE(request: NextRequest, { params }: { params: { leadI
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol CRM adayını silemez" }, { status: 403 });
   }
 
-  const outcome = await withTenantContext(actor, async (tx) => {
+  const outcome = await withBranchTenantContext(actor, async (tx) => {
     const lead = await tx.crmLead.findUnique({ where: { id: params.leadId } });
-    if (!lead || lead.tenantId !== actor.tenantId) {
+    if (!lead || lead.tenantId !== effectiveTenantId(actor)) {
       return { kind: "not_found" as const };
     }
     if (lead.enrollmentId) {
@@ -109,7 +109,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { leadI
     await tx.crmLead.delete({ where: { id: lead.id } });
 
     await logActivity(tx, {
-      tenantId: actor.tenantId!,
+      tenantId: effectiveTenantId(actor),
       actorUserId: actor.id,
       actorLabel: actorLabel(actor),
       action: "CRM adayı silindi",

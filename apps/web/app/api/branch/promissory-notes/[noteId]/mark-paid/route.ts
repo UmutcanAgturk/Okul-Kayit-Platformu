@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PromissoryNoteStatus, UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { withBranchTenantContext } from "@/lib/db-context";
 
 const ROLES_ALLOWED: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.ACCOUNTING];
 
@@ -10,11 +10,11 @@ export async function POST(request: NextRequest, { params }: { params: { noteId:
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol senedi ödendi olarak işaretleyemez" }, { status: 403 });
   }
 
-  const outcome = await withTenantContext(actor, async (tx) => {
+  const outcome = await withBranchTenantContext(actor, async (tx) => {
     const note = await tx.promissoryNote.findUnique({ where: { id: params.noteId } });
     if (!note) return { kind: "not_found" as const };
     if (note.status === PromissoryNoteStatus.ODENDI) return { kind: "already_paid" as const };

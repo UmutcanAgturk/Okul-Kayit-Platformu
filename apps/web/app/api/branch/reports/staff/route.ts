@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { toCsv } from "@/lib/csv";
 import { actorLabel, logActivity } from "@/lib/audit-log";
 
@@ -18,14 +18,14 @@ export async function GET(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol bu raporu indiremez" }, { status: 403 });
   }
 
-  const csv = await withTenantContext(actor, async (tx) => {
+  const csv = await withBranchTenantContext(actor, async (tx) => {
     const staff = await tx.staffProfile.findMany({ include: { user: true } });
     const teachers = await tx.teacherProfile.findMany({
-      where: { user: { tenantId: actor.tenantId!, role: UserRole.TEACHER } },
+      where: { user: { tenantId: effectiveTenantId(actor), role: UserRole.TEACHER } },
       include: { user: true },
     });
 
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     rows.sort((a, b) => String(a[0]).localeCompare(String(b[0]), "tr"));
 
     await logActivity(tx, {
-      tenantId: actor.tenantId!,
+      tenantId: effectiveTenantId(actor),
       actorUserId: actor.id,
       actorLabel: actorLabel(actor),
       action: "Rapor indirildi",

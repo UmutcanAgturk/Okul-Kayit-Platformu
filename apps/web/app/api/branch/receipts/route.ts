@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ReceiptMethod, ReceiptType, UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { formatDocumentNo } from "@/lib/documents";
 
 /**
@@ -23,11 +23,11 @@ export async function GET(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol dekontları görüntüleyemez" }, { status: 403 });
   }
 
-  const receipts = await withTenantContext(actor, (tx) =>
+  const receipts = await withBranchTenantContext(actor, (tx) =>
     tx.receipt.findMany({ orderBy: { createdAt: "desc" } }),
   );
 
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol dekont oluşturamaz" }, { status: 403 });
   }
 
@@ -60,21 +60,21 @@ export async function POST(request: NextRequest) {
   }
 
   const year = new Date().getFullYear();
-  const receipt = await withTenantContext(actor, async (tx) => {
+  const receipt = await withBranchTenantContext(actor, async (tx) => {
     // Bir INSERT'i catch(P2002) ile AYNI transaction içinde yeniden denemek
     // çalışmaz (bkz. invoices/route.ts'teki aynı yorum) — önce boş bir `no`
     // bulunur (yalnızca SELECT'lerle), INSERT en sonda ve yalnızca BİR KEZ
     // çalıştırılır.
-    const count = await tx.receipt.count({ where: { tenantId: actor.tenantId! } });
+    const count = await tx.receipt.count({ where: { tenantId: effectiveTenantId(actor) } });
     let no = formatDocumentNo("DKN", year, count + 1);
     for (let attempt = 1; attempt < 20; attempt++) {
-      const existing = await tx.receipt.findUnique({ where: { tenantId_no: { tenantId: actor.tenantId!, no } } });
+      const existing = await tx.receipt.findUnique({ where: { tenantId_no: { tenantId: effectiveTenantId(actor), no } } });
       if (!existing) break;
       no = formatDocumentNo("DKN", year, count + 1 + attempt);
     }
 
     return tx.receipt.create({
-      data: { tenantId: actor.tenantId!, no, receiptDate, type, personName, amount, method, description, note, createdByUserId: actor.id },
+      data: { tenantId: effectiveTenantId(actor), no, receiptDate, type, personName, amount, method, description, note, createdByUserId: actor.id },
     });
   });
 

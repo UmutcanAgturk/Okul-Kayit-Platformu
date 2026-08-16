@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { hashPassword } from "@/lib/auth";
 import { generateStudentEmail, generateStudentNo, generateTempPassword } from "@/lib/enrollment";
 import { actorLabel, logActivity } from "@/lib/audit-log";
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest, { params }: { params: { enrollm
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol kaydı tamamlayamaz" }, { status: 403 });
   }
 
@@ -49,16 +49,16 @@ export async function POST(request: NextRequest, { params }: { params: { enrollm
     );
   }
 
-  const outcome = await withTenantContext(actor, async (tx) => {
+  const outcome = await withBranchTenantContext(actor, async (tx) => {
     const enrollment = await tx.enrollment.findUnique({ where: { id: params.enrollmentId } });
-    if (!enrollment || enrollment.tenantId !== actor.tenantId) {
+    if (!enrollment || enrollment.tenantId !== effectiveTenantId(actor)) {
       return { kind: "not_found" as const };
     }
     if (enrollment.stage === "KAYIT_TAMAMLANDI" || enrollment.stage === "IPTAL_EDILDI") {
       return { kind: "already_final" as const, stage: enrollment.stage };
     }
 
-    const tenant = await tx.tenant.findUniqueOrThrow({ where: { id: actor.tenantId! } });
+    const tenant = await tx.tenant.findUniqueOrThrow({ where: { id: effectiveTenantId(actor) } });
 
     // Aday adına göre e-posta üretilir; çakışma olursa (aynı isimde ikinci
     // bir aday) sayısal bir sonek eklenerek benzersizleştirilir.
@@ -81,11 +81,11 @@ export async function POST(request: NextRequest, { params }: { params: { enrollm
     const lastName = rest.join(" ") || firstName;
 
     const user = await tx.user.create({
-      data: { tenantId: actor.tenantId!, email, passwordHash, role: "STUDENT", firstName, lastName },
+      data: { tenantId: effectiveTenantId(actor), email, passwordHash, role: "STUDENT", firstName, lastName },
     });
     const student = await tx.studentProfile.create({
       data: {
-        tenantId: actor.tenantId!,
+        tenantId: effectiveTenantId(actor),
         userId: user.id,
         gradeLevel: enrollment.candidateGradeLevel,
         classroomId: enrollment.targetClassroomId,
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest, { params }: { params: { enrollm
       installments.push(
         await tx.paymentInstallment.create({
           data: {
-            tenantId: actor.tenantId!,
+            tenantId: effectiveTenantId(actor),
             studentId: student.id,
             installmentNo: i + 1,
             amount: installmentAmount,
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest, { params }: { params: { enrollm
     });
 
     await logActivity(tx, {
-      tenantId: actor.tenantId!,
+      tenantId: effectiveTenantId(actor),
       actorUserId: actor.id,
       actorLabel: actorLabel(actor),
       action: "Kayıt tamamlandı",

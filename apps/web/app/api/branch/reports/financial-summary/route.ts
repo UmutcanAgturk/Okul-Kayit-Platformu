@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AccountingEntryType, UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { actorLabel, logActivity } from "@/lib/audit-log";
 
 /**
@@ -17,11 +17,11 @@ export async function GET(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol bu raporu görüntüleyemez" }, { status: 403 });
   }
 
-  const result = await withTenantContext(actor, async (tx) => {
+  const result = await withBranchTenantContext(actor, async (tx) => {
     const entries = await tx.accountingLedgerEntry.findMany();
 
     const byCategory = new Map<string, { type: AccountingEntryType; category: string; amount: number }>();
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
     const gider = entries.filter((e) => e.type === AccountingEntryType.GIDER).reduce((sum, e) => sum + Number(e.amount), 0);
 
     await logActivity(tx, {
-      tenantId: actor.tenantId!,
+      tenantId: effectiveTenantId(actor),
       actorUserId: actor.id,
       actorLabel: actorLabel(actor),
       action: "Rapor görüntülendi",

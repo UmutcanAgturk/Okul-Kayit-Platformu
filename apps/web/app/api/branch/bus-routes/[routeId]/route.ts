@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 
 const ROLES_ALLOWED: UserRole[] = [UserRole.BRANCH_ADMIN];
 
@@ -14,16 +14,16 @@ export async function GET(request: NextRequest, { params }: { params: { routeId:
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol servis güzergahı yönetemez" }, { status: 403 });
   }
 
-  const result = await withTenantContext(actor, async (tx) => {
+  const result = await withBranchTenantContext(actor, async (tx) => {
     const route = await tx.busRoute.findUnique({ where: { id: params.routeId } });
     if (!route) return { kind: "not_found" as const };
 
     const roster = await tx.studentProfile.findMany({
-      where: { tenantId: actor.tenantId! },
+      where: { tenantId: effectiveTenantId(actor) },
       include: { user: true, classroom: true },
       orderBy: { user: { firstName: "asc" } },
     });

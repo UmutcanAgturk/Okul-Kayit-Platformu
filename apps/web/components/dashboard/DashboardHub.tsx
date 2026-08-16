@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
-import { MODULES_BY_ROLE, groupModules } from "@/lib/nav-config";
+import { modulesForActor, groupModules } from "@/lib/nav-config";
 import { Icon } from "@/components/ui/icons";
 
 /**
@@ -39,7 +39,7 @@ export function DashboardHub() {
     return null; // yönlendirme useEffect'te yapılıyor
   }
 
-  const modules = MODULES_BY_ROLE[me.role] ?? [];
+  const modules = modulesForActor(me.role, me.actingTenantId);
   const groups = groupModules(modules);
 
   return (

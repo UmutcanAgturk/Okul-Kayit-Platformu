@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GradeLevel, UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { hashPassword } from "@/lib/auth";
 import { generateStudentEmail, generateStudentNo, generateTempPassword } from "@/lib/enrollment";
 import { actorLabel, logActivity } from "@/lib/audit-log";
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol toplu kayıt yapamaz" }, { status: 403 });
   }
 
@@ -98,14 +98,14 @@ export async function POST(request: NextRequest) {
     const row = validated;
 
     try {
-      const outcome = await withTenantContext(actor, async (tx) => {
+      const outcome = await withBranchTenantContext(actor, async (tx) => {
         if (row.classroomId) {
           const classroom = await tx.classroom.findUnique({ where: { id: row.classroomId } });
           if (!classroom) return { kind: "bad_classroom" as const };
           if (classroom.gradeLevel !== row.candidateGradeLevel) return { kind: "grade_mismatch" as const };
         }
 
-        const tenant = await tx.tenant.findUniqueOrThrow({ where: { id: actor.tenantId! } });
+        const tenant = await tx.tenant.findUniqueOrThrow({ where: { id: effectiveTenantId(actor) } });
 
         let email = generateStudentEmail(row.candidateFullName, tenant.code);
         for (let attempt = 2; await tx.user.findUnique({ where: { email } }); attempt++) {
@@ -126,11 +126,11 @@ export async function POST(request: NextRequest) {
         const lastName = rest.join(" ") || firstName;
 
         const user = await tx.user.create({
-          data: { tenantId: actor.tenantId!, email, passwordHash, role: "STUDENT", firstName, lastName },
+          data: { tenantId: effectiveTenantId(actor), email, passwordHash, role: "STUDENT", firstName, lastName },
         });
         const student = await tx.studentProfile.create({
           data: {
-            tenantId: actor.tenantId!,
+            tenantId: effectiveTenantId(actor),
             userId: user.id,
             gradeLevel: row.candidateGradeLevel,
             classroomId: row.classroomId ?? null,
@@ -143,13 +143,13 @@ export async function POST(request: NextRequest) {
           const dueDate = new Date(firstDueDate);
           dueDate.setUTCMonth(dueDate.getUTCMonth() + i);
           await tx.paymentInstallment.create({
-            data: { tenantId: actor.tenantId!, studentId: student.id, installmentNo: i + 1, amount: row.installmentAmount, dueDate },
+            data: { tenantId: effectiveTenantId(actor), studentId: student.id, installmentNo: i + 1, amount: row.installmentAmount, dueDate },
           });
         }
 
         await tx.enrollment.create({
           data: {
-            tenantId: actor.tenantId!,
+            tenantId: effectiveTenantId(actor),
             type: "NORMAL_KAYIT",
             stage: "KAYIT_TAMAMLANDI",
             candidateFullName: row.candidateFullName,
@@ -162,7 +162,7 @@ export async function POST(request: NextRequest) {
         });
 
         await logActivity(tx, {
-          tenantId: actor.tenantId!,
+          tenantId: effectiveTenantId(actor),
           actorUserId: actor.id,
           actorLabel: actorLabel(actor),
           action: "Toplu kayıt: öğrenci eklendi",

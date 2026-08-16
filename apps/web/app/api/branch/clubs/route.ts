@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { actorLabel, logActivity } from "@/lib/audit-log";
 
 /**
@@ -16,11 +16,11 @@ export async function GET(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (actor.role !== UserRole.BRANCH_ADMIN) {
+  if (actor.role !== UserRole.BRANCH_ADMIN && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Yalnızca şube yöneticisi kulüpleri listeleyebilir" }, { status: 403 });
   }
 
-  const clubs = await withTenantContext(actor, (tx) =>
+  const clubs = await withBranchTenantContext(actor, (tx) =>
     tx.club.findMany({
       include: { advisorTeacher: { include: { user: true } }, _count: { select: { members: true } } },
       orderBy: { createdAt: "asc" },
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (actor.role !== UserRole.BRANCH_ADMIN) {
+  if (actor.role !== UserRole.BRANCH_ADMIN && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Yalnızca şube yöneticisi kulüp oluşturabilir" }, { status: 403 });
   }
 
@@ -57,20 +57,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: "name zorunludur" }, { status: 400 });
   }
 
-  const outcome = await withTenantContext(actor, async (tx) => {
+  const outcome = await withBranchTenantContext(actor, async (tx) => {
     if (advisorTeacherId) {
       // TeacherProfile'da tenantId kolonu yok — bkz. app/api/branch/teachers
       // route'undaki not. Aynı desenle User.tenantId üzerinden doğrulanır.
       const teacher = await tx.teacherProfile.findFirst({
-        where: { id: advisorTeacherId, user: { tenantId: actor.tenantId!, role: UserRole.TEACHER } },
+        where: { id: advisorTeacherId, user: { tenantId: effectiveTenantId(actor), role: UserRole.TEACHER } },
       });
       if (!teacher) return { kind: "teacher_not_found" as const };
     }
     const club = await tx.club.create({
-      data: { tenantId: actor.tenantId!, name, description, advisorTeacherId },
+      data: { tenantId: effectiveTenantId(actor), name, description, advisorTeacherId },
     });
     await logActivity(tx, {
-      tenantId: actor.tenantId!,
+      tenantId: effectiveTenantId(actor),
       actorUserId: actor.id,
       actorLabel: actorLabel(actor),
       action: "Kulüp oluşturuldu",

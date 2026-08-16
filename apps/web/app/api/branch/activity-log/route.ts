@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { withBranchTenantContext } from "@/lib/db-context";
 
 /**
  * Aktivite Akışı (Audit Log) — demo'daki "branch:aktivite" ekranının
@@ -16,11 +16,11 @@ export async function GET(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol aktivite akışını görüntüleyemez" }, { status: 403 });
   }
 
-  const entries = await withTenantContext(actor, (tx) =>
+  const entries = await withBranchTenantContext(actor, (tx) =>
     tx.auditLogEntry.findMany({
       orderBy: { createdAt: "desc" },
       take: 100,

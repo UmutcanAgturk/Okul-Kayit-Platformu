@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GradeLevel, UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { actorLabel, logActivity } from "@/lib/audit-log";
 
 /**
@@ -25,7 +25,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { enroll
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol kayıt adayını düzenleyemez" }, { status: 403 });
   }
 
@@ -37,9 +37,9 @@ export async function PATCH(request: NextRequest, { params }: { params: { enroll
   const targetClassroomId = body.targetClassroomId === null ? null : typeof body.targetClassroomId === "string" && body.targetClassroomId ? body.targetClassroomId : undefined;
   const depositAmount = body.depositAmount === null ? null : typeof body.depositAmount === "number" && body.depositAmount > 0 ? body.depositAmount : undefined;
 
-  const outcome = await withTenantContext(actor, async (tx) => {
+  const outcome = await withBranchTenantContext(actor, async (tx) => {
     const enrollment = await tx.enrollment.findUnique({ where: { id: params.enrollmentId } });
-    if (!enrollment || enrollment.tenantId !== actor.tenantId) {
+    if (!enrollment || enrollment.tenantId !== effectiveTenantId(actor)) {
       return { kind: "not_found" as const };
     }
     if (LOCKED_STAGES.includes(enrollment.stage)) {
@@ -56,7 +56,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { enroll
     });
 
     await logActivity(tx, {
-      tenantId: actor.tenantId!,
+      tenantId: effectiveTenantId(actor),
       actorUserId: actor.id,
       actorLabel: actorLabel(actor),
       action: "Kayıt adayı düzenlendi",
@@ -83,13 +83,13 @@ export async function DELETE(request: NextRequest, { params }: { params: { enrol
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol kayıt adayını iptal edemez" }, { status: 403 });
   }
 
-  const outcome = await withTenantContext(actor, async (tx) => {
+  const outcome = await withBranchTenantContext(actor, async (tx) => {
     const enrollment = await tx.enrollment.findUnique({ where: { id: params.enrollmentId } });
-    if (!enrollment || enrollment.tenantId !== actor.tenantId) {
+    if (!enrollment || enrollment.tenantId !== effectiveTenantId(actor)) {
       return { kind: "not_found" as const };
     }
     if (LOCKED_STAGES.includes(enrollment.stage)) {
@@ -98,7 +98,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { enrol
     const updated = await tx.enrollment.update({ where: { id: enrollment.id }, data: { stage: "IPTAL_EDILDI" } });
 
     await logActivity(tx, {
-      tenantId: actor.tenantId!,
+      tenantId: effectiveTenantId(actor),
       actorUserId: actor.id,
       actorLabel: actorLabel(actor),
       action: "Kayıt adayı iptal edildi",

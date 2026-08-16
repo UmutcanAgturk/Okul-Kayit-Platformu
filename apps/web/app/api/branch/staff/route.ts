@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { hashPassword } from "@/lib/auth";
 import { generateStaffEmail, generateTempPassword } from "@/lib/enrollment";
 
@@ -24,11 +24,11 @@ export async function GET(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol personel listesini görüntüleyemez" }, { status: 403 });
   }
 
-  const staff = await withTenantContext(actor, (tx) =>
+  const staff = await withBranchTenantContext(actor, (tx) =>
     tx.staffProfile.findMany({
       include: { user: true },
       orderBy: { user: { firstName: "asc" } },
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol personel oluşturamaz" }, { status: 403 });
   }
 
@@ -77,8 +77,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const outcome = await withTenantContext(actor, async (tx) => {
-    const tenant = await tx.tenant.findUniqueOrThrow({ where: { id: actor.tenantId! } });
+  const outcome = await withBranchTenantContext(actor, async (tx) => {
+    const tenant = await tx.tenant.findUniqueOrThrow({ where: { id: effectiveTenantId(actor) } });
 
     let email = generateStaffEmail(fullName, tenant.code);
     for (let attempt = 2; await tx.user.findUnique({ where: { email } }); attempt++) {
@@ -93,11 +93,11 @@ export async function POST(request: NextRequest) {
     const lastName = rest.join(" ") || firstName;
 
     const user = await tx.user.create({
-      data: { tenantId: actor.tenantId!, email, passwordHash, role, firstName, lastName },
+      data: { tenantId: effectiveTenantId(actor), email, passwordHash, role, firstName, lastName },
     });
 
     const staff = await tx.staffProfile.create({
-      data: { tenantId: actor.tenantId!, userId: user.id, title, department, startDate, salary },
+      data: { tenantId: effectiveTenantId(actor), userId: user.id, title, department, startDate, salary },
       include: { user: true },
     });
 

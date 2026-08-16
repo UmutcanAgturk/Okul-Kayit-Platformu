@@ -65,6 +65,20 @@ export const MODULES_BY_ROLE: Record<UserRole, ModuleCard[]> = {
   SUPERADMIN: [SUBE_HARITASI_CARD, KURUMLAR_CARD, PROFILIM_CARD],
 };
 
+/**
+ * SUPERADMIN "Kurumlar" sayfasından "Bu Şube Olarak Yönet" ile bir şube
+ * seçtiğinde (bkz. app/api/hq/acting-tenant, lib/db-context.ts
+ * withBranchTenantContext) demo'daki HQ portalının "branch:" ekranlarına
+ * düşen fallback'inin karşılığı: BRANCH_ADMIN'in TÜM modülleri + geri
+ * dönmek için Kurumlar kartı.
+ */
+export function modulesForActor(role: UserRole, actingTenantId?: string | null): ModuleCard[] {
+  if (role === "SUPERADMIN" && actingTenantId) {
+    return [KURUMLAR_CARD, ...MODULES_BY_ROLE.BRANCH_ADMIN];
+  }
+  return MODULES_BY_ROLE[role] ?? [];
+}
+
 // Grup görüntüleme sırası — demo'daki sidebar grup sıralamasıyla aynı mantık.
 export const GROUP_ORDER = ["Genel Bakış", "Kayıt İşlemleri", "Akademik", "Öğrenci Yaşamı", "Yönetim & Finans", "Ben", "Diğer"];
 

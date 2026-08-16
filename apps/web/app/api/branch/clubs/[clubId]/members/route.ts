@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { withBranchTenantContext } from "@/lib/db-context";
 
 /**
  * Bir kulübe öğrenci ekler/çıkarır (toggle) — demo'daki
@@ -20,11 +20,15 @@ export async function POST(request: NextRequest, { params }: { params: { clubId:
     return NextResponse.json({ message: "studentId zorunludur" }, { status: 400 });
   }
 
-  const outcome = await withTenantContext(actor, async (tx) => {
+  if (actor.role === UserRole.SUPERADMIN && !actor.actingTenantId) {
+    return NextResponse.json({ message: "Bu işlem için önce Kurumlar sayfasından bir şube seçmelisiniz" }, { status: 403 });
+  }
+
+  const outcome = await withBranchTenantContext(actor, async (tx) => {
     const club = await tx.club.findUnique({ where: { id: params.clubId } });
     if (!club) return { kind: "not_found" as const };
 
-    let authorized = actor.role === UserRole.BRANCH_ADMIN;
+    let authorized = actor.role === UserRole.BRANCH_ADMIN || (actor.role === UserRole.SUPERADMIN && !!actor.actingTenantId);
     if (!authorized && actor.role === UserRole.TEACHER) {
       const teacherProfile = await tx.teacherProfile.findUnique({ where: { userId: actor.id } });
       authorized = !!teacherProfile && club.advisorTeacherId === teacherProfile.id;

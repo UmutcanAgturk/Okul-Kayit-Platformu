@@ -36,3 +36,10 @@ export function assignStudentClassroom(studentId: string, classroomId: string | 
     { method: "PATCH", body: JSON.stringify({ classroomId }) },
   );
 }
+
+export function updateStudentGuardianContact(studentId: string, input: { guardianFullName: string; guardianPhone: string }) {
+  return apiFetch<{ studentId: string; guardianName: string | null; guardianPhone: string | null }>(
+    `/api/branch/students/${studentId}`,
+    { method: "PATCH", body: JSON.stringify(input) },
+  );
+}

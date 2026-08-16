@@ -18,6 +18,8 @@ export interface MeResponse {
   tenantId: string | null;
   teacherId?: string | null;
   students?: { studentId: string; fullName: string }[];
+  actingTenantId?: string | null;
+  actingTenantName?: string | null;
 }
 
 export function login(email: string, password: string) {

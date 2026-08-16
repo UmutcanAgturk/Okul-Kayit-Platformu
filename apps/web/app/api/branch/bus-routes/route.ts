@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { actorLabel, logActivity } from "@/lib/audit-log";
 
 /**
@@ -16,11 +16,11 @@ export async function GET(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol servis güzergahlarını listeleyemez" }, { status: 403 });
   }
 
-  const routes = await withTenantContext(actor, (tx) =>
+  const routes = await withBranchTenantContext(actor, (tx) =>
     tx.busRoute.findMany({
       include: { _count: { select: { students: true } } },
       orderBy: { createdAt: "asc" },
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol servis güzergahı oluşturamaz" }, { status: 403 });
   }
 
@@ -60,12 +60,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: "name zorunludur" }, { status: 400 });
   }
 
-  const route = await withTenantContext(actor, async (tx) => {
+  const route = await withBranchTenantContext(actor, async (tx) => {
     const created = await tx.busRoute.create({
-      data: { tenantId: actor.tenantId!, name, driverName, driverPhone, capacity, stops },
+      data: { tenantId: effectiveTenantId(actor), name, driverName, driverPhone, capacity, stops },
     });
     await logActivity(tx, {
-      tenantId: actor.tenantId!,
+      tenantId: effectiveTenantId(actor),
       actorUserId: actor.id,
       actorLabel: actorLabel(actor),
       action: "Servis güzergahı oluşturuldu",

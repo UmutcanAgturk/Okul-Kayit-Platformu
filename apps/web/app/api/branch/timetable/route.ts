@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { actorLabel, logActivity } from "@/lib/audit-log";
 
 /**
  * Ders Programı — demo/seviye360-app.html'deki "schedule" ekranının gerçek
- * karşılığı, TÜM portallarda `restricted` işareti olmadan görünür (HQ hariç
- * — SUPERADMIN'in tek bir tenantId'si olmadığından bu route'a dahil değil).
- * Devamsızlık/Classroom ile aynı desen: yalnızca tenant_isolation, rol bazlı
- * DB kısıtlaması yok — bir okul programı normalde herkese açıktır. Yazma
- * (POST/DELETE) yalnızca BRANCH_ADMIN'e açık.
+ * karşılığı. Devamsızlık/Classroom ile aynı desen: yalnızca tenant_isolation,
+ * rol bazlı DB kısıtlaması yok — bir okul programı normalde herkese açıktır.
+ * Yazma (POST/DELETE) yalnızca BRANCH_ADMIN'e (veya "şube olarak yönet"
+ * modundaki SUPERADMIN'e — bkz. lib/db-context.ts withBranchTenantContext) açık.
  */
 const WRITE_ROLES: UserRole[] = [UserRole.BRANCH_ADMIN];
 
@@ -19,11 +18,11 @@ export async function GET(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!actor.tenantId) {
+  if (!actor.tenantId && !actor.actingTenantId) {
     return NextResponse.json({ slots: [] });
   }
 
-  const slots = await withTenantContext(actor, (tx) =>
+  const slots = await withBranchTenantContext(actor, (tx) =>
     tx.timetableSlot.findMany({
       include: { classroom: true, teacher: { include: { user: true } } },
       orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
@@ -50,7 +49,7 @@ export async function POST(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!WRITE_ROLES.includes(actor.role)) {
+  if (!WRITE_ROLES.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol ders programına ekleme yapamaz" }, { status: 403 });
   }
 
@@ -72,7 +71,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: "startTime, endTime'dan önce olmalıdır" }, { status: 400 });
   }
 
-  const outcome = await withTenantContext(actor, async (tx) => {
+  const outcome = await withBranchTenantContext(actor, async (tx) => {
     const classroom = await tx.classroom.findUnique({ where: { id: classroomId } });
     if (!classroom) return { kind: "bad_classroom" as const };
     const teacher = await tx.teacherProfile.findUnique({ where: { id: teacherId } });
@@ -93,11 +92,11 @@ export async function POST(request: NextRequest) {
     }
 
     const slot = await tx.timetableSlot.create({
-      data: { tenantId: actor.tenantId!, classroomId, teacherId, subject, dayOfWeek, startTime, endTime },
+      data: { tenantId: effectiveTenantId(actor), classroomId, teacherId, subject, dayOfWeek, startTime, endTime },
     });
 
     await logActivity(tx, {
-      tenantId: actor.tenantId!,
+      tenantId: effectiveTenantId(actor),
       actorUserId: actor.id,
       actorLabel: actorLabel(actor),
       action: "Ders programına eklendi",

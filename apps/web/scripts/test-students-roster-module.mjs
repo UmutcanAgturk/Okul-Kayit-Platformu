@@ -110,6 +110,73 @@ async function main() {
   });
   check("Aktivite Akışı: sınıf atama işlemi loglandı", !!lastLog, lastLog?.action);
 
+  // ===== Öğrenci Hızlı Görüntüle/Düzenle Çekmecesi — veli iletişim düzenleme =====
+  const guardianRowBefore = await prisma.studentGuardian.findFirst({
+    where: { studentId: elif.id },
+    include: { parent: { include: { user: true } } },
+  });
+  check("Kurulum: Elif'in bir velisi var", !!guardianRowBefore, guardianRowBefore?.parent.user.email);
+  const originalFirstName = guardianRowBefore.parent.user.firstName;
+  const originalLastName = guardianRowBefore.parent.user.lastName;
+  const originalPhone = guardianRowBefore.parent.user.phone;
+
+  const teacherGuardianRes = await fetch(`${BASE}/api/branch/students/${elif.id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: teacherCookie },
+    body: JSON.stringify({ guardianFullName: "X Y", guardianPhone: "05559990000" }),
+  });
+  check("Yetki: TEACHER veli bilgisini düzenleyemez (403)", teacherGuardianRes.status === 403, teacherGuardianRes.status);
+
+  const newPhone = "05557778899";
+  const guardianEditRes = await fetch(`${BASE}/api/branch/students/${elif.id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: branchCookie },
+    body: JSON.stringify({ guardianFullName: "Test Veli Güncel", guardianPhone: newPhone }),
+  });
+  const guardianEditBody = await guardianEditRes.json();
+  check(
+    "PATCH: veli iletişim bilgisi güncellenebiliyor (200)",
+    guardianEditRes.status === 200 && guardianEditBody.guardianName === "Test Veli Güncel" && guardianEditBody.guardianPhone === newPhone,
+    guardianEditBody,
+  );
+
+  const guardianUserAfter = await prisma.user.findUnique({ where: { id: guardianRowBefore.parent.user.id } });
+  check(
+    "DB: veli User kaydı gerçekten güncellendi",
+    guardianUserAfter.firstName === "Test" && guardianUserAfter.lastName === "Veli Güncel" && guardianUserAfter.phone === newPhone,
+    guardianUserAfter,
+  );
+
+  const emptyGuardianRes = await fetch(`${BASE}/api/branch/students/${elif.id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: branchCookie },
+    body: JSON.stringify({ guardianFullName: "", guardianPhone: newPhone }),
+  });
+  check("PATCH: boş veli adı reddediliyor (400)", emptyGuardianRes.status === 400, emptyGuardianRes.status);
+
+  // Başka bir kullanıcının telefonuyla çakışma reddedilmeli
+  const otherUser = await prisma.user.findFirst({ where: { id: { not: guardianRowBefore.parent.user.id }, phone: { not: null } } });
+  if (otherUser) {
+    const phoneClashRes = await fetch(`${BASE}/api/branch/students/${elif.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Cookie: branchCookie },
+      body: JSON.stringify({ guardianFullName: "Test Veli Güncel", guardianPhone: otherUser.phone }),
+    });
+    check("PATCH: başka kullanıcının telefonu reddediliyor (409)", phoneClashRes.status === 409, phoneClashRes.status);
+  }
+
+  // ===== Temizlik: veli bilgisini asıl haline geri döndür =====
+  await prisma.user.update({
+    where: { id: guardianRowBefore.parent.user.id },
+    data: { firstName: originalFirstName, lastName: originalLastName, phone: originalPhone },
+  });
+  const guardianUserRestored = await prisma.user.findUnique({ where: { id: guardianRowBefore.parent.user.id } });
+  check(
+    "Temizlik: veli bilgisi asıl haline döndü",
+    guardianUserRestored.firstName === originalFirstName && guardianUserRestored.phone === originalPhone,
+    guardianUserRestored,
+  );
+
   console.log("\n=== ÖZET ===");
   const fails = results.filter((r) => !r.ok);
   console.log(`Toplam: ${results.length} | Başarılı: ${results.length - fails.length} | Başarısız: ${fails.length}`);

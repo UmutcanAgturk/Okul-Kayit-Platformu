@@ -1,6 +1,17 @@
 import { NextRequest } from "next/server";
+import { UserRole } from "@prisma/client";
 import { prisma } from "./prisma";
 import { SESSION_COOKIE_NAME, verifySessionToken } from "./auth";
+
+/**
+ * SUPERADMIN'in Kurumlar sayfasından "Bu Şube Olarak Yönet"i seçtiğinde
+ * hangi şubeyi seçtiğini taşıyan çerez (bkz. app/api/hq/acting-tenant).
+ * İmzasız düz bir çerezdir — SUPERADMIN zaten prismaSuperadmin ile TÜM
+ * tenant'lara erişebildiğinden bu çerez ek bir yetki VERMEZ, yalnızca
+ * withBranchTenantContext'in (bkz. db-context.ts) hangi şubeye RLS
+ * kapsamıyla scope edeceğini belirtir.
+ */
+export const ACTING_TENANT_COOKIE = "seviye360_acting_tenant";
 
 /**
  * İsteği yapan kullanıcıyı, önceki turdaki `resolveActingUser(userId)`'nin
@@ -33,5 +44,10 @@ export async function getSessionActor(request: NextRequest) {
 
   const user = await prisma.user.findUnique({ where: { id: verified.userId } });
   if (!user || !user.isActive) return null;
-  return user;
+
+  // Her zaman AYNI şekli (actingTenantId dahil) döner — SUPERADMIN dışındaki
+  // roller için her zaman null, tek bir union tip yerine tutarlı bir tip
+  // sağlar (bkz. app/api/branch/... route'larındaki actor.actingTenantId kullanımı).
+  const actingTenantId = user.role === UserRole.SUPERADMIN ? (request.cookies.get(ACTING_TENANT_COOKIE)?.value ?? null) : null;
+  return { ...user, actingTenantId };
 }

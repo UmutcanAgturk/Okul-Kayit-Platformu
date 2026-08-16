@@ -11,9 +11,31 @@ import {
 } from "@/lib/api/accounting";
 import { ApiError } from "@/lib/api/client";
 import { Icon } from "@/components/ui/icons";
+import { DualLineChart } from "@/components/ui/charts/DualLineChart";
+import type { LedgerEntry } from "@/lib/api/accounting";
 
 function tl(n: number) {
   return "₺" + Math.round(n).toLocaleString("tr-TR");
+}
+
+const MONTH_LABEL = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"];
+
+function buildMonthlyTrend(entries: LedgerEntry[]) {
+  const byMonth = new Map<string, { a: number; b: number }>();
+  for (const e of entries) {
+    const d = new Date(e.entryDate);
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    const bucket = byMonth.get(key) ?? { a: 0, b: 0 };
+    if (e.type === "GELIR") bucket.a += Number(e.amount);
+    else bucket.b += Number(e.amount);
+    byMonth.set(key, bucket);
+  }
+  return [...byMonth.entries()]
+    .sort(([a], [b]) => (a > b ? 1 : -1))
+    .map(([key, v]) => {
+      const [year, month] = key.split("-").map(Number);
+      return { label: `${MONTH_LABEL[month]} ${year}`, a: v.a, b: v.b };
+    });
 }
 
 export function LedgerPanel() {
@@ -74,6 +96,7 @@ export function LedgerPanel() {
   const entries = ledgerQuery.data?.entries ?? [];
   const summary = ledgerQuery.data?.summary;
   const vat = vatQuery.data?.summary;
+  const trend = buildMonthlyTrend(entries);
 
   return (
     <div className="grid cols-2">
@@ -163,6 +186,15 @@ export function LedgerPanel() {
         )}
       </div>
 
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {trend.length >= 2 && (
+        <div className="card card-pad">
+          <div className="card-head">
+            <h3>Gelir/Gider Trendi</h3>
+          </div>
+          <DualLineChart points={trend} colorA="var(--strong)" colorB="var(--critical)" labelA="Gelir" labelB="Gider" height={130} />
+        </div>
+      )}
       <div className="card card-pad">
         <div className="card-head">
           <h3>Kayıt Defteri</h3>
@@ -212,6 +244,7 @@ export function LedgerPanel() {
             </div>
           ))}
         </div>
+      </div>
       </div>
     </div>
   );

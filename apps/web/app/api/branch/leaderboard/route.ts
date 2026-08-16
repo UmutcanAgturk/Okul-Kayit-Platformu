@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { withTenantContext } from "@/lib/db-context";
+import { withBranchTenantContext } from "@/lib/db-context";
 import { computeStudentGamificationContext, earnedBadges, xpLevelInfo } from "@/lib/gamification";
 
 /**
@@ -18,11 +18,11 @@ export async function GET(request: NextRequest) {
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLES_ALLOWED.includes(actor.role)) {
+  if (!ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol lider tablosunu görüntüleyemez" }, { status: 403 });
   }
 
-  const rows = await withTenantContext(actor, async (tx) => {
+  const rows = await withBranchTenantContext(actor, async (tx) => {
     const students = await tx.studentProfile.findMany({ include: { user: true, classroom: true } });
     const contexts = await Promise.all(students.map((s) => computeStudentGamificationContext(tx, s.id)));
 
