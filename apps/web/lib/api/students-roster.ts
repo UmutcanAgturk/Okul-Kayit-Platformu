@@ -46,6 +46,17 @@ export function deleteClassroom(classroomId: string) {
   return apiFetch<{ ok: true }>(`/api/branch/classrooms/${classroomId}`, { method: "DELETE" });
 }
 
+export interface ClassroomDetail {
+  classroom: { id: string; name: string; gradeLevel: string; capacity: number };
+  students: { id: string; studentNo: string; name: string; guardianName: string | null; guardianPhone: string | null }[];
+  subjectTeachers: { subject: string; teacherName: string }[];
+  weeklyPlan: { id: string; dayOfWeek: number; startTime: string; endTime: string; subject: string; teacherName: string }[];
+}
+
+export function fetchClassroomDetail(classroomId: string) {
+  return apiFetch<ClassroomDetail>(`/api/branch/classrooms/${classroomId}/detail`, { cache: "no-store" });
+}
+
 export function assignStudentClassroom(studentId: string, classroomId: string | null) {
   return apiFetch<{ studentId: string; classroomId: string | null; classroomName: string | null }>(
     `/api/branch/students/${studentId}`,

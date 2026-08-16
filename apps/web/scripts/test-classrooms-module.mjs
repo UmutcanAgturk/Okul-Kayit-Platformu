@@ -14,6 +14,8 @@
 //   4. Silme: öğrenci varken 409; öğrenci taşındıktan sonra silinebiliyor.
 //   5. Tenant izolasyonu: başka bir şubenin BRANCH_ADMIN'i bu şubeyi
 //      düzenleyemez/silemez (404).
+//   6. GET .../detail ("Sınıfa Gir"): yetki, tenant izolasyonu, roster +
+//      TimetableSlot'tan türetilen Dersin Öğretmenleri/Haftalık Plan.
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient({
@@ -148,6 +150,41 @@ async function main() {
     headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
     body: JSON.stringify({ classroomId: student.classroomId }),
   });
+
+  // ===== GET /api/branch/classrooms/:id/detail — "Sınıfa Gir" ekranı =====
+  const detailClassroomId = student.classroomId;
+  const detailNoAuthRes = await fetch(`${BASE}/api/branch/classrooms/${detailClassroomId}/detail`);
+  check("GET detail: oturumsuz 401", detailNoAuthRes.status === 401, detailNoAuthRes.status);
+
+  const detailTeacherRes = await fetch(`${BASE}/api/branch/classrooms/${detailClassroomId}/detail`, { headers: { Cookie: teacherCookie } });
+  check("GET detail: TEACHER göremez (403)", detailTeacherRes.status === 403, detailTeacherRes.status);
+
+  const detailNotFoundRes = await fetch(`${BASE}/api/branch/classrooms/does-not-exist/detail`, { headers: { Cookie: branchAdminCookie } });
+  check("GET detail: olmayan sınıf için 404", detailNotFoundRes.status === 404, detailNotFoundRes.status);
+
+  const detailCrossTenantRes = await fetch(`${BASE}/api/branch/classrooms/${detailClassroomId}/detail`, { headers: { Cookie: otherBranchAdminCookie } });
+  check("GET detail: Çankaya admin'i Mezitli'nin sınıf detayını GÖREMİYOR (404)", detailCrossTenantRes.status === 404, detailCrossTenantRes.status);
+
+  // Geçici bir TimetableSlot oluşturup haftalık plan/ders öğretmenleri alanlarını doğrula
+  const teacherProfile = await prisma.teacherProfile.findFirst({ where: { user: { email: "ayse.demir@seviye360.com" } } });
+  const detailClassroom = await prisma.classroom.findUnique({ where: { id: detailClassroomId } });
+  const slot = await prisma.timetableSlot.create({
+    data: { tenantId: detailClassroom.tenantId, classroomId: detailClassroomId, teacherId: teacherProfile.id, subject: "Matematik", dayOfWeek: 1, startTime: "09:00", endTime: "09:40" },
+  });
+  try {
+    const detailRes = await fetch(`${BASE}/api/branch/classrooms/${detailClassroomId}/detail`, { headers: { Cookie: branchAdminCookie } });
+    const detailBody = await detailRes.json();
+    check("GET detail: 200 dönüyor", detailRes.status === 200, detailRes.status);
+    check("GET detail: roster'da öğrenci var", detailBody.students?.length > 0, detailBody.students?.length);
+    check("GET detail: Dersin Öğretmenleri'nde Matematik → Ayşe Demir", detailBody.subjectTeachers?.some((st) => st.subject === "Matematik" && st.teacherName === "Ayşe Demir"), detailBody.subjectTeachers);
+    check(
+      "GET detail: haftalık planda Pazartesi 09:00 Matematik satırı var",
+      detailBody.weeklyPlan?.some((r) => r.dayOfWeek === 1 && r.startTime === "09:00" && r.subject === "Matematik"),
+      detailBody.weeklyPlan,
+    );
+  } finally {
+    await prisma.timetableSlot.delete({ where: { id: slot.id } });
+  }
 
   const deleteRes = await fetch(`${BASE}/api/branch/classrooms/${classroomId}`, {
     method: "DELETE",

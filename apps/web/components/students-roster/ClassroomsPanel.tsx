@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/lib/api/client";
 import { GRADE_LEVEL_LABEL } from "@/lib/api/enrollments";
@@ -172,6 +173,9 @@ export function ClassroomsPanel({ classrooms }: { classrooms: BranchClassroom[] 
                   />
                 </div>
                 <div style={{ display: "flex", gap: 6 }}>
+                  <Link href={`/siniflar/${c.id}`} className="btn xs">
+                    Sınıfa Gir
+                  </Link>
                   <button
                     type="button"
                     className="btn xs"

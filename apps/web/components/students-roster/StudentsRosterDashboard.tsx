@@ -104,6 +104,44 @@ export function StudentsRosterDashboard() {
         </div>
       </div>
 
+      {unassignedCount > 0 && (
+        <div className="card card-pad" style={{ marginBottom: 14, borderColor: "var(--weak)" }}>
+          <div className="card-head">
+            <h3>Atama Bekleyenler</h3>
+            <span className="hint">{unassignedCount} öğrenci</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            {(studentsQuery.data?.students ?? [])
+              .filter((s) => !s.classroomId)
+              .map((s) => {
+                const options = classroomsByGrade.get(s.gradeLevel) ?? [];
+                return (
+                  <div key={s.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, borderBottom: "1px solid var(--border)", padding: "7px 0" }}>
+                    <span style={{ fontSize: "var(--text-sm)" }}>
+                      <b>{s.name}</b> <span style={{ color: "var(--ink-faint)", fontSize: "var(--text-xs)" }}>{s.studentNo} · {GRADE_LEVEL_LABEL[s.gradeLevel] ?? s.gradeLevel}</span>
+                    </span>
+                    <select
+                      value=""
+                      disabled={assignMutation.isPending}
+                      onChange={(e) => e.target.value && assignMutation.mutate({ studentId: s.id, classroomId: e.target.value })}
+                    >
+                      <option value="">— Sınıf seçin —</option>
+                      {options.map((c) => {
+                        const full = c.studentCount >= c.capacity;
+                        return (
+                          <option key={c.id} value={c.id} disabled={full}>
+                            {c.name} ({c.studentCount}/{c.capacity}){full ? " — Dolu" : ""}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
+
       <div className="card card-pad">
         <div className="field" style={{ maxWidth: 340, marginBottom: 16 }}>
           <label>Ara</label>
@@ -155,11 +193,14 @@ export function StudentsRosterDashboard() {
                           }
                         >
                           <option value="">— Atanmamış —</option>
-                          {options.map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.name}
-                            </option>
-                          ))}
+                          {options.map((c) => {
+                            const full = c.studentCount >= c.capacity && c.id !== s.classroomId;
+                            return (
+                              <option key={c.id} value={c.id} disabled={full}>
+                                {c.name} ({c.studentCount}/{c.capacity}){full ? " — Dolu" : ""}
+                              </option>
+                            );
+                          })}
                         </select>
                       </td>
                     </tr>
