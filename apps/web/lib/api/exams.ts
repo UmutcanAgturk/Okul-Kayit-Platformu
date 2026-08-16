@@ -146,6 +146,43 @@ export function bulkImportCurriculumAchievements(rows: { code: string; label: st
   );
 }
 
+export interface ExamAchievementBreakdownRow {
+  achievementId: string;
+  code: string;
+  label: string;
+  subject: string;
+  correctRatio: number;
+  masteryLevel: "CRITICAL" | "WEAK" | "STRONG";
+}
+
+export interface StudentExamHistoryRow {
+  examId: string;
+  examName: string;
+  examType: string;
+  examDate: string;
+  netScore: number;
+  rawScore: number;
+  correctCount: number;
+  wrongCount: number;
+  emptyCount: number;
+  achievementBreakdown: ExamAchievementBreakdownRow[];
+}
+
+export interface AchievementTrendRow {
+  achievementId: string;
+  code: string;
+  label: string;
+  subject: string;
+  points: { examName: string; examDate: string; correctRatio: number }[];
+}
+
+export function fetchStudentExamResults(studentId: string) {
+  return apiFetch<{ studentId: string; studentName: string; examHistory: StudentExamHistoryRow[]; achievementTrend: AchievementTrendRow[] }>(
+    `/api/students/${studentId}/exam-results`,
+    { cache: "no-store" },
+  );
+}
+
 export const examKeys = {
   list: () => ["branch-exams", "list"] as const,
   detail: (examId: string) => ["branch-exams", "detail", examId] as const,
