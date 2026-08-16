@@ -88,6 +88,17 @@ bürünme" sınıflarındaki açıkları kapatıyor. Kalan gerçekçi sonraki ad
 (kapsam dışı, ileride ele alınabilir): hız sınırlama (rate limiting), ve
 `JWT_SECRET`'ın üretimde bir secret yöneticisinden gelmesi.
 
+**Güncelleme — `InstitutionPaymentMethod`:** "Kayıtlı Yöntemler" (kurum geneli
+ödeme yöntemi kataloğu, bkz. task #54) da `AccountingLedgerEntry`/`PayrollRecord`
+ile aynı `tenant_and_role_isolation` politikasını taşır (`SUPERADMIN`/
+`BRANCH_ADMIN`/`ACCOUNTING`) — bkz.
+`prisma/migrations/20260816190000_add_institution_payment_method`. Aynı
+düzeltme sırasında, `ExamBranchDispatch`'in (task #53) RLS'siz kaldığı
+fark edildi ve `prisma/migrations/20260816190500_fix_exam_branch_dispatch_rls`
+ile `tenant_isolation`'a kavuşturuldu — bugüne kadar yalnızca SUPERADMIN-gated
+route'lar üzerinden erişildiğinden istismar edilebilir değildi, ama
+defans-derinliği için kapatıldı.
+
 **Güncelleme — oturum iptali (session revocation) artık var:** Yukarıdaki
 listede az önce "kalan" sayılan oturum iptali de kapatıldı. İmzalı bir JWT'nin
 kendisi 7 gün geçerli olsa bile, artık tek başına yeterli değil — `UserSession`

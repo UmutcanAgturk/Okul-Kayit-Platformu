@@ -87,35 +87,36 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users                User[]
-  classrooms           Classroom[]
-  studentProfiles      StudentProfile[]
-  enrollments          Enrollment[]
-  crmLeads             CrmLead[]
-  exams                Exam[]
-  examResults          ExamResult[]
-  studySessions        StudySession[]
-  paymentInstallments  PaymentInstallment[]
-  paymentMethods       PaymentMethod[]
-  paymentReceipts      PaymentReceipt[]
-  ledgerEntries        AccountingLedgerEntry[]
-  payrollRecords       PayrollRecord[]
-  staffProfiles        StaffProfile[]
-  invoices             Invoice[]
-  receipts             Receipt[]
-  promissoryNotes      PromissoryNote[]
-  attendanceRecords    AttendanceRecord[]
-  disciplineRecords    DisciplineRecord[]
-  ptaMeetingRequests   PtaMeetingRequest[]
-  clubs                Club[]
-  auditLogEntries      AuditLogEntry[]
-  busRoutes            BusRoute[]
-  quizAttempts         QuizAttempt[]
-  messages             Message[]
-  messageTemplates     MessageTemplate[]
-  mentorRequests       MentorRequest[]
-  timetableSlots       TimetableSlot[]
-  examBranchDispatches ExamBranchDispatch[]
+  users                     User[]
+  classrooms                Classroom[]
+  studentProfiles           StudentProfile[]
+  enrollments               Enrollment[]
+  crmLeads                  CrmLead[]
+  exams                     Exam[]
+  examResults               ExamResult[]
+  studySessions             StudySession[]
+  paymentInstallments       PaymentInstallment[]
+  paymentMethods            PaymentMethod[]
+  paymentReceipts           PaymentReceipt[]
+  ledgerEntries             AccountingLedgerEntry[]
+  payrollRecords            PayrollRecord[]
+  staffProfiles             StaffProfile[]
+  invoices                  Invoice[]
+  receipts                  Receipt[]
+  promissoryNotes           PromissoryNote[]
+  attendanceRecords         AttendanceRecord[]
+  disciplineRecords         DisciplineRecord[]
+  ptaMeetingRequests        PtaMeetingRequest[]
+  clubs                     Club[]
+  auditLogEntries           AuditLogEntry[]
+  busRoutes                 BusRoute[]
+  quizAttempts              QuizAttempt[]
+  messages                  Message[]
+  messageTemplates          MessageTemplate[]
+  mentorRequests            MentorRequest[]
+  timetableSlots            TimetableSlot[]
+  examBranchDispatches      ExamBranchDispatch[]
+  institutionPaymentMethods InstitutionPaymentMethod[]
 
   @@index([parentId])
 }
@@ -972,6 +973,38 @@ model PaymentMethod {
   createdAt DateTime @default(now())
 
   @@index([tenantId, studentId])
+}
+
+enum InstitutionPaymentMethodType {
+  KREDI_KARTI
+  BANKA_HAVALESI
+  NAKIT
+  SENET
+}
+
+// "Kayıtlı Yöntemler" — demo/seviye360-app.html'deki CURRENT_BRANCH.paymentMethods
+// kataloğunun gerçek karşılığı. `PaymentMethod` modeliyle KARIŞTIRILMAMALI:
+// o, bir VELİNİN kayıtlı kartı/tercihidir (studentId zorunlu); bu ise ŞUBENİN
+// kendi tahsilat araçlarının (banka hesabı/POS/kasa/senet) kurum geneli
+// kataloğudur (studentId YOK, yalnızca tenantId). Demo'daki gibi tek bir
+// "extra" alanı türe göre farklı anlam taşır: KREDI_KARTI->komisyon oranı,
+// BANKA_HAVALESI->IBAN, NAKIT->teslim alma noktası, SENET->vade notu.
+model InstitutionPaymentMethod {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  type  InstitutionPaymentMethodType
+  label String
+  extra String?
+
+  isDefault Boolean @default(false)
+  isActive  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
 }
 
 enum PaymentReceiptStatus {

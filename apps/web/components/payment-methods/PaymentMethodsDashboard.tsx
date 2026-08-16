@@ -7,12 +7,20 @@ import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { fetchBranchStudents } from "@/lib/api/students-roster";
 import {
+  createPaymentMethodCatalogEntry,
+  deletePaymentMethodCatalogEntry,
+  fetchPaymentMethodCatalog,
+  INSTITUTION_PAYMENT_METHOD_EXTRA_LABEL,
+  INSTITUTION_PAYMENT_METHOD_TYPE_LABEL,
   PAYMENT_METHOD_TYPE_LABEL,
   createPaymentMethod,
   deletePaymentMethod,
   fetchBranchPaymentReceipts,
   fetchPaymentMethods,
   reviewPaymentReceipt,
+  updatePaymentMethodCatalogEntry,
+  type InstitutionPaymentMethodRow,
+  type InstitutionPaymentMethodType,
   type PaymentMethodRow,
 } from "@/lib/api/payment-methods";
 import { Icon } from "@/components/ui/icons";
@@ -99,6 +107,226 @@ function PendingReceiptsPanel() {
 }
 
 /**
+ * Kayıtlı Yöntemler — demo/seviye360-app.html'deki CURRENT_BRANCH.paymentMethods
+ * kataloğunun gerçek karşılığı (bkz. app/api/branch/payment-method-catalog).
+ * Aşağıdaki öğrenci-bazlı formdan FARKLIDIR: bu, ŞUBENİN kendi tahsilat
+ * araçlarının (banka hesabı/POS/kasa/senet) kurum geneli listesidir —
+ * studentId taşımaz, tek bir "varsayılan" işaretlenebilir.
+ */
+function PaymentMethodCatalogPanel() {
+  const queryClient = useQueryClient();
+  const catalogQuery = useQuery({ queryKey: ["payment-method-catalog"], queryFn: fetchPaymentMethodCatalog });
+  const methods = catalogQuery.data?.methods ?? [];
+
+  const [type, setType] = useState<InstitutionPaymentMethodType>("BANKA_HAVALESI");
+  const [label, setLabel] = useState("");
+  const [extra, setExtra] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editLabel, setEditLabel] = useState("");
+  const [editExtra, setEditExtra] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [rowError, setRowError] = useState<string | null>(null);
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["payment-method-catalog"] });
+
+  const createMutation = useMutation({
+    mutationFn: () => createPaymentMethodCatalogEntry({ type, label: label.trim(), extra: extra.trim() || undefined }),
+    onSuccess: () => {
+      setLabel("");
+      setExtra("");
+      setFormError(null);
+      invalidate();
+    },
+    onError: (e) => setFormError(e instanceof ApiError ? e.message : "Ödeme yöntemi eklenemedi."),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (input: { id: string; data: Parameters<typeof updatePaymentMethodCatalogEntry>[1] }) =>
+      updatePaymentMethodCatalogEntry(input.id, input.data),
+    onSuccess: () => {
+      setEditingId(null);
+      setRowError(null);
+      invalidate();
+    },
+    onError: (e) => setRowError(e instanceof ApiError ? e.message : "Güncellenemedi."),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deletePaymentMethodCatalogEntry(id),
+    onSuccess: () => {
+      setDeletingId(null);
+      setRowError(null);
+      invalidate();
+    },
+    onError: (e) => setRowError(e instanceof ApiError ? e.message : "Silinemedi."),
+  });
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!label.trim()) {
+      setFormError("Etiket zorunludur.");
+      return;
+    }
+    createMutation.mutate();
+  }
+
+  return (
+    <div className="grid cols-2" style={{ marginBottom: 14 }}>
+      <div className="card card-pad">
+        <div className="card-head">
+          <h3>Yeni Yöntem Kaydet</h3>
+        </div>
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div className="field">
+            <label>Tür</label>
+            <select value={type} onChange={(e) => setType(e.target.value as InstitutionPaymentMethodType)}>
+              {Object.entries(INSTITUTION_PAYMENT_METHOD_TYPE_LABEL).map(([value, l]) => (
+                <option key={value} value={value}>
+                  {l}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label>Etiket</label>
+            <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Örn. İş Bankası Şube Hesabı" />
+          </div>
+          <div className="field">
+            <label>{INSTITUTION_PAYMENT_METHOD_EXTRA_LABEL[type]} (opsiyonel)</label>
+            <input value={extra} onChange={(e) => setExtra(e.target.value)} />
+          </div>
+          {formError && <p style={{ margin: 0, fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--critical)" }}>{formError}</p>}
+          <button type="submit" className="btn primary" disabled={createMutation.isPending}>
+            {createMutation.isPending ? "Ekleniyor…" : "Kaydet"}
+          </button>
+        </form>
+      </div>
+
+      <div className="card card-pad">
+        <div className="card-head">
+          <h3>Kayıtlı Yöntemler</h3>
+          <span className="hint">{methods.length} kayıt</span>
+        </div>
+        {rowError && <p style={{ margin: "0 0 8px", fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--critical)" }}>{rowError}</p>}
+        {catalogQuery.isLoading ? (
+          <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>
+        ) : methods.length === 0 ? (
+          <div className="empty-state">
+            <Icon name="cardIcon" />
+            <p>Henüz kayıtlı bir kurum ödeme yöntemi yok.</p>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 380, overflowY: "auto" }}>
+            {methods.map((m: InstitutionPaymentMethodRow) => {
+              if (deletingId === m.id) {
+                return (
+                  <div key={m.id} style={{ border: "1px solid var(--critical)", borderRadius: 9, padding: "10px 12px", fontSize: "var(--text-xs)", color: "var(--critical)" }}>
+                    <b>{m.label}</b> silinsin mi?
+                    <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                      <button type="button" className="btn xs danger" disabled={deleteMutation.isPending} onClick={() => deleteMutation.mutate(m.id)}>
+                        Evet, Sil
+                      </button>
+                      <button type="button" className="btn xs" onClick={() => setDeletingId(null)}>
+                        Vazgeç
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+              if (editingId === m.id) {
+                return (
+                  <div key={m.id} style={{ border: "1px solid var(--border-strong)", borderRadius: 9, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+                    <input value={editLabel} onChange={(e) => setEditLabel(e.target.value)} />
+                    <input
+                      value={editExtra}
+                      onChange={(e) => setEditExtra(e.target.value)}
+                      placeholder={INSTITUTION_PAYMENT_METHOD_EXTRA_LABEL[m.type]}
+                    />
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button
+                        type="button"
+                        className="btn xs primary"
+                        disabled={updateMutation.isPending}
+                        onClick={() => updateMutation.mutate({ id: m.id, data: { label: editLabel.trim(), extra: editExtra.trim() || null } })}
+                      >
+                        Kaydet
+                      </button>
+                      <button type="button" className="btn xs" onClick={() => setEditingId(null)}>
+                        Vazgeç
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+              return (
+                <div key={m.id} style={{ border: "1px solid var(--border)", borderRadius: 9, padding: "10px 12px", opacity: m.isActive ? 1 : 0.55 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                    <span style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>{m.label}</span>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      {m.isDefault && <span className="chip strong">Varsayılan</span>}
+                      {!m.isActive && <span className="chip neutral">Pasif</span>}
+                    </div>
+                  </div>
+                  <p style={{ margin: "2px 0 6px", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
+                    {INSTITUTION_PAYMENT_METHOD_TYPE_LABEL[m.type]}
+                    {m.extra && ` · ${INSTITUTION_PAYMENT_METHOD_EXTRA_LABEL[m.type]}: ${m.extra}`}
+                  </p>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {!m.isDefault && (
+                      <button
+                        type="button"
+                        className="btn xs"
+                        disabled={updateMutation.isPending}
+                        onClick={() => updateMutation.mutate({ id: m.id, data: { isDefault: true } })}
+                      >
+                        Varsayılan Yap
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="btn xs"
+                      onClick={() => {
+                        setEditingId(m.id);
+                        setEditLabel(m.label);
+                        setEditExtra(m.extra ?? "");
+                        setDeletingId(null);
+                        setRowError(null);
+                      }}
+                    >
+                      Düzenle
+                    </button>
+                    <button
+                      type="button"
+                      className="btn xs"
+                      disabled={updateMutation.isPending}
+                      onClick={() => updateMutation.mutate({ id: m.id, data: { isActive: !m.isActive } })}
+                    >
+                      {m.isActive ? "Devre Dışı Bırak" : "Etkinleştir"}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn xs danger"
+                      onClick={() => {
+                        setDeletingId(m.id);
+                        setEditingId(null);
+                        setRowError(null);
+                      }}
+                    >
+                      Sil
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
  * Ödeme Yöntemleri — demo/seviye360-app.html'deki "odeme" ekranının gerçek
  * karşılığı. Gerçek bir ödeme sağlayıcısı entegrasyonu YOKTUR — yalnızca
  * hangi öğrencinin hangi ödeme aracını (kart/havale/nakit) "dosyada"
@@ -176,6 +404,8 @@ export function PaymentMethodsDashboard() {
       <p className="lede">Öğrencinin taksit tahsilatında kullanılacak ödeme aracını (kart/havale/nakit) dosyada tutun.</p>
 
       <PendingReceiptsPanel />
+
+      <PaymentMethodCatalogPanel />
 
       <div className="card card-pad" style={{ marginBottom: 14 }}>
         <div className="field" style={{ maxWidth: 380 }}>
