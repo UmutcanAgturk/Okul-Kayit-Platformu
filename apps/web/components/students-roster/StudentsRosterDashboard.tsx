@@ -1,0 +1,166 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { authKeys, fetchMe } from "@/lib/api/auth";
+import { ApiError } from "@/lib/api/client";
+import {
+  assignStudentClassroom,
+  fetchBranchClassrooms,
+  fetchBranchStudents,
+  studentsRosterKeys,
+} from "@/lib/api/students-roster";
+import { GRADE_LEVEL_LABEL } from "@/lib/api/enrollments";
+import { Icon } from "@/components/ui/icons";
+
+const ALLOWED_ROLES = ["BRANCH_ADMIN", "GUIDANCE_COORDINATOR"];
+
+/**
+ * Öğrenciler / Sınıf Atama — demo/seviye360-app.html'deki "branch:students"
+ * VE "branch:assign" ekranlarının tek bir gerçek sayfada birleşimi: ikisi de
+ * aynı StudentProfile listesi üzerinde çalıştığı için (bkz. app/api/branch/students),
+ * ayrı iki ekran yerine roster'ın kendisinden inline sınıf ataması yapılabilir.
+ */
+export function StudentsRosterDashboard() {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState("");
+
+  const { data: me, isLoading, isError, error } = useQuery({
+    queryKey: authKeys.me(),
+    queryFn: fetchMe,
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (isError && error instanceof ApiError && error.status === 401) {
+      router.replace("/login");
+    }
+  }, [isError, error, router]);
+
+  const studentsQuery = useQuery({ queryKey: studentsRosterKeys.all(), queryFn: fetchBranchStudents, enabled: !!me });
+  const classroomsQuery = useQuery({ queryKey: ["branch-classrooms"], queryFn: fetchBranchClassrooms, enabled: !!me });
+
+  const assignMutation = useMutation({
+    mutationFn: ({ studentId, classroomId }: { studentId: string; classroomId: string | null }) =>
+      assignStudentClassroom(studentId, classroomId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: studentsRosterKeys.all() }),
+  });
+
+  const filtered = useMemo(() => {
+    const rows = studentsQuery.data?.students ?? [];
+    const q = search.trim().toLocaleLowerCase("tr-TR");
+    if (!q) return rows;
+    return rows.filter((s) => s.name.toLocaleLowerCase("tr-TR").includes(q) || s.studentNo.includes(q));
+  }, [studentsQuery.data, search]);
+
+  if (isLoading) {
+    return <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>;
+  }
+  if (!me || (isError && error instanceof ApiError && error.status === 401)) {
+    return null;
+  }
+  if (!ALLOWED_ROLES.includes(me.role)) {
+    return (
+      <div className="card card-pad">
+        <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
+          Bu modüle erişim yetkiniz yok. Öğrenciler yalnızca Şube Yöneticisi/Rehber Öğretmen rolüne açıktır.
+        </p>
+      </div>
+    );
+  }
+
+  const classroomsByGrade = new Map<string, NonNullable<typeof classroomsQuery.data>["classrooms"]>();
+  for (const c of classroomsQuery.data?.classrooms ?? []) {
+    if (!classroomsByGrade.has(c.gradeLevel)) classroomsByGrade.set(c.gradeLevel, []);
+    classroomsByGrade.get(c.gradeLevel)!.push(c);
+  }
+
+  const unassignedCount = (studentsQuery.data?.students ?? []).filter((s) => !s.classroomId).length;
+
+  return (
+    <div className="screen">
+      <h1>Öğrenciler</h1>
+      <p className="lede">Tüm öğrenci kaydınız ve sınıf ataması — sağdaki açılır menüden bir öğrenciyi doğrudan bir şubeye atayabilirsiniz.</p>
+
+      <div className="grid cols-2" style={{ marginBottom: 14 }}>
+        <div className="card stat-card">
+          <p className="stat-label">Toplam Öğrenci</p>
+          <p className="stat-value">{studentsQuery.data?.students.length ?? 0}</p>
+        </div>
+        <div className={`card stat-card ${unassignedCount ? "tone-weak" : "tone-strong"}`}>
+          <p className="stat-label">Sınıfa Atanmamış</p>
+          <p className="stat-value" style={{ color: unassignedCount ? "var(--weak)" : undefined }}>{unassignedCount}</p>
+        </div>
+      </div>
+
+      <div className="card card-pad">
+        <div className="field" style={{ maxWidth: 340, marginBottom: 16 }}>
+          <label>Ara</label>
+          <input
+            type="text"
+            placeholder="İsim veya öğrenci no…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+
+        {studentsQuery.isLoading ? (
+          <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>
+        ) : filtered.length === 0 ? (
+          <div className="empty-state">
+            <Icon name="users" />
+            <p>Aramanızla eşleşen öğrenci yok.</p>
+          </div>
+        ) : (
+          <div className="table-wrap">
+            <table className="data">
+              <thead>
+                <tr>
+                  <th>Öğrenci No</th>
+                  <th>Ad Soyad</th>
+                  <th>Sınıf Seviyesi</th>
+                  <th>Veli</th>
+                  <th>Şube</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((s) => {
+                  const options = classroomsByGrade.get(s.gradeLevel) ?? [];
+                  return (
+                    <tr key={s.id}>
+                      <td>{s.studentNo}</td>
+                      <td style={{ fontWeight: 600 }}>{s.name}</td>
+                      <td>{GRADE_LEVEL_LABEL[s.gradeLevel] ?? s.gradeLevel}</td>
+                      <td>
+                        {s.guardianName ?? "—"}
+                        {s.guardianPhone && <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>{s.guardianPhone}</div>}
+                      </td>
+                      <td>
+                        <select
+                          value={s.classroomId ?? ""}
+                          disabled={assignMutation.isPending}
+                          onChange={(e) =>
+                            assignMutation.mutate({ studentId: s.id, classroomId: e.target.value || null })
+                          }
+                        >
+                          <option value="">— Atanmamış —</option>
+                          {options.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
