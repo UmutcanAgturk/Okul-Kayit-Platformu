@@ -87,34 +87,35 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users               User[]
-  classrooms          Classroom[]
-  studentProfiles     StudentProfile[]
-  enrollments         Enrollment[]
-  crmLeads            CrmLead[]
-  exams               Exam[]
-  examResults         ExamResult[]
-  studySessions       StudySession[]
-  paymentInstallments PaymentInstallment[]
-  paymentMethods      PaymentMethod[]
-  paymentReceipts     PaymentReceipt[]
-  ledgerEntries       AccountingLedgerEntry[]
-  payrollRecords      PayrollRecord[]
-  staffProfiles       StaffProfile[]
-  invoices            Invoice[]
-  receipts            Receipt[]
-  promissoryNotes     PromissoryNote[]
-  attendanceRecords   AttendanceRecord[]
-  disciplineRecords   DisciplineRecord[]
-  ptaMeetingRequests  PtaMeetingRequest[]
-  clubs               Club[]
-  auditLogEntries     AuditLogEntry[]
-  busRoutes           BusRoute[]
-  quizAttempts        QuizAttempt[]
-  messages            Message[]
-  messageTemplates    MessageTemplate[]
-  mentorRequests      MentorRequest[]
-  timetableSlots      TimetableSlot[]
+  users                User[]
+  classrooms           Classroom[]
+  studentProfiles      StudentProfile[]
+  enrollments          Enrollment[]
+  crmLeads             CrmLead[]
+  exams                Exam[]
+  examResults          ExamResult[]
+  studySessions        StudySession[]
+  paymentInstallments  PaymentInstallment[]
+  paymentMethods       PaymentMethod[]
+  paymentReceipts      PaymentReceipt[]
+  ledgerEntries        AccountingLedgerEntry[]
+  payrollRecords       PayrollRecord[]
+  staffProfiles        StaffProfile[]
+  invoices             Invoice[]
+  receipts             Receipt[]
+  promissoryNotes      PromissoryNote[]
+  attendanceRecords    AttendanceRecord[]
+  disciplineRecords    DisciplineRecord[]
+  ptaMeetingRequests   PtaMeetingRequest[]
+  clubs                Club[]
+  auditLogEntries      AuditLogEntry[]
+  busRoutes            BusRoute[]
+  quizAttempts         QuizAttempt[]
+  messages             Message[]
+  messageTemplates     MessageTemplate[]
+  mentorRequests       MentorRequest[]
+  timetableSlots       TimetableSlot[]
+  examBranchDispatches ExamBranchDispatch[]
 
   @@index([parentId])
 }
@@ -318,7 +319,7 @@ model Classroom {
 
   name       String // örn. "9-A" (şube içindeki fiziksel şube/bölüm)
   gradeLevel GradeLevel
-  capacity   Int    @default(30) // demo'daki "Kapasite (Sınıf Limiti)" — bkz. app/api/branch/classrooms
+  capacity   Int        @default(30) // demo'daki "Kapasite (Sınıf Limiti)" — bkz. app/api/branch/classrooms
 
   students          StudentProfile[]
   enrollments       Enrollment[]
@@ -347,7 +348,7 @@ model TimetableSlot {
   tenant   Tenant @relation(fields: [tenantId], references: [id])
 
   classroomId String
-  classroom   Classroom @relation(fields: [classroomId], references: [id])
+  classroom   Classroom      @relation(fields: [classroomId], references: [id])
   teacherId   String
   teacher     TeacherProfile @relation(fields: [teacherId], references: [id])
 
@@ -615,6 +616,33 @@ enum ExamType {
   VIP_OLCME
 }
 
+enum BookletDispatchStatus {
+  HAZIRLANIYOR
+  BASILIYOR
+  KARGOYA_VERILDI
+  TESLIM_EDILDI
+}
+
+// "Genel Sınav Merkezi"nde bir NETWORK sınavın hangi şubelere hedeflendiğini
+// (demo'daki exam.branchIds) VE o şubeye basılı kitapçık sevkiyat durumunu
+// (demo'daki exam.branchDispatch[branchId]) tek bir satırda tutar — bkz.
+// app/api/hq/exams POST/PATCH ve .../dispatch route'u.
+model ExamBranchDispatch {
+  id     String @id @default(cuid())
+  examId String
+  exam   Exam   @relation(fields: [examId], references: [id], onDelete: Cascade)
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  status BookletDispatchStatus @default(HAZIRLANIYOR)
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([examId, tenantId])
+  @@index([tenantId])
+}
+
 model Exam {
   id       String @id @default(cuid())
   tenantId String // Network sınavlarında bu, sınavı yayınlayan Genel Merkez tenant'ıdır
@@ -629,17 +657,18 @@ model Exam {
   // Yalnızca NETWORK kapsamlı sınavlarda kullanılır (bkz. app/api/hq/exams —
   // "Genel Sınav Merkezi"). Öğrenci başına ücret ve hedeflenen sınıf
   // düzeyleri (Ortaokul+Lise) burada saklanır ki optik form ihtiyacı/toplam
-  // fatura tutarı her görüntülemede TÜM şubelerdeki canlı StudentProfile
-  // sayısına göre yeniden hesaplanabilsin — demo'nun aksine hangi şubelerin
-  // "davet edildiği" ayrıca saklanmaz: NETWORK bir sınav, tanımı gereği
-  // hedeflenen sınıf düzeyindeki TÜM şubelere gönderilir.
+  // fatura tutarı her görüntülemede TÜM hedeflenen şubelerdeki canlı
+  // StudentProfile sayısına göre yeniden hesaplanabilsin. Hangi şubelerin
+  // "davet edildiği" (demo'daki branchIds) branchDispatches üzerinden
+  // saklanır — her hedeflenen şube için bir ExamBranchDispatch satırı vardır.
   feePerStudent       Decimal?     @db.Decimal(10, 2)
   eligibleGradeLevels GradeLevel[] @default([])
 
   createdAt DateTime @default(now())
 
-  questions ExamQuestion[]
-  results   ExamResult[]
+  questions        ExamQuestion[]
+  results          ExamResult[]
+  branchDispatches ExamBranchDispatch[]
 
   @@index([tenantId, examDate])
 }

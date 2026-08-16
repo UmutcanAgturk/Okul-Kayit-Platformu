@@ -8,17 +8,15 @@ import { EXAM_ELIGIBLE_GRADE_LEVELS, opticFormsPerStudent } from "@/lib/grade-ti
 /**
  * "Genel Sınav Merkezi" — demo/seviye360-app.html'deki SCREENS["hq:exam"]'ın
  * gerçek karşılığı. SUPERADMIN, Türkiye geneli (NETWORK kapsamlı) bir deneme
- * sınavı tanımlar; optik form ihtiyacı ve toplam fatura tutarı, seçilen sınıf
- * düzeylerindeki (Ortaokul+Lise) TÜM şubelerdeki GERÇEK StudentProfile
- * sayısından her görüntülemede yeniden hesaplanır (donmuş bir anlık görüntü
- * değil).
+ * sınavı tanımlar; optik form ihtiyacı ve toplam fatura tutarı, hedeflenen
+ * şubelerdeki (bkz. ExamBranchDispatch) GERÇEK StudentProfile sayısından her
+ * görüntülemede yeniden hesaplanır (donmuş bir anlık görüntü değil).
  *
- * Demo'nun aksine hangi şubelerin "davet edildiği" ayrı bir alan olarak
- * SAKLANMAZ — bkz. prisma/schema.prisma Exam modelindeki not: NETWORK bir
- * sınav, tanımı gereği hedeflenen sınıf düzeyindeki TÜM şubelere gönderilir.
- * Bu, demo'daki opsiyonel şube alt kümesi seçimini kasıtlı olarak
- * basitleştirir (branch bazlı dağıtım/lojistik takibi ayrı, daha büyük bir
- * özellik olurdu).
+ * Demo'daki gibi hangi şubelerin "davet edildiği" branchIds ile seçilebilir
+ * (opsiyonel — verilmezse demo'nun varsayılan "Tümü" işaretli davranışıyla
+ * aynı şekilde, seçilen sınıf düzeylerindeki TÜM aktif şubeler hedeflenir).
+ * Bu seçim, sınav oluşturulduğunda bir ExamBranchDispatch satırı (kitapçık
+ * sevkiyat durumu HAZIRLANIYOR ile) olarak kalıcılaşır.
  *
  * Exam.tenantId NETWORK sınavlarda sınavı yayınlayan Genel Merkez tenant'ına
  * işaret eder — SUPERADMIN'in kendisi hiçbir tenant'a bağlı olmadığından
@@ -37,15 +35,20 @@ export async function GET(request: NextRequest) {
   }
 
   const result = await withTenantContext(actor, async (tx) => {
-    const exams = await tx.exam.findMany({ where: { scope: ExamScope.NETWORK }, orderBy: { examDate: "desc" } });
+    const exams = await tx.exam.findMany({
+      where: { scope: ExamScope.NETWORK },
+      include: { branchDispatches: true },
+      orderBy: { examDate: "desc" },
+    });
 
     return Promise.all(
       exams.map(async (exam) => {
+        const branchIds = exam.branchDispatches.map((d) => d.tenantId);
         const studentCount = await tx.studentProfile.count({
-          where: { gradeLevel: { in: exam.eligibleGradeLevels }, tenant: { type: TenantType.SUBE } },
+          where: { gradeLevel: { in: exam.eligibleGradeLevels }, tenantId: { in: branchIds } },
         });
         const students = await tx.studentProfile.findMany({
-          where: { gradeLevel: { in: exam.eligibleGradeLevels }, tenant: { type: TenantType.SUBE } },
+          where: { gradeLevel: { in: exam.eligibleGradeLevels }, tenantId: { in: branchIds } },
           select: { gradeLevel: true },
         });
         const opticFormCount = students.reduce((sum, s) => sum + opticFormsPerStudent(s.gradeLevel), 0);
@@ -58,6 +61,7 @@ export async function GET(request: NextRequest) {
           bookletTypes: exam.bookletTypes,
           eligibleGradeLevels: exam.eligibleGradeLevels,
           feePerStudent: exam.feePerStudent,
+          branchCount: branchIds.length,
           studentCount,
           opticFormCount,
           totalFee,
@@ -86,6 +90,9 @@ export async function POST(request: NextRequest) {
   const eligibleGradeLevels: GradeLevel[] = Array.isArray(body.eligibleGradeLevels)
     ? body.eligibleGradeLevels.filter((g: unknown): g is GradeLevel => typeof g === "string" && EXAM_ELIGIBLE_GRADE_LEVELS.includes(g as GradeLevel))
     : [];
+  const requestedBranchIds: string[] | null = Array.isArray(body.branchIds)
+    ? body.branchIds.filter((id: unknown): id is string => typeof id === "string")
+    : null;
 
   if (!name || !examDate || eligibleGradeLevels.length === 0) {
     return NextResponse.json(
@@ -98,6 +105,13 @@ export async function POST(request: NextRequest) {
     const genelMerkez = await tx.tenant.findFirst({ where: { type: TenantType.GENEL_MERKEZ } });
     if (!genelMerkez) throw new Error("Genel Merkez tenant'ı bulunamadı");
 
+    const activeBranches = await tx.tenant.findMany({ where: { type: TenantType.SUBE, isActive: true }, select: { id: true } });
+    const activeBranchIds = new Set(activeBranches.map((b) => b.id));
+    const branchIds = requestedBranchIds ? requestedBranchIds.filter((id) => activeBranchIds.has(id)) : Array.from(activeBranchIds);
+    if (branchIds.length === 0) {
+      return { error: "no_branches" as const };
+    }
+
     const exam = await tx.exam.create({
       data: {
         tenantId: genelMerkez.id,
@@ -108,14 +122,15 @@ export async function POST(request: NextRequest) {
         examDate,
         feePerStudent,
         eligibleGradeLevels,
+        branchDispatches: { createMany: { data: branchIds.map((tenantId) => ({ tenantId })) } },
       },
     });
 
     const studentCount = await tx.studentProfile.count({
-      where: { gradeLevel: { in: eligibleGradeLevels }, tenant: { type: TenantType.SUBE } },
+      where: { gradeLevel: { in: eligibleGradeLevels }, tenantId: { in: branchIds } },
     });
     const students = await tx.studentProfile.findMany({
-      where: { gradeLevel: { in: eligibleGradeLevels }, tenant: { type: TenantType.SUBE } },
+      where: { gradeLevel: { in: eligibleGradeLevels }, tenantId: { in: branchIds } },
       select: { gradeLevel: true },
     });
     const opticFormCount = students.reduce((sum, s) => sum + opticFormsPerStudent(s.gradeLevel), 0);
@@ -126,11 +141,15 @@ export async function POST(request: NextRequest) {
       actorUserId: actor.id,
       actorLabel: actorLabel(actor),
       action: "Genel Sınav tanımlandı",
-      detail: `${exam.name} — ${studentCount} öğrenci, ${opticFormCount} optik form`,
+      detail: `${exam.name} — ${branchIds.length} şube, ${studentCount} öğrenci, ${opticFormCount} optik form`,
     });
 
-    return { exam, studentCount, opticFormCount, totalFee };
+    return { exam, branchCount: branchIds.length, studentCount, opticFormCount, totalFee };
   });
+
+  if ("error" in outcome) {
+    return NextResponse.json({ message: "Seçilen şubelerin hiçbiri aktif değil" }, { status: 400 });
+  }
 
   return NextResponse.json(
     {
@@ -142,6 +161,7 @@ export async function POST(request: NextRequest) {
         eligibleGradeLevels: outcome.exam.eligibleGradeLevels,
         feePerStudent: outcome.exam.feePerStudent,
       },
+      branchCount: outcome.branchCount,
       studentCount: outcome.studentCount,
       opticFormCount: outcome.opticFormCount,
       totalFee: outcome.totalFee,

@@ -147,6 +147,7 @@ export interface HqExam {
   bookletTypes: string[];
   eligibleGradeLevels: string[];
   feePerStudent: number | null;
+  branchCount: number;
   studentCount: number;
   opticFormCount: number;
   totalFee: number;
@@ -162,12 +163,37 @@ export interface CreateHqExamInput {
   bookletCount: 2 | 4;
   feePerStudent?: number;
   eligibleGradeLevels: string[];
+  branchIds?: string[];
 }
 
 export function createHqExam(input: CreateHqExamInput) {
-  return apiFetch<{ exam: HqExam; studentCount: number; opticFormCount: number; totalFee: number }>("/api/hq/exams", {
+  return apiFetch<{ exam: HqExam; branchCount: number; studentCount: number; opticFormCount: number; totalFee: number }>("/api/hq/exams", {
     method: "POST",
     body: JSON.stringify(input),
+  });
+}
+
+export function updateHqExam(examId: string, input: Partial<{ name: string; examDate: string; bookletCount: 2 | 4; feePerStudent: number | null }>) {
+  return apiFetch<{ exam: HqExam }>(`/api/hq/exams/${examId}`, { method: "PATCH", body: JSON.stringify(input) });
+}
+
+export function deleteHqExam(examId: string) {
+  return apiFetch<{ ok: true }>(`/api/hq/exams/${examId}`, { method: "DELETE" });
+}
+
+export const BOOKLET_DISPATCH_STATUSES = ["HAZIRLANIYOR", "BASILIYOR", "KARGOYA_VERILDI", "TESLIM_EDILDI"] as const;
+export type BookletDispatchStatus = (typeof BOOKLET_DISPATCH_STATUSES)[number];
+export const BOOKLET_DISPATCH_STATUS_LABEL: Record<BookletDispatchStatus, string> = {
+  HAZIRLANIYOR: "Hazırlanıyor",
+  BASILIYOR: "Basılıyor",
+  KARGOYA_VERILDI: "Kargoya Verildi",
+  TESLIM_EDILDI: "Teslim Edildi",
+};
+
+export function updateExamBranchDispatch(examId: string, tenantId: string, status: BookletDispatchStatus) {
+  return apiFetch<{ tenantId: string; status: BookletDispatchStatus }>(`/api/hq/exams/${examId}/dispatch`, {
+    method: "PATCH",
+    body: JSON.stringify({ tenantId, status }),
   });
 }
 
@@ -210,7 +236,9 @@ export interface HqExamBranchBreakdownRow {
   tenantCode: string;
   tenantName: string;
   studentCount: number;
+  opticFormCount: number;
   totalFee: number;
+  dispatchStatus: BookletDispatchStatus;
 }
 
 export function fetchHqExamBranchBreakdown(examId: string) {

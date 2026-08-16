@@ -6,8 +6,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import {
+  BOOKLET_DISPATCH_STATUSES,
+  BOOKLET_DISPATCH_STATUS_LABEL,
   createHqExam,
   createTenant,
+  deleteHqExam,
   deleteTenant,
   fetchHqAccountingSummary,
   fetchHqAnalytics,
@@ -19,7 +22,10 @@ import {
   KURUM_TURU_OPTIONS,
   resetTenantCredentials,
   toggleTenantActive,
+  updateExamBranchDispatch,
+  updateHqExam,
   updateTenant,
+  type BookletDispatchStatus,
   type HqExam,
   type HqTenant,
 } from "@/lib/api/hq";
@@ -616,11 +622,12 @@ function ExportLogoTigerButton({ exam }: { exam: HqExam }) {
     setState("loading");
     try {
       const { branches } = await fetchHqExamBranchBreakdown(exam.id);
-      if (branches.length === 0) {
+      const withStudents = branches.filter((b) => b.studentCount > 0);
+      if (withStudents.length === 0) {
         setState("error");
         return;
       }
-      downloadLogoTigerCsv(exam, branches);
+      downloadLogoTigerCsv(exam, withStudents);
       setState("idle");
     } catch {
       setState("error");
@@ -641,7 +648,126 @@ function ExportLogoTigerButton({ exam }: { exam: HqExam }) {
   );
 }
 
-function HqExamsPanel() {
+const DISPATCH_CHIP_TONE: Record<BookletDispatchStatus, string> = {
+  HAZIRLANIYOR: "neutral",
+  BASILIYOR: "weak",
+  KARGOYA_VERILDI: "strong",
+  TESLIM_EDILDI: "strong",
+};
+
+function ExamBranchBreakdownTable({ examId }: { examId: string }) {
+  const queryClient = useQueryClient();
+  const query = useQuery({ queryKey: ["hq-exam-breakdown", examId], queryFn: () => fetchHqExamBranchBreakdown(examId) });
+
+  const cycleMutation = useMutation({
+    mutationFn: ({ tenantId, status }: { tenantId: string; status: BookletDispatchStatus }) => updateExamBranchDispatch(examId, tenantId, status),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["hq-exam-breakdown", examId] }),
+  });
+
+  if (query.isLoading) return <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>Yükleniyor…</p>;
+  const branches = query.data?.branches ?? [];
+  if (branches.length === 0) return <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>Hedeflenen şube yok.</p>;
+
+  return (
+    <div className="table-wrap" style={{ marginTop: 8 }}>
+      <table className="data">
+        <thead>
+          <tr>
+            <th>Şube</th>
+            <th style={{ textAlign: "right" }}>Öğrenci</th>
+            <th style={{ textAlign: "right" }}>Optik</th>
+            <th style={{ textAlign: "right" }}>Fatura Tutarı</th>
+            <th>Kitapçık Kargo Durumu</th>
+          </tr>
+        </thead>
+        <tbody>
+          {branches.map((b) => {
+            const idx = BOOKLET_DISPATCH_STATUSES.indexOf(b.dispatchStatus);
+            const next = BOOKLET_DISPATCH_STATUSES[(idx + 1) % BOOKLET_DISPATCH_STATUSES.length];
+            return (
+              <tr key={b.tenantId}>
+                <td>{b.tenantName}</td>
+                <td style={{ textAlign: "right" }}>{b.studentCount}</td>
+                <td style={{ textAlign: "right" }}>{b.opticFormCount}</td>
+                <td style={{ textAlign: "right" }}>{formatTl2(b.totalFee)}</td>
+                <td>
+                  <button
+                    type="button"
+                    className={`chip ${DISPATCH_CHIP_TONE[b.dispatchStatus]}`}
+                    style={{ cursor: "pointer", border: "none" }}
+                    disabled={cycleMutation.isPending}
+                    onClick={() => cycleMutation.mutate({ tenantId: b.tenantId, status: next })}
+                    title="Sonraki duruma geçmek için tıklayın"
+                  >
+                    {BOOKLET_DISPATCH_STATUS_LABEL[b.dispatchStatus]}
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ExamEditForm({ exam, onDone }: { exam: HqExam; onDone: () => void }) {
+  const queryClient = useQueryClient();
+  const [name, setName] = useState(exam.name);
+  const [examDate, setExamDate] = useState(exam.examDate);
+  const [bookletCount, setBookletCount] = useState<2 | 4>(exam.bookletTypes.length === 2 ? 2 : 4);
+  const [feePerStudent, setFeePerStudent] = useState(exam.feePerStudent ? String(exam.feePerStudent) : "");
+  const [error, setError] = useState<string | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: () => updateHqExam(exam.id, { name: name.trim(), examDate, bookletCount, feePerStudent: feePerStudent ? Number(feePerStudent) : null }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: hqKeys.exams() });
+      onDone();
+    },
+    onError: (e) => setError(e instanceof ApiError ? e.message : "Sınav güncellenemedi."),
+  });
+
+  return (
+    <div style={{ border: "1px solid var(--border-strong)", borderRadius: "var(--radius-sm)", padding: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
+        <div className="field">
+          <label>Sınav Adı</label>
+          <input value={name} onChange={(e) => setName(e.target.value)} />
+        </div>
+        <div className="field">
+          <label>Sınav Tarihi</label>
+          <input type="date" value={examDate} onChange={(e) => setExamDate(e.target.value)} />
+        </div>
+        <div className="field">
+          <label>Kitapçık Sayısı</label>
+          <select value={bookletCount} onChange={(e) => setBookletCount(Number(e.target.value) as 2 | 4)}>
+            <option value={4}>4 (A/B/C/D)</option>
+            <option value={2}>2 (A/B)</option>
+          </select>
+        </div>
+        <div className="field">
+          <label>Öğrenci Başına Ücret (₺, opsiyonel)</label>
+          <input type="number" min="0" value={feePerStudent} onChange={(e) => setFeePerStudent(e.target.value)} />
+        </div>
+      </div>
+      <p style={{ margin: "8px 0 0", fontSize: 11, color: "var(--ink-faint)" }}>
+        Kapsam (şube/sınıf düzeyi) değişikliği için sınavı silip yeniden tanımlayın.
+      </p>
+      {error && <p style={{ margin: "8px 0 0", fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--critical)" }}>{error}</p>}
+      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+        <button type="button" className="btn xs primary" disabled={mutation.isPending} onClick={() => mutation.mutate()}>
+          Kaydet
+        </button>
+        <button type="button" className="btn xs" onClick={onDone}>
+          Vazgeç
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function HqExamsPanel({ branches }: { branches: HqTenant[] }) {
   const queryClient = useQueryClient();
   const examsQuery = useQuery({ queryKey: hqKeys.exams(), queryFn: fetchHqExams });
 
@@ -650,7 +776,20 @@ function HqExamsPanel() {
   const [bookletCount, setBookletCount] = useState<2 | 4>(4);
   const [feePerStudent, setFeePerStudent] = useState("");
   const [selectedGrades, setSelectedGrades] = useState<string[]>(EXAM_ELIGIBLE_GRADE_OPTIONS);
+  const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>(() => branches.map((b) => b.id));
   const [formError, setFormError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [branchesInitialized, setBranchesInitialized] = useState(branches.length > 0);
+
+  useEffect(() => {
+    if (!branchesInitialized && branches.length > 0) {
+      setSelectedBranchIds(branches.map((b) => b.id));
+      setBranchesInitialized(true);
+    }
+  }, [branches, branchesInitialized]);
 
   const createMutation = useMutation({
     mutationFn: createHqExam,
@@ -663,14 +802,28 @@ function HqExamsPanel() {
     onError: (err) => setFormError(err instanceof ApiError ? err.message : "Sınav oluşturulamadı."),
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (examId: string) => deleteHqExam(examId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: hqKeys.exams() });
+      setDeletingId(null);
+      setDeleteError(null);
+    },
+    onError: (e) => setDeleteError(e instanceof ApiError ? e.message : "Sınav silinemedi."),
+  });
+
   function toggleGrade(g: string) {
     setSelectedGrades((prev) => (prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g]));
   }
 
+  function toggleBranch(id: string) {
+    setSelectedBranchIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim() || !examDate || selectedGrades.length === 0) {
-      setFormError("Sınav adı, tarih ve en az bir sınıf düzeyi zorunludur.");
+    if (!name.trim() || !examDate || selectedGrades.length === 0 || selectedBranchIds.length === 0) {
+      setFormError("Sınav adı, tarih, en az bir sınıf düzeyi ve en az bir şube zorunludur.");
       return;
     }
     createMutation.mutate({
@@ -679,10 +832,13 @@ function HqExamsPanel() {
       bookletCount,
       feePerStudent: feePerStudent ? Number(feePerStudent) : undefined,
       eligibleGradeLevels: selectedGrades,
+      branchIds: selectedBranchIds,
     });
   }
 
   const exams = examsQuery.data?.exams ?? [];
+  const allBranchIds = branches.map((b) => b.id);
+  const allBranchesSelected = allBranchIds.length > 0 && allBranchIds.every((id) => selectedBranchIds.includes(id));
 
   return (
     <div className="card card-pad">
@@ -690,8 +846,8 @@ function HqExamsPanel() {
         <h3>Genel Sınav Merkezi</h3>
       </div>
       <p style={{ margin: "0 0 14px", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
-        Türkiye geneli deneme sınavı tanımlayın — seçilen sınıf düzeylerindeki (Ortaokul+Lise) TÜM şubelerde optik form
-        ihtiyacı ve toplam fatura tutarı canlı öğrenci sayısından otomatik hesaplanır.
+        Türkiye geneli deneme sınavı tanımlayın — hedeflenen şube ve sınıf düzeylerinde optik form ihtiyacı ve toplam
+        fatura tutarı canlı öğrenci sayısından otomatik hesaplanır.
       </p>
 
       <form onSubmit={handleSubmit} style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
@@ -727,6 +883,27 @@ function HqExamsPanel() {
             ))}
           </div>
         </div>
+        <div style={{ gridColumn: "span 2" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 5 }}>
+            <label style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--ink-muted)" }}>Kapsam (Şubeler)</label>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
+              <input
+                type="checkbox"
+                checked={allBranchesSelected}
+                onChange={() => setSelectedBranchIds(allBranchesSelected ? [] : allBranchIds)}
+              />
+              Tümü
+            </label>
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, border: "1px solid var(--border-strong)", borderRadius: "var(--radius-sm)", padding: 10, maxHeight: 140, overflowY: "auto" }}>
+            {branches.map((b) => (
+              <label key={b.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
+                <input type="checkbox" checked={selectedBranchIds.includes(b.id)} onChange={() => toggleBranch(b.id)} />
+                {b.name}
+              </label>
+            ))}
+          </div>
+        </div>
 
         {formError && <p style={{ gridColumn: "span 2", margin: 0, fontSize: "var(--text-xs)", color: "var(--critical)" }}>{formError}</p>}
 
@@ -742,22 +919,69 @@ function HqExamsPanel() {
         {examsQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
         {!examsQuery.isLoading && exams.length === 0 && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Henüz tanımlı bir Genel Sınav yok.</p>}
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {exams.map((exam) => (
-            <div key={exam.id} style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: 10, fontSize: "var(--text-sm)" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span style={{ fontWeight: 600 }}>{exam.name}</span>
-                <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>{new Date(exam.examDate).toLocaleDateString("tr-TR")}</span>
+          {exams.map((exam) =>
+            editingId === exam.id ? (
+              <ExamEditForm key={exam.id} exam={exam} onDone={() => setEditingId(null)} />
+            ) : (
+              <div key={exam.id} style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: 10, fontSize: "var(--text-sm)" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span style={{ fontWeight: 600 }}>{exam.name}</span>
+                  <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>{new Date(exam.examDate).toLocaleDateString("tr-TR")}</span>
+                </div>
+                <div style={{ marginTop: 4, display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
+                  <span>{exam.branchCount} şube</span>
+                  <span>{exam.studentCount} öğrenci</span>
+                  <span>{exam.opticFormCount} optik form</span>
+                  <span>{exam.feePerStudent ? formatTl2(exam.totalFee) : "—"}</span>
+                </div>
+
+                {deletingId === exam.id ? (
+                  <div style={{ marginTop: 8, border: "1px solid var(--critical)", borderRadius: 9, padding: "8px 10px", fontSize: "var(--text-xs)", color: "var(--critical)" }}>
+                    <b>{exam.name}</b> silinsin mi? Bu işlem geri alınamaz.
+                    {deleteError && <p style={{ margin: "6px 0 0" }}>{deleteError}</p>}
+                    <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                      <button type="button" className="btn xs danger" disabled={deleteMutation.isPending} onClick={() => deleteMutation.mutate(exam.id)}>
+                        Evet, Sil
+                      </button>
+                      <button type="button" className="btn xs" onClick={() => setDeletingId(null)}>
+                        Vazgeç
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <ExportLogoTigerButton exam={exam} />
+                    <button type="button" className="btn xs" onClick={() => setExpandedId(expandedId === exam.id ? null : exam.id)}>
+                      {expandedId === exam.id ? "Dağılımı Gizle" : "Şube Dağılımı"}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn xs"
+                      onClick={() => {
+                        setEditingId(exam.id);
+                        setDeletingId(null);
+                        setDeleteError(null);
+                      }}
+                    >
+                      Düzenle
+                    </button>
+                    <button
+                      type="button"
+                      className="btn xs danger"
+                      onClick={() => {
+                        setDeletingId(exam.id);
+                        setDeleteError(null);
+                      }}
+                    >
+                      Sil
+                    </button>
+                  </div>
+                )}
+
+                {expandedId === exam.id && deletingId !== exam.id && <ExamBranchBreakdownTable examId={exam.id} />}
               </div>
-              <div style={{ marginTop: 4, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
-                <span>{exam.studentCount} öğrenci</span>
-                <span>{exam.opticFormCount} optik form</span>
-                <span>{exam.feePerStudent ? formatTl2(exam.totalFee) : "—"}</span>
-              </div>
-              <div style={{ marginTop: 8 }}>
-                <ExportLogoTigerButton exam={exam} />
-              </div>
-            </div>
-          ))}
+            ),
+          )}
         </div>
       </div>
     </div>
@@ -990,7 +1214,7 @@ export function HqDashboard() {
 
         <HqStudentsPanel tenants={tenants} />
 
-        <HqExamsPanel />
+        <HqExamsPanel branches={branches} />
 
         <HqAnalyticsPanel />
 

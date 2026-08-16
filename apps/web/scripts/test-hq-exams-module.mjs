@@ -16,6 +16,14 @@
 //   4. Yalnızca Ortaokul/Lise dışı bir sınıf düzeyi (örn. SINIF_1) reddediliyor.
 //   5. GET listesi, oluşturulan sınavı doğru hesaplanmış alanlarla gösteriyor.
 //   6. Aktivite Akışı'na yansıma.
+//   7. branchIds ile şube kapsamı daraltma: yalnızca seçilen şubedeki
+//      öğrenciler sayılıyor (bkz. task #53 — ExamBranchDispatch).
+//   8. GET .../branch-breakdown: opticFormCount + dispatchStatus alanları.
+//   9. PATCH /api/hq/exams/[examId]: ad/tarih/kitapçık/ücret düzenleniyor.
+//  10. PATCH .../dispatch: kitapçık kargo durumu güncelleniyor.
+//  11. DELETE /api/hq/exams/[examId]: gerçek ExamResult'u olan bir sınav 409
+//      ile reddediliyor; sonucu olmayan bir sınav kalıcı siliniyor
+//      (ExamBranchDispatch de birlikte kalkıyor — onDelete: Cascade).
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient({
@@ -126,6 +134,105 @@ async function main() {
     const auditRow = await prisma.auditLogEntry.findFirst({ where: { tenantId: genelMerkez.id, action: "Genel Sınav tanımlandı" } });
     check("Aktivite Akışı (DB): Genel Sınav tanımlandı kaydı var", !!auditRow);
   }
+
+  // ===== Şube kapsamı daraltma (branchIds) =====
+  const mezitli = await prisma.tenant.findFirst({ where: { code: { startsWith: "MEZITLI" } } });
+  const mezitliSinif9 = await prisma.studentProfile.count({ where: { gradeLevel: "SINIF_9", tenantId: mezitli.id } });
+  const mezitliSinif10 = await prisma.studentProfile.count({ where: { gradeLevel: "SINIF_10", tenantId: mezitli.id } });
+  const scopedName = `Test Kapsamlı Deneme ${Date.now()}`;
+  const scopedCreateRes = await fetch(`${BASE}/api/hq/exams`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: superadminCookie },
+    body: JSON.stringify({
+      name: scopedName,
+      examDate: "2026-09-20",
+      bookletCount: 4,
+      feePerStudent: 30,
+      eligibleGradeLevels: ["SINIF_9", "SINIF_10"],
+      branchIds: [mezitli.id],
+    }),
+  });
+  const scopedCreateBody = await scopedCreateRes.json();
+  check("Kapsamlı oluşturma: 201", scopedCreateRes.status === 201, scopedCreateRes.status);
+  check("branchCount = 1", scopedCreateBody.branchCount === 1, scopedCreateBody.branchCount);
+  check(
+    "Kapsamlı öğrenci sayısı yalnızca Mezitli'yi sayıyor",
+    scopedCreateBody.studentCount === mezitliSinif9 + mezitliSinif10,
+    JSON.stringify({ got: scopedCreateBody.studentCount, expected: mezitliSinif9 + mezitliSinif10 }),
+  );
+  const dispatchRow = await prisma.examBranchDispatch.findUnique({ where: { examId_tenantId: { examId: scopedCreateBody.exam.id, tenantId: mezitli.id } } });
+  check("ExamBranchDispatch satırı oluştu, HAZIRLANIYOR", dispatchRow?.status === "HAZIRLANIYOR", dispatchRow?.status);
+
+  // ===== branch-breakdown: opticFormCount + dispatchStatus =====
+  const breakdownRes = await fetch(`${BASE}/api/hq/exams/${scopedCreateBody.exam.id}/branch-breakdown`, { headers: { Cookie: superadminCookie } });
+  const breakdownBody = await breakdownRes.json();
+  check("branch-breakdown: yalnızca 1 şube dönüyor", breakdownBody.branches?.length === 1, breakdownBody.branches?.length);
+  check("branch-breakdown: opticFormCount alanı var", typeof breakdownBody.branches?.[0]?.opticFormCount === "number", breakdownBody.branches?.[0]?.opticFormCount);
+  check("branch-breakdown: dispatchStatus HAZIRLANIYOR", breakdownBody.branches?.[0]?.dispatchStatus === "HAZIRLANIYOR", breakdownBody.branches?.[0]?.dispatchStatus);
+
+  // ===== PATCH .../dispatch: kargo durumu güncelleme =====
+  const branchDispatchPatchRes = await fetch(`${BASE}/api/hq/exams/${scopedCreateBody.exam.id}/dispatch`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({ tenantId: mezitli.id, status: "BASILIYOR" }),
+  });
+  check("BRANCH_ADMIN sevkiyat durumu değiştiremez: 403", branchDispatchPatchRes.status === 403, branchDispatchPatchRes.status);
+
+  const dispatchPatchRes = await fetch(`${BASE}/api/hq/exams/${scopedCreateBody.exam.id}/dispatch`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: superadminCookie },
+    body: JSON.stringify({ tenantId: mezitli.id, status: "KARGOYA_VERILDI" }),
+  });
+  const dispatchPatchBody = await dispatchPatchRes.json();
+  check("PATCH dispatch: 200", dispatchPatchRes.status === 200, dispatchPatchRes.status);
+  check("PATCH dispatch: status KARGOYA_VERILDI", dispatchPatchBody.status === "KARGOYA_VERILDI", dispatchPatchBody.status);
+
+  // ===== PATCH /api/hq/exams/[examId]: sınav düzenleme =====
+  const branchExamPatchRes = await fetch(`${BASE}/api/hq/exams/${scopedCreateBody.exam.id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({ name: "x" }),
+  });
+  check("BRANCH_ADMIN sınav düzenleyemez: 403", branchExamPatchRes.status === 403, branchExamPatchRes.status);
+
+  const examPatchRes = await fetch(`${BASE}/api/hq/exams/${scopedCreateBody.exam.id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: superadminCookie },
+    body: JSON.stringify({ name: scopedName + " (Güncel)", feePerStudent: 45 }),
+  });
+  const examPatchBody = await examPatchRes.json();
+  check("PATCH exam: 200", examPatchRes.status === 200, examPatchRes.status);
+  check("PATCH exam: ad güncellendi", examPatchBody.exam?.name === scopedName + " (Güncel)", examPatchBody.exam?.name);
+  check("PATCH exam: feePerStudent güncellendi", Number(examPatchBody.exam?.feePerStudent) === 45, examPatchBody.exam?.feePerStudent);
+
+  // ===== DELETE: sonucu olan sınav 409, olmayan sınav siliniyor =====
+  const branchExamDeleteRes = await fetch(`${BASE}/api/hq/exams/${scopedCreateBody.exam.id}`, { method: "DELETE", headers: { Cookie: branchAdminCookie } });
+  check("BRANCH_ADMIN sınav silemez: 403", branchExamDeleteRes.status === 403, branchExamDeleteRes.status);
+
+  const emptyExamDeleteRes = await fetch(`${BASE}/api/hq/exams/${scopedCreateBody.exam.id}`, { method: "DELETE", headers: { Cookie: superadminCookie } });
+  check("Sonucu olmayan sınav kalıcı silinir: 200", emptyExamDeleteRes.status === 200, emptyExamDeleteRes.status);
+  const deletedExam = await prisma.exam.findUnique({ where: { id: scopedCreateBody.exam.id } });
+  check("Silinen sınav artık DB'de yok", deletedExam === null);
+  const orphanDispatch = await prisma.examBranchDispatch.findMany({ where: { examId: scopedCreateBody.exam.id } });
+  check("Silinen sınavın ExamBranchDispatch'leri de kalktı", orphanDispatch.length === 0, orphanDispatch.length);
+
+  // DELETE guard: gerçek sonucu olan bir sınav (createBody.exam.id üstüne uydurma bir ExamResult eklenerek test edilir, sonra temizlenir)
+  const anyStudent = await prisma.studentProfile.findFirst({ where: { tenant: { type: "SUBE" } } });
+  const fakeResult = await prisma.examResult.create({
+    data: {
+      examId: createBody.exam.id,
+      tenantId: anyStudent.tenantId,
+      studentId: anyStudent.id,
+      correctCount: 1,
+      wrongCount: 0,
+      emptyCount: 0,
+      rawScore: 1,
+      netScore: 1,
+    },
+  });
+  const busyExamDeleteRes = await fetch(`${BASE}/api/hq/exams/${createBody.exam.id}`, { method: "DELETE", headers: { Cookie: superadminCookie } });
+  check("Sonucu olan sınav silinemez: 409", busyExamDeleteRes.status === 409, busyExamDeleteRes.status);
+  await prisma.examResult.delete({ where: { id: fakeResult.id } });
 
   // Temizlik — yalnızca bu testin oluşturduğu Exam ve Audit Log kaydı.
   await prisma.auditLogEntry.deleteMany({ where: { tenantId: genelMerkez.id, action: "Genel Sınav tanımlandı", detail: { contains: uniqueName } } });

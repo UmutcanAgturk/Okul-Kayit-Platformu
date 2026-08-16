@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ExamScope, TenantType, UserRole } from "@prisma/client";
+import { ExamScope, UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
 import { withTenantContext } from "@/lib/db-context";
+import { opticFormsPerStudent } from "@/lib/grade-tier";
 
 /**
- * Genel Sınav Merkezi — şube bazlı fatura kırılımı. demo/seviye360-app.html'deki
- * examBranchBreakdown()'ın karşılığı — Logo/Tiger CSV dışa aktarımının
- * (bkz. lib/api/logo-tiger-csv.ts) veri kaynağıdır: her şube için gerçek
- * StudentProfile sayısı × sınavın kişi başı ücreti.
+ * Genel Sınav Merkezi — şube bazlı fatura/optik/sevkiyat kırılımı.
+ * demo/seviye360-app.html'deki examBranchBreakdown()'ın karşılığı —
+ * hem Logo/Tiger CSV dışa aktarımının (bkz. lib/api/logo-tiger-csv.ts) HEM
+ * DE HqExamsPanel'deki inline "dağılım tablosu"nun veri kaynağıdır. Yalnızca
+ * sınavın ExamBranchDispatch ile hedeflediği şubeleri döner (artık TÜM
+ * şubeler değil — bkz. task #53).
  */
 const ROLES_ALLOWED: UserRole[] = [UserRole.SUPERADMIN];
 
@@ -21,23 +24,36 @@ export async function GET(request: NextRequest, { params }: { params: { examId: 
   }
 
   const result = await withTenantContext(actor, async (tx) => {
-    const exam = await tx.exam.findUnique({ where: { id: params.examId } });
+    const exam = await tx.exam.findUnique({
+      where: { id: params.examId },
+      include: { branchDispatches: { include: { tenant: true }, orderBy: { tenant: { name: "asc" } } } },
+    });
     if (!exam || exam.scope !== ExamScope.NETWORK) return null;
 
-    const branches = await tx.tenant.findMany({ where: { type: TenantType.SUBE }, orderBy: { name: "asc" } });
     const rows = await Promise.all(
-      branches.map(async (b) => {
-        const studentCount = await tx.studentProfile.count({
-          where: { tenantId: b.id, gradeLevel: { in: exam.eligibleGradeLevels } },
+      exam.branchDispatches.map(async (d) => {
+        const students = await tx.studentProfile.findMany({
+          where: { tenantId: d.tenantId, gradeLevel: { in: exam.eligibleGradeLevels } },
+          select: { gradeLevel: true },
         });
+        const studentCount = students.length;
+        const opticFormCount = students.reduce((sum, s) => sum + opticFormsPerStudent(s.gradeLevel), 0);
         const totalFee = exam.feePerStudent ? studentCount * Number(exam.feePerStudent) : 0;
-        return { tenantId: b.id, tenantCode: b.code, tenantName: b.name, studentCount, totalFee };
+        return {
+          tenantId: d.tenantId,
+          tenantCode: d.tenant.code,
+          tenantName: d.tenant.name,
+          studentCount,
+          opticFormCount,
+          totalFee,
+          dispatchStatus: d.status,
+        };
       }),
     );
 
     return {
       exam: { id: exam.id, name: exam.name, examDate: exam.examDate.toISOString().slice(0, 10), feePerStudent: exam.feePerStudent },
-      branches: rows.filter((r) => r.studentCount > 0),
+      branches: rows,
     };
   });
 
