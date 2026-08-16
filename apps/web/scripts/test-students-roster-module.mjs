@@ -154,16 +154,41 @@ async function main() {
   });
   check("PATCH: boş veli adı reddediliyor (400)", emptyGuardianRes.status === 400, emptyGuardianRes.status);
 
-  // Başka bir kullanıcının telefonuyla çakışma reddedilmeli
-  const otherUser = await prisma.user.findFirst({ where: { id: { not: guardianRowBefore.parent.user.id }, phone: { not: null } } });
-  if (otherUser) {
-    const phoneClashRes = await fetch(`${BASE}/api/branch/students/${elif.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", Cookie: branchCookie },
-      body: JSON.stringify({ guardianFullName: "Test Veli Güncel", guardianPhone: otherUser.phone }),
-    });
-    check("PATCH: başka kullanıcının telefonu reddediliyor (409)", phoneClashRes.status === 409, phoneClashRes.status);
-  }
+  // Telefon benzersizliği artık @@unique([tenantId, phone]) — global DEĞİL
+  // (bkz. prisma/schema.prisma User.phone yorumu: önceden bir BRANCH_ADMIN,
+  // rastgele telefon deneyip 409/200 yanıtından başka bir şubenin kayıtlı
+  // telefon numaralarını teşhis edebiliyordu — cross-tenant existence
+  // oracle'ı). Seed verisinde hazır bir telefon numarası olmadığından, bu
+  // senaryoyu gerçek şekilde sınamak için Mezitli'deki öğretmene (aynı
+  // tenant) ve Çankaya'daki şube yöneticisine (başka tenant) geçici olarak
+  // telefon atanır, test sonunda geri temizlenir.
+  const sameTenantOtherUser = await prisma.user.findFirst({ where: { email: "ayse.demir@seviye360.com" } });
+  const crossTenantUser = await prisma.user.findFirst({ where: { email: "onur.kaya@seviye360.com" } });
+  const sameTenantPhone = "05551230001";
+  const crossTenantPhone = "05551230002";
+  await prisma.user.update({ where: { id: sameTenantOtherUser.id }, data: { phone: sameTenantPhone } });
+  await prisma.user.update({ where: { id: crossTenantUser.id }, data: { phone: crossTenantPhone } });
+
+  const phoneClashRes = await fetch(`${BASE}/api/branch/students/${elif.id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: branchCookie },
+    body: JSON.stringify({ guardianFullName: "Test Veli Güncel", guardianPhone: sameTenantPhone }),
+  });
+  check("PATCH: aynı tenant'taki başka kullanıcının telefonu reddediliyor (409)", phoneClashRes.status === 409, phoneClashRes.status);
+
+  const crossTenantRes = await fetch(`${BASE}/api/branch/students/${elif.id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: branchCookie },
+    body: JSON.stringify({ guardianFullName: "Test Veli Güncel", guardianPhone: crossTenantPhone }),
+  });
+  check(
+    "PATCH: başka bir şubedeki telefon numarasıyla çakışma ENGELLENMİYOR (cross-tenant oracle kapalı)",
+    crossTenantRes.status === 200,
+    crossTenantRes.status,
+  );
+
+  await prisma.user.update({ where: { id: sameTenantOtherUser.id }, data: { phone: null } });
+  await prisma.user.update({ where: { id: crossTenantUser.id }, data: { phone: null } });
 
   // ===== Temizlik: veli bilgisini asıl haline geri döndür =====
   await prisma.user.update({

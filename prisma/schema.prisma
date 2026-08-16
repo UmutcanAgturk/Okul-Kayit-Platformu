@@ -133,7 +133,12 @@ model User {
   tenant   Tenant? @relation(fields: [tenantId], references: [id])
 
   email        String   @unique
-  phone        String?  @unique
+  // Global @unique DEĞİL — tenant başına benzersiz. Global olsaydı bir
+  // BRANCH_ADMIN, veli/personel telefonu güncellerken rastgele numaralar
+  // deneyip 409/200 yanıtından BAŞKA bir şubenin kayıtlı telefon numaralarını
+  // teşhis edebilirdi (cross-tenant existence oracle) — ayrıca aynı veli iki
+  // farklı şubede kayıtlıysa (iki ayrı User satırı) aynı telefonu kullanamazdı.
+  phone        String?
   passwordHash String
   role         UserRole
   firstName    String
@@ -152,6 +157,7 @@ model User {
   sentMessages      Message[]
   messageRecipients MessageRecipient[]
 
+  @@unique([tenantId, phone])
   @@index([tenantId, role])
 }
 
