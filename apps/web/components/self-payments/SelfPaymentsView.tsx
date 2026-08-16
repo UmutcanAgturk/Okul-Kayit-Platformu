@@ -1,12 +1,89 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
-import { fetchStudentInstallments, paySelfInstallment, type SelfInstallmentRow } from "@/lib/api/self-payments";
+import {
+  fetchSelfPaymentReceipts,
+  fetchStudentInstallments,
+  paySelfInstallment,
+  submitPaymentReceipt,
+  type SelfInstallmentRow,
+} from "@/lib/api/self-payments";
 import { Icon } from "@/components/ui/icons";
+
+const ACCEPTED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf"];
+const MAX_FILE_SIZE = 2_500_000;
+
+function ReceiptUploadForm({
+  studentId,
+  installmentId,
+  onDone,
+}: {
+  studentId: string;
+  installmentId: string;
+  onDone: () => void;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [note, setNote] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const submitMutation = useMutation({
+    mutationFn: async () => {
+      if (!file) throw new ApiError(400, "Lütfen dekont dosyanızı yükleyin.");
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new ApiError(400, "Dosya okunamadı."));
+        reader.readAsDataURL(file);
+      });
+      return submitPaymentReceipt(studentId, { installmentId, fileName: file.name, mimeType: file.type, dataUrl, note: note || undefined });
+    },
+    onSuccess: () => onDone(),
+    onError: (e) => setError(e instanceof ApiError ? e.message : "Dekont gönderilemedi."),
+  });
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0] ?? null;
+    setError(null);
+    if (f && !ACCEPTED_MIME_TYPES.includes(f.type)) {
+      setError("Yalnızca resim veya PDF dosyaları kabul edilir.");
+      setFile(null);
+      return;
+    }
+    if (f && f.size > MAX_FILE_SIZE) {
+      setError("Dosya çok büyük (limit ~2,5MB).");
+      setFile(null);
+      return;
+    }
+    setFile(f);
+  }
+
+  return (
+    <div style={{ marginTop: 8, padding: 10, borderRadius: 8, background: "var(--surface-sunken, var(--surface))", border: "1px solid var(--border)" }}>
+      <div className="field">
+        <label>Dekont / Makbuz Yükle</label>
+        <input type="file" accept="image/*,.pdf" onChange={handleFileChange} />
+      </div>
+      <div className="field" style={{ marginTop: 8 }}>
+        <label>Not (opsiyonel)</label>
+        <input type="text" placeholder="Örn. Havale saat 14:20'de yapıldı" value={note} onChange={(e) => setNote(e.target.value)} />
+      </div>
+      {error && <p style={{ margin: "8px 0 0", fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--critical)" }}>{error}</p>}
+      <button
+        type="button"
+        className="btn primary xs"
+        style={{ marginTop: 8 }}
+        disabled={submitMutation.isPending}
+        onClick={() => submitMutation.mutate()}
+      >
+        {submitMutation.isPending ? "Gönderiliyor…" : "Dekontu Gönder — Şube Onayına Sun"}
+      </button>
+    </div>
+  );
+}
 
 const STATUS_LABEL: Record<SelfInstallmentRow["status"], string> = {
   PENDING: "Bekliyor",
@@ -36,6 +113,7 @@ export function SelfPaymentsView() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [errorByInstallment, setErrorByInstallment] = useState<Record<string, string>>({});
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
 
   const { data: me, isLoading, isError, error } = useQuery({
     queryKey: authKeys.me(),
@@ -58,6 +136,11 @@ export function SelfPaymentsView() {
   const installmentsQuery = useQuery({
     queryKey: ["self-installments", selectedStudentId],
     queryFn: () => fetchStudentInstallments(selectedStudentId!),
+    enabled: !!selectedStudentId,
+  });
+  const receiptsQuery = useQuery({
+    queryKey: ["self-payment-receipts", selectedStudentId],
+    queryFn: () => fetchSelfPaymentReceipts(selectedStudentId!),
     enabled: !!selectedStudentId,
   });
 
@@ -136,33 +219,66 @@ export function SelfPaymentsView() {
               <tbody>
                 {installments
                   .sort((a, b) => a.installmentNo - b.installmentNo)
-                  .map((i) => (
-                    <tr key={i.id}>
-                      <td>{i.installmentNo}</td>
-                      <td>{new Date(i.dueDate).toLocaleDateString("tr-TR")}</td>
-                      <td>{tl(i.amount)}</td>
-                      <td>
-                        <span className={`chip ${STATUS_CHIP[i.status]}`}>{STATUS_LABEL[i.status]}</span>
-                      </td>
-                      <td>
-                        {i.status === "PENDING" || i.status === "OVERDUE" ? (
-                          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-                            <button
-                              type="button"
-                              className="btn primary xs"
-                              disabled={payMutation.isPending}
-                              onClick={() => payMutation.mutate(i.id)}
-                            >
-                              Öde
-                            </button>
-                            {errorByInstallment[i.id] && (
-                              <span style={{ fontSize: "var(--text-2xs)", color: "var(--critical)" }}>{errorByInstallment[i.id]}</span>
-                            )}
-                          </div>
-                        ) : null}
-                      </td>
-                    </tr>
-                  ))}
+                  .map((i) => {
+                    const pendingReceipt = (receiptsQuery.data?.receipts ?? []).find(
+                      (r) => r.installmentId === i.id && r.status === "BEKLIYOR",
+                    );
+                    const canAct = i.status === "PENDING" || i.status === "OVERDUE";
+                    return (
+                      <Fragment key={i.id}>
+                        <tr>
+                          <td>{i.installmentNo}</td>
+                          <td>{new Date(i.dueDate).toLocaleDateString("tr-TR")}</td>
+                          <td>{tl(i.amount)}</td>
+                          <td>
+                            <span className={`chip ${STATUS_CHIP[i.status]}`}>{STATUS_LABEL[i.status]}</span>
+                          </td>
+                          <td>
+                            {pendingReceipt ? (
+                              <span className="chip weak">Dekont İnceleniyor</span>
+                            ) : canAct ? (
+                              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                                <div style={{ display: "flex", gap: 6 }}>
+                                  <button
+                                    type="button"
+                                    className="btn primary xs"
+                                    disabled={payMutation.isPending}
+                                    onClick={() => payMutation.mutate(i.id)}
+                                  >
+                                    Öde
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn xs"
+                                    onClick={() => setUploadingId(uploadingId === i.id ? null : i.id)}
+                                  >
+                                    Dekont Yükle
+                                  </button>
+                                </div>
+                                {errorByInstallment[i.id] && (
+                                  <span style={{ fontSize: "var(--text-2xs)", color: "var(--critical)" }}>{errorByInstallment[i.id]}</span>
+                                )}
+                              </div>
+                            ) : null}
+                          </td>
+                        </tr>
+                        {uploadingId === i.id && selectedStudentId && (
+                          <tr>
+                            <td colSpan={5}>
+                              <ReceiptUploadForm
+                                studentId={selectedStudentId}
+                                installmentId={i.id}
+                                onDone={() => {
+                                  setUploadingId(null);
+                                  queryClient.invalidateQueries({ queryKey: ["self-payment-receipts", selectedStudentId] });
+                                }}
+                              />
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
               </tbody>
             </table>
           </div>

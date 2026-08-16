@@ -91,6 +91,7 @@ model Tenant {
   studySessions       StudySession[]
   paymentInstallments PaymentInstallment[]
   paymentMethods      PaymentMethod[]
+  paymentReceipts     PaymentReceipt[]
   ledgerEntries       AccountingLedgerEntry[]
   payrollRecords      PayrollRecord[]
   staffProfiles       StaffProfile[]
@@ -255,6 +256,7 @@ model StudentProfile {
   studySessions      StudySession[]
   installments       PaymentInstallment[]
   paymentMethods     PaymentMethod[]
+  paymentReceipts    PaymentReceipt[]
   enrollment         Enrollment?
   promissoryNotes    PromissoryNote[]
   attendanceRecords  AttendanceRecord[]
@@ -885,6 +887,8 @@ model PaymentInstallment {
   paymentProvider       String  @default("ParamPOS")
   providerTransactionId String?
 
+  receipts PaymentReceipt[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -917,6 +921,44 @@ model PaymentMethod {
   createdAt DateTime @default(now())
 
   @@index([tenantId, studentId])
+}
+
+enum PaymentReceiptStatus {
+  BEKLIYOR
+  ONAYLANDI
+  REDDEDILDI
+}
+
+// Ödeme Yöntemleri — Bekleyen Dekont Onayları. demo/seviye360-app.html'deki
+// CURRENT_BRANCH.paymentReceipts'in gerçek karşılığı: veli banka havalesi
+// dekontunu (resim/PDF) yükler, şube personeli Onayla/Reddet ile taksidi
+// ödenmiş işaretler. Demo, dosyayı FileReader.readAsDataURL() ile üretip
+// yalnızca localStorage'da tutuyordu (gerçek bir dosya sunucusu YOK) — burada
+// aynı temsil (base64 data URL) gerçek bir Postgres sütununda saklanır; ayrı
+// bir blob depolama servisi bu depoda kasıtlı olarak kapsam dışıdır. Demo'nun
+// kendi ~2,5MB istemci-taraflı boyut sınırı uygulama katmanında da uygulanır.
+model PaymentReceipt {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  studentId     String
+  student       StudentProfile     @relation(fields: [studentId], references: [id])
+  installmentId String
+  installment   PaymentInstallment @relation(fields: [installmentId], references: [id])
+
+  fileName String
+  mimeType String
+  dataUrl  String  @db.Text
+  note     String?
+
+  status           PaymentReceiptStatus @default(BEKLIYOR)
+  submittedAt      DateTime             @default(now())
+  reviewedAt       DateTime?
+  reviewedByUserId String?
+
+  @@index([tenantId, status])
+  @@index([studentId])
 }
 
 // ---------------------------------------------------------------------------

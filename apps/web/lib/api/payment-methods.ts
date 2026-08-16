@@ -32,3 +32,27 @@ export function createPaymentMethod(
 export function deletePaymentMethod(studentId: string, methodId: string) {
   return apiFetch<{ ok: true }>(`/api/branch/students/${studentId}/payment-methods/${methodId}`, { method: "DELETE" });
 }
+
+export interface PendingReceiptRow {
+  id: string;
+  studentName: string;
+  installmentNo: number;
+  amount: string;
+  fileName: string;
+  mimeType: string;
+  dataUrl: string;
+  note: string | null;
+  status: "BEKLIYOR" | "ONAYLANDI" | "REDDEDILDI";
+  submittedAt: string;
+}
+
+export function fetchBranchPaymentReceipts() {
+  return apiFetch<{ receipts: PendingReceiptRow[] }>("/api/branch/payment-receipts", { cache: "no-store" });
+}
+
+export function reviewPaymentReceipt(receiptId: string, decision: "APPROVE" | "REJECT") {
+  return apiFetch<{ receipt: unknown }>(`/api/branch/payment-receipts/${receiptId}/review`, {
+    method: "POST",
+    body: JSON.stringify({ decision }),
+  });
+}

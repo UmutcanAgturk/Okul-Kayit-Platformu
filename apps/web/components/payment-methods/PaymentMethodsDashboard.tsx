@@ -10,12 +10,93 @@ import {
   PAYMENT_METHOD_TYPE_LABEL,
   createPaymentMethod,
   deletePaymentMethod,
+  fetchBranchPaymentReceipts,
   fetchPaymentMethods,
+  reviewPaymentReceipt,
   type PaymentMethodRow,
 } from "@/lib/api/payment-methods";
 import { Icon } from "@/components/ui/icons";
 
 const ALLOWED_ROLES = ["BRANCH_ADMIN", "ACCOUNTING"];
+
+function tl(amount: string) {
+  return "₺" + Math.round(Number(amount)).toLocaleString("tr-TR");
+}
+
+/**
+ * Bekleyen Dekont Onayları — demo'daki "renderPendingReceipts" panelinin
+ * gerçek karşılığı (bkz. app/api/branch/payment-receipts). Onaylama, taksidi
+ * otomatik olarak ödendi işaretler ve Muhasebe defterine geçer.
+ */
+function PendingReceiptsPanel() {
+  const queryClient = useQueryClient();
+  const receiptsQuery = useQuery({ queryKey: ["branch-payment-receipts"], queryFn: fetchBranchPaymentReceipts });
+
+  const reviewMutation = useMutation({
+    mutationFn: ({ receiptId, decision }: { receiptId: string; decision: "APPROVE" | "REJECT" }) =>
+      reviewPaymentReceipt(receiptId, decision),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["branch-payment-receipts"] }),
+  });
+
+  const pending = (receiptsQuery.data?.receipts ?? []).filter((r) => r.status === "BEKLIYOR");
+
+  return (
+    <div className="card card-pad" style={{ marginBottom: 14 }}>
+      <div className="card-head">
+        <h3>Bekleyen Dekont Onayları</h3>
+        <span className="hint">{pending.length} bekliyor</span>
+      </div>
+      {receiptsQuery.isLoading ? (
+        <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>
+      ) : pending.length === 0 ? (
+        <div className="empty-state">
+          <Icon name="attach" />
+          <p>Onay bekleyen dekont yok.</p>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {pending.map((r) => (
+            <div
+              key={r.id}
+              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, borderBottom: "1px solid var(--border)", padding: "9px 0" }}
+            >
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>
+                  {r.studentName} · Taksit #{r.installmentNo} · {tl(r.amount)}
+                </div>
+                <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
+                  {new Date(r.submittedAt).toLocaleString("tr-TR", { dateStyle: "medium", timeStyle: "short" })}
+                  {r.note ? ` · ${r.note}` : ""}
+                </div>
+                <a href={r.dataUrl} download={r.fileName} target="_blank" rel="noreferrer" style={{ fontSize: "var(--text-xs)", color: "var(--brand)" }}>
+                  {r.fileName} — görüntüle/indir
+                </a>
+              </div>
+              <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                <button
+                  type="button"
+                  className="btn primary xs"
+                  disabled={reviewMutation.isPending}
+                  onClick={() => reviewMutation.mutate({ receiptId: r.id, decision: "APPROVE" })}
+                >
+                  Onayla
+                </button>
+                <button
+                  type="button"
+                  className="btn xs"
+                  disabled={reviewMutation.isPending}
+                  onClick={() => reviewMutation.mutate({ receiptId: r.id, decision: "REJECT" })}
+                >
+                  Reddet
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /**
  * Ödeme Yöntemleri — demo/seviye360-app.html'deki "odeme" ekranının gerçek
@@ -93,6 +174,8 @@ export function PaymentMethodsDashboard() {
     <div className="screen">
       <h1>Ödeme Yöntemleri</h1>
       <p className="lede">Öğrencinin taksit tahsilatında kullanılacak ödeme aracını (kart/havale/nakit) dosyada tutun.</p>
+
+      <PendingReceiptsPanel />
 
       <div className="card card-pad" style={{ marginBottom: 14 }}>
         <div className="field" style={{ maxWidth: 380 }}>
