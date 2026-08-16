@@ -294,6 +294,7 @@ model Classroom {
 
   name       String // örn. "9-A" (şube içindeki fiziksel şube/bölüm)
   gradeLevel GradeLevel
+  capacity   Int    @default(30) // demo'daki "Kapasite (Sınıf Limiti)" — bkz. app/api/branch/classrooms
 
   students          StudentProfile[]
   enrollments       Enrollment[]

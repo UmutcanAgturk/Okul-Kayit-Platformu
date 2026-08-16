@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Classroom" ADD COLUMN "capacity" INTEGER NOT NULL DEFAULT 30;

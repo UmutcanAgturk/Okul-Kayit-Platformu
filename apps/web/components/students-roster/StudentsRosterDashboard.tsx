@@ -14,6 +14,7 @@ import {
 import { GRADE_LEVEL_LABEL } from "@/lib/api/enrollments";
 import { Icon } from "@/components/ui/icons";
 import { StudentDetailDrawer } from "./StudentDetailDrawer";
+import { ClassroomsPanel } from "./ClassroomsPanel";
 import type { BranchStudentRow } from "@/lib/api/students-roster";
 
 const ALLOWED_ROLES = ["BRANCH_ADMIN", "GUIDANCE_COORDINATOR"];
@@ -83,11 +84,14 @@ export function StudentsRosterDashboard() {
   const unassignedCount = (studentsQuery.data?.students ?? []).filter((s) => !s.classroomId).length;
   const selectedStudent: BranchStudentRow | null =
     (studentsQuery.data?.students ?? []).find((s) => s.id === selectedStudentId) ?? null;
+  const canManageClassrooms = me.role === "BRANCH_ADMIN" || (me.role === "SUPERADMIN" && !!me.actingTenantId);
 
   return (
     <div className="screen">
       <h1>Öğrenciler</h1>
       <p className="lede">Tüm öğrenci kaydınız ve sınıf ataması — sağdaki açılır menüden bir öğrenciyi doğrudan bir şubeye atayabilirsiniz.</p>
+
+      {canManageClassrooms && <ClassroomsPanel classrooms={classroomsQuery.data?.classrooms ?? []} />}
 
       <div className="grid cols-2" style={{ marginBottom: 14 }}>
         <div className="card stat-card">

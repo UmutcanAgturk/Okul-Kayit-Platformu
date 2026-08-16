@@ -49,3 +49,24 @@ export function opticFormsPerStudent(gradeLevel: GradeLevel): number {
 export const EXAM_ELIGIBLE_GRADE_LEVELS: GradeLevel[] = GRADE_LEVEL_ORDER.filter(
   (g) => gradeTier(g) === "Ortaokul" || gradeTier(g) === "Lise",
 );
+
+// Şube kodu öneki (demo'daki gradeClassroomCode() ile birebir aynı desen):
+// "9-A" gibi sınıf isimlerinin sınıf-düzeyi kısmı. Mezun için şube açılamaz.
+export function gradeClassroomPrefix(gradeLevel: GradeLevel): string | null {
+  switch (gradeLevel) {
+    case GradeLevel.ANASINIFI_3_YAS:
+      return "Ana3";
+    case GradeLevel.ANASINIFI_4_YAS:
+      return "Ana4";
+    case GradeLevel.ANASINIFI_5_YAS:
+      return "Ana5";
+    case GradeLevel.MEZUN:
+      return null;
+    default:
+      return gradeLevel.replace("SINIF_", "");
+  }
+}
+
+export const CLASSROOM_ELIGIBLE_GRADE_LEVELS: GradeLevel[] = GRADE_LEVEL_ORDER.filter(
+  (g) => g !== GradeLevel.MEZUN,
+);

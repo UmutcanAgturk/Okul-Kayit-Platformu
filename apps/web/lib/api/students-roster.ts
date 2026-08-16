@@ -15,6 +15,7 @@ export interface BranchClassroom {
   id: string;
   name: string;
   gradeLevel: string;
+  capacity: number;
   studentCount: number;
 }
 
@@ -28,6 +29,21 @@ export function fetchBranchStudents() {
 
 export function fetchBranchClassrooms() {
   return apiFetch<{ classrooms: BranchClassroom[] }>("/api/branch/classrooms", { cache: "no-store" });
+}
+
+export function createClassroom(input: { gradeLevel: string; suffix: string; capacity: number }) {
+  return apiFetch<{ classroom: BranchClassroom }>("/api/branch/classrooms", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function updateClassroom(classroomId: string, input: Partial<{ suffix: string; capacity: number }>) {
+  return apiFetch<{ classroom: BranchClassroom }>(`/api/branch/classrooms/${classroomId}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteClassroom(classroomId: string) {
+  return apiFetch<{ ok: true }>(`/api/branch/classrooms/${classroomId}`, { method: "DELETE" });
 }
 
 export function assignStudentClassroom(studentId: string, classroomId: string | null) {
