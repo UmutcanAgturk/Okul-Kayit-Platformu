@@ -13,45 +13,93 @@ const ROLE_CHANGE_ALLOWED: UserRole[] = [UserRole.BRANCH_ADMIN];
 const STAFF_USER_ROLES: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.ACCOUNTING, UserRole.GUIDANCE_COORDINATOR];
 
 /**
- * PATCH: personelin sistem rolünü (BRANCH_ADMIN/ACCOUNTING/GUIDANCE_COORDINATOR)
- * değiştirir — demo'daki "roller" ekranının gerçek karşılığı.
+ * PATCH: iki ayrı endişeyi tek route'ta ele alır (gövdede hangi alanların
+ * gönderildiğine göre ayrı yetki kontrolüyle):
+ *  - `role`: personelin sistem rolünü değiştirir — yalnızca BRANCH_ADMIN
+ *    (demo'daki "roller" ekranının gerçek karşılığı, daha yüksek yetki ister).
+ *  - `title`/`department`/`salary`/`startDate`/`phone`/`isActive`: personel
+ *    profilini düzenler / yeniden aktifleştirir — BRANCH_ADMIN/ACCOUNTING
+ *    (personel oluşturmayla aynı yetki).
  */
 export async function PATCH(request: NextRequest, { params }: { params: { staffId: string } }) {
   const actor = await getSessionActor(request);
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (!ROLE_CHANGE_ALLOWED.includes(actor.role)) {
+
+  const body = await request.json().catch(() => ({}));
+  const hasRole = "role" in body;
+  const role = typeof body.role === "string" && STAFF_USER_ROLES.includes(body.role as UserRole) ? (body.role as UserRole) : null;
+  if (hasRole && !role) {
+    return NextResponse.json({ message: `role şunlardan biri olmalı: ${STAFF_USER_ROLES.join(", ")}` }, { status: 400 });
+  }
+  if (hasRole && !ROLE_CHANGE_ALLOWED.includes(actor.role)) {
     return NextResponse.json({ message: "Bu rol personelin sistem rolünü değiştiremez" }, { status: 403 });
   }
 
-  const body = await request.json().catch(() => ({}));
-  const role = typeof body.role === "string" && STAFF_USER_ROLES.includes(body.role as UserRole) ? (body.role as UserRole) : null;
-  if (!role) {
-    return NextResponse.json({ message: `role şunlardan biri olmalı: ${STAFF_USER_ROLES.join(", ")}` }, { status: 400 });
+  const title = typeof body.title === "string" && body.title.trim() ? body.title.trim() : undefined;
+  const department = typeof body.department === "string" ? body.department.trim() || null : undefined;
+  const startDate = typeof body.startDate === "string" && !isNaN(Date.parse(body.startDate)) ? new Date(body.startDate) : undefined;
+  const salary = typeof body.salary === "number" && body.salary > 0 ? body.salary : undefined;
+  const phone = typeof body.phone === "string" ? body.phone.trim() || null : undefined;
+  const isActive = typeof body.isActive === "boolean" ? body.isActive : undefined;
+  const hasProfileFields =
+    title !== undefined || department !== undefined || startDate !== undefined || salary !== undefined || phone !== undefined || isActive !== undefined;
+  if (hasProfileFields && !ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
+    return NextResponse.json({ message: "Bu rol personel profilini düzenleyemez" }, { status: 403 });
   }
 
-  const outcome = await withBranchTenantContext(actor, async (tx) => {
-    const staff = await tx.staffProfile.findUnique({ where: { id: params.staffId }, include: { user: true } });
-    if (!staff) return { kind: "not_found" as const };
+  let outcome;
+  try {
+    outcome = await withBranchTenantContext(actor, async (tx) => {
+      const staff = await tx.staffProfile.findUnique({ where: { id: params.staffId }, include: { user: true } });
+      if (!staff) return { kind: "not_found" as const };
 
-    await tx.user.update({ where: { id: staff.userId }, data: { role } });
+      if (hasRole && role) {
+        await tx.user.update({ where: { id: staff.userId }, data: { role } });
+        await logActivity(tx, {
+          tenantId: effectiveTenantId(actor),
+          actorUserId: actor.id,
+          actorLabel: actorLabel(actor),
+          action: "Personel rolü değiştirildi",
+          detail: `${staff.user.firstName} ${staff.user.lastName} → ${role}`,
+        });
+      }
 
-    await logActivity(tx, {
-      tenantId: effectiveTenantId(actor),
-      actorUserId: actor.id,
-      actorLabel: actorLabel(actor),
-      action: "Personel rolü değiştirildi",
-      detail: `${staff.user.firstName} ${staff.user.lastName} → ${role}`,
+      if (hasProfileFields) {
+        if (phone !== undefined || isActive !== undefined) {
+          await tx.user.update({ where: { id: staff.userId }, data: { phone, isActive } });
+        }
+        await tx.staffProfile.update({ where: { id: staff.id }, data: { title, department, startDate, salary } });
+      }
+
+      const updated = await tx.staffProfile.findUniqueOrThrow({ where: { id: staff.id }, include: { user: true } });
+      return { kind: "updated" as const, staff: updated };
     });
-
-    return { kind: "updated" as const, staffId: staff.id, role };
-  });
+  } catch (e) {
+    if (e && typeof e === "object" && "code" in e && e.code === "P2002") {
+      return NextResponse.json({ message: "Bu telefon numarası zaten kayıtlı" }, { status: 409 });
+    }
+    throw e;
+  }
 
   if (outcome.kind === "not_found") {
     return NextResponse.json({ message: "Personel bulunamadı" }, { status: 404 });
   }
-  return NextResponse.json({ staffId: outcome.staffId, role: outcome.role });
+  return NextResponse.json({
+    staff: {
+      id: outcome.staff.id,
+      name: `${outcome.staff.user.firstName} ${outcome.staff.user.lastName}`,
+      email: outcome.staff.user.email,
+      phone: outcome.staff.user.phone,
+      role: outcome.staff.user.role,
+      isActive: outcome.staff.user.isActive,
+      title: outcome.staff.title,
+      department: outcome.staff.department,
+      startDate: outcome.staff.startDate,
+      salary: outcome.staff.salary,
+    },
+  });
 }
 
 /**

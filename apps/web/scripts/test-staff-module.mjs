@@ -122,6 +122,46 @@ async function main() {
   const stillActive = await prisma.user.findUnique({ where: { id: dbStaff.userId } });
   check("DB: yetkisiz denemeden sonra personel hâlâ aktif", stillActive?.isActive === true);
 
+  // ===== 4b) PATCH /api/branch/staff/:id — profil düzenleme (unvan/departman/maaş/telefon) =====
+  const teacherProfilePatch = await fetch(`${BASE}/api/branch/staff/${staffId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: teacherCookie },
+    body: JSON.stringify({ title: "Yeni Unvan" }),
+  });
+  check("Yetki: TEACHER personel profilini düzenleyemiyor (403)", teacherProfilePatch.status === 403, teacherProfilePatch.status);
+
+  const profilePatchRes = await fetch(`${BASE}/api/branch/staff/${staffId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({ title: "Ön Büro Sorumlusu", department: "İdari İşler", salary: 47000, phone: "05551112233" }),
+  });
+  const profilePatchBody = await profilePatchRes.json();
+  check("PATCH profil: 200 dönüyor", profilePatchRes.status === 200, profilePatchRes.status);
+  check("PATCH profil: unvan güncellendi", profilePatchBody.staff?.title === "Ön Büro Sorumlusu", profilePatchBody.staff?.title);
+  check("PATCH profil: telefon güncellendi", profilePatchBody.staff?.phone === "05551112233", profilePatchBody.staff?.phone);
+  check("PATCH profil: maaş güncellendi", Number(profilePatchBody.staff?.salary) === 47000, profilePatchBody.staff?.salary);
+
+  const listAfterProfilePatch = await fetch(`${BASE}/api/branch/staff`, { headers: { Cookie: branchAdminCookie } });
+  const listAfterProfilePatchBody = await listAfterProfilePatch.json();
+  const patchedEntry = listAfterProfilePatchBody.staff?.find((s) => s.id === staffId);
+  check("GET staff: güncellenmiş telefon listede görünüyor", patchedEntry?.phone === "05551112233", patchedEntry?.phone);
+
+  const secondStaffRes = await fetch(`${BASE}/api/branch/staff`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({ fullName: "Test İkinci Personel", role: "ACCOUNTING", title: "Muhasebe Görevlisi", startDate: "2026-01-15", salary: 40000, phone: "05559998877" }),
+  });
+  const secondStaffBody = await secondStaffRes.json();
+  const secondStaffId = secondStaffBody.staff?.id;
+  check("POST staff: telefonlu ikinci personel 201 dönüyor", secondStaffRes.status === 201, secondStaffRes.status);
+
+  const duplicatePhonePatch = await fetch(`${BASE}/api/branch/staff/${secondStaffId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({ phone: "05551112233" }),
+  });
+  check("PATCH profil: zaten kayıtlı telefonla çakışma 409 dönüyor", duplicatePhonePatch.status === 409, duplicatePhonePatch.status);
+
   // ===== 5) POST /api/branch/payroll — staffProfileId ile =====
   const period = "2026-07";
   const bothIdsRes = await fetch(`${BASE}/api/branch/payroll`, {
@@ -207,6 +247,27 @@ async function main() {
   const stillListedInactiveBody = await stillListedInactive.json();
   const inactiveEntry = stillListedInactiveBody.staff?.find((s) => s.id === staffId);
   check("GET staff: deaktive edilen personel listede isActive=false olarak görünüyor", inactiveEntry?.isActive === false);
+
+  // ===== 8) PATCH /api/branch/staff/:id — yeniden aktifleştirme =====
+  const reactivateRes = await fetch(`${BASE}/api/branch/staff/${staffId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({ isActive: true }),
+  });
+  const reactivateBody = await reactivateRes.json();
+  check("PATCH isActive=true: 200 dönüyor (yeniden aktifleştirme)", reactivateRes.status === 200, reactivateRes.status);
+  check("Personel tekrar aktif", reactivateBody.staff?.isActive === true, reactivateBody.staff?.isActive);
+
+  const dbUserAfterReactivate = await prisma.user.findUnique({ where: { id: dbStaff.userId } });
+  check("DB: personel gerçekten yeniden aktif", dbUserAfterReactivate?.isActive === true);
+
+  // Temizlik
+  const staffIdsToClean = [staffId, secondStaffId].filter(Boolean);
+  const profilesToClean = await prisma.staffProfile.findMany({ where: { id: { in: staffIdsToClean } } });
+  const userIdsToClean = profilesToClean.map((p) => p.userId);
+  await prisma.payrollRecord.deleteMany({ where: { staffProfileId: { in: staffIdsToClean } } });
+  await prisma.staffProfile.deleteMany({ where: { id: { in: staffIdsToClean } } });
+  await prisma.user.deleteMany({ where: { id: { in: userIdsToClean } } });
 
   console.log("\n=== ÖZET ===");
   const fails = results.filter((r) => !r.ok);

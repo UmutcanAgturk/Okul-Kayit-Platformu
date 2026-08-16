@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
       id: s.id,
       name: `${s.user.firstName} ${s.user.lastName}`,
       email: s.user.email,
+      phone: s.user.phone,
       role: s.user.role,
       isActive: s.user.isActive,
       title: s.title,
@@ -66,6 +67,7 @@ export async function POST(request: NextRequest) {
   const department = typeof body.department === "string" && body.department.trim() ? body.department.trim() : null;
   const startDate = typeof body.startDate === "string" && !isNaN(Date.parse(body.startDate)) ? new Date(body.startDate) : null;
   const salary = typeof body.salary === "number" && body.salary > 0 ? body.salary : null;
+  const phone = typeof body.phone === "string" && body.phone.trim() ? body.phone.trim() : null;
 
   if (!fullName || !role || !title || !startDate || !salary) {
     return NextResponse.json(
@@ -77,32 +79,40 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const outcome = await withBranchTenantContext(actor, async (tx) => {
-    const tenant = await tx.tenant.findUniqueOrThrow({ where: { id: effectiveTenantId(actor) } });
+  let outcome;
+  try {
+    outcome = await withBranchTenantContext(actor, async (tx) => {
+      const tenant = await tx.tenant.findUniqueOrThrow({ where: { id: effectiveTenantId(actor) } });
 
-    let email = generateStaffEmail(fullName, tenant.code);
-    for (let attempt = 2; await tx.user.findUnique({ where: { email } }); attempt++) {
-      const [local, domain] = email.split("@");
-      email = `${local.replace(/\d+$/, "")}${attempt}@${domain}`;
-      if (attempt > 20) throw new Error("Benzersiz e-posta üretilemedi");
+      let email = generateStaffEmail(fullName, tenant.code);
+      for (let attempt = 2; await tx.user.findUnique({ where: { email } }); attempt++) {
+        const [local, domain] = email.split("@");
+        email = `${local.replace(/\d+$/, "")}${attempt}@${domain}`;
+        if (attempt > 20) throw new Error("Benzersiz e-posta üretilemedi");
+      }
+
+      const tempPassword = generateTempPassword();
+      const passwordHash = await hashPassword(tempPassword);
+      const [firstName, ...rest] = fullName.split(/\s+/);
+      const lastName = rest.join(" ") || firstName;
+
+      const user = await tx.user.create({
+        data: { tenantId: effectiveTenantId(actor), email, passwordHash, role, firstName, lastName, phone },
+      });
+
+      const staff = await tx.staffProfile.create({
+        data: { tenantId: effectiveTenantId(actor), userId: user.id, title, department, startDate, salary },
+        include: { user: true },
+      });
+
+      return { staff, email, tempPassword };
+    });
+  } catch (e) {
+    if (e && typeof e === "object" && "code" in e && e.code === "P2002") {
+      return NextResponse.json({ message: "Bu telefon numarası zaten kayıtlı" }, { status: 409 });
     }
-
-    const tempPassword = generateTempPassword();
-    const passwordHash = await hashPassword(tempPassword);
-    const [firstName, ...rest] = fullName.split(/\s+/);
-    const lastName = rest.join(" ") || firstName;
-
-    const user = await tx.user.create({
-      data: { tenantId: effectiveTenantId(actor), email, passwordHash, role, firstName, lastName },
-    });
-
-    const staff = await tx.staffProfile.create({
-      data: { tenantId: effectiveTenantId(actor), userId: user.id, title, department, startDate, salary },
-      include: { user: true },
-    });
-
-    return { staff, email, tempPassword };
-  });
+    throw e;
+  }
 
   return NextResponse.json(
     {
@@ -110,6 +120,7 @@ export async function POST(request: NextRequest) {
         id: outcome.staff.id,
         name: `${outcome.staff.user.firstName} ${outcome.staff.user.lastName}`,
         email: outcome.staff.user.email,
+        phone: outcome.staff.user.phone,
         role: outcome.staff.user.role,
         isActive: outcome.staff.user.isActive,
         title: outcome.staff.title,
