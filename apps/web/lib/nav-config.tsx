@@ -38,6 +38,8 @@ const RAPORLAR_CARD: ModuleCard = { href: "/raporlar", title: "Raporlar", descri
 const KURUMLAR_CARD: ModuleCard = { href: "/kurumlar", title: "Kurum Yönetimi", description: "Tüm şubelerin öğrenci/personel/sınıf sayıları ve konsolide mali özet.", icon: "briefcase", group: "Genel Bakış" };
 const ILETISIM_CARD: ModuleCard = { href: "/iletisim", title: "İletişim", description: "Öğrenci/veli/öğretmenlere mesaj gönderme ve gelen kutusu.", icon: "bell", group: "Diğer" };
 const MENTOR_CARD: ModuleCard = { href: "/mentor", title: "Seviye Mentör", description: "Otomatik atanan mentör öğretmenle online randevu talebi.", icon: "road", group: "Öğrenci Yaşamı" };
+const ETUT_ONAYI_CARD: ModuleCard = { href: "/etut-onayi", title: "Etüt Onayı", description: "Yapay zekanın önerdiği etüt seanslarını onaylama/reddetme.", icon: "heart", group: "Öğrenci Yaşamı" };
+const ETUT_RANDEVU_CARD: ModuleCard = { href: "/etut-randevularim", title: "Etüt Randevularım", description: "Önerilen ve onaylanmış etüt seanslarınız.", icon: "heart", group: "Öğrenci Yaşamı" };
 const BASARI_CARD: ModuleCard = { href: "/basari", title: "Başarı Rozetlerim", description: "XP, seviye ve rozetler.", icon: "trophy", group: "Ben" };
 const LEADERBOARD_CARD: ModuleCard = { href: "/basari", title: "Lider Tablosu", description: "Öğrencilerin gerçek katılım/başarı verisinden hesaplanan XP sıralaması.", icon: "trophy", group: "Akademik" };
 const ROADMAP_CARD: ModuleCard = { href: "/yol-haritasi", title: "Akademik Yol Haritam", description: "Net ortalama, hedef ve sınav/kazanım verisinden hesaplanan kişiye özel AI tavsiyesi.", icon: "road", group: "Akademik" };
@@ -47,9 +49,9 @@ export const MODULES_BY_ROLE: Record<UserRole, ModuleCard[]> = {
   BRANCH_ADMIN: [BUGUN_CARD, GUNLUK_OPS_CARD, CRM_CARD, ON_KAYIT_CARD, OGRENCILER_CARD, ODEME_YONTEMLERI_CARD, MUHASEBE_CARD, PERSONEL_CARD, DEVAMSIZLIK_CARD, DISIPLIN_CARD, VELI_GORUSME_CARD, KULUPLER_CARD, SERVIS_CARD, AKTIVITE_CARD, RAPORLAR_CARD, ILETISIM_CARD, MENTOR_CARD, LEADERBOARD_CARD, PROFILIM_CARD],
   ACCOUNTING: [GUNLUK_OPS_CARD, ODEME_YONTEMLERI_CARD, MUHASEBE_CARD, PERSONEL_CARD, PROFILIM_CARD],
   GUIDANCE_COORDINATOR: [CRM_CARD, ON_KAYIT_CARD, OGRENCILER_CARD, DEVAMSIZLIK_CARD, DISIPLIN_CARD, VELI_GORUSME_CARD, PROFILIM_CARD],
-  TEACHER: [DEVAMSIZLIK_CARD, DISIPLIN_CARD, VELI_GORUSME_CARD, KULUPLER_CARD, ILETISIM_CARD, MENTOR_CARD, LEADERBOARD_CARD, PROFILIM_CARD],
-  STUDENT: [KARNE_CARD, ROADMAP_CARD, KULUPLER_CARD, SERVIS_CARD, QUIZ_CARD, ILETISIM_CARD, MENTOR_CARD, BASARI_CARD, PROFILIM_CARD],
-  PARENT: [KARNE_CARD, ROADMAP_CARD, VELI_GORUSME_CARD, SERVIS_CARD, QUIZ_CARD, ILETISIM_CARD, MENTOR_CARD, BASARI_CARD, PROFILIM_CARD],
+  TEACHER: [DEVAMSIZLIK_CARD, DISIPLIN_CARD, VELI_GORUSME_CARD, KULUPLER_CARD, ETUT_ONAYI_CARD, ILETISIM_CARD, MENTOR_CARD, LEADERBOARD_CARD, PROFILIM_CARD],
+  STUDENT: [KARNE_CARD, ROADMAP_CARD, KULUPLER_CARD, SERVIS_CARD, QUIZ_CARD, ETUT_RANDEVU_CARD, ILETISIM_CARD, MENTOR_CARD, BASARI_CARD, PROFILIM_CARD],
+  PARENT: [KARNE_CARD, ROADMAP_CARD, VELI_GORUSME_CARD, SERVIS_CARD, QUIZ_CARD, ETUT_RANDEVU_CARD, ILETISIM_CARD, MENTOR_CARD, BASARI_CARD, PROFILIM_CARD],
   SUPERADMIN: [KURUMLAR_CARD, PROFILIM_CARD],
 };
 
