@@ -17,6 +17,7 @@ import {
   messageKeys,
   sendMessage,
   updateTemplate,
+  type MessageAttachmentRow,
   type MessageAudience,
   type MessageTemplate,
   type MessageTemplateKind,
@@ -25,8 +26,61 @@ import { Icon } from "@/components/ui/icons";
 
 const SENDER_ROLES = ["BRANCH_ADMIN", "TEACHER"];
 
+// demo'daki accept=".pdf,image/*,audio/*" kapsamıyla aynı, PaymentReceipt'teki
+// (bkz. app/api/students/[studentId]/payment-receipts) allowlist deseninin
+// ses türlerine genişletilmiş hali — sunucudaki ACCEPTED_MIME_TYPES ile birebir.
+const ACCEPTED_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "application/pdf",
+  "audio/mpeg",
+  "audio/wav",
+  "audio/ogg",
+  "audio/webm",
+];
+const MAX_FILE_SIZE = 2_500_000;
+const MAX_ATTACHMENTS = 5;
+
 function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString("tr-TR", { dateStyle: "medium", timeStyle: "short" });
+}
+
+function attachmentKind(mimeType: string): "image" | "audio" | "pdf" | "dosya" {
+  if (mimeType.startsWith("image/")) return "image";
+  if (mimeType.startsWith("audio/")) return "audio";
+  if (mimeType === "application/pdf") return "pdf";
+  return "dosya";
+}
+
+function AttachmentList({ attachments }: { attachments: MessageAttachmentRow[] }) {
+  if (attachments.length === 0) return null;
+  return (
+    <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 6 }}>
+      {attachments.map((a) => {
+        const kind = attachmentKind(a.mimeType);
+        return (
+          <div key={a.id} style={{ fontSize: "var(--text-xs)" }}>
+            {kind === "image" ? (
+              <a href={a.dataUrl} download={a.fileName} target="_blank" rel="noreferrer">
+                <img src={a.dataUrl} alt={a.fileName} style={{ maxWidth: 220, maxHeight: 160, borderRadius: 6, display: "block" }} />
+              </a>
+            ) : kind === "audio" ? (
+              <div>
+                <div style={{ color: "var(--ink-faint)", marginBottom: 2 }}>{a.fileName}</div>
+                <audio controls src={a.dataUrl} style={{ maxWidth: 260 }} />
+              </div>
+            ) : (
+              <a href={a.dataUrl} download={a.fileName} style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "var(--brand)" }}>
+                <Icon name="attach" /> {a.fileName}
+              </a>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 function ComposeForm({
@@ -41,9 +95,41 @@ function ComposeForm({
   const [body, setBody] = useState("");
   const [audience, setAudience] = useState<MessageAudience>("ALL_GUARDIANS");
   const [classroomId, setClassroomId] = useState("");
+  const [attachments, setAttachments] = useState<{ fileName: string; mimeType: string; dataUrl: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+
+  async function handleFilesSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    setError(null);
+    for (const file of files) {
+      if (attachments.length >= MAX_ATTACHMENTS) {
+        setError(`En fazla ${MAX_ATTACHMENTS} dosya eklenebilir.`);
+        break;
+      }
+      if (!ACCEPTED_MIME_TYPES.includes(file.type)) {
+        setError(`"${file.name}" desteklenmeyen bir dosya türü.`);
+        continue;
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        setError(`"${file.name}" dosyası çok büyük (limit ~2,5MB).`);
+        continue;
+      }
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error("Dosya okunamadı."));
+        reader.readAsDataURL(file);
+      });
+      setAttachments((prev) => [...prev, { fileName: file.name, mimeType: file.type, dataUrl }]);
+    }
+  }
+
+  function removeAttachment(index: number) {
+    setAttachments((prev) => prev.filter((_, i) => i !== index));
+  }
 
   const classroomsQuery = useQuery({ queryKey: messageKeys.classrooms(), queryFn: fetchClassroomsForMessaging });
   const classroomFilterable = audience === "ALL_STUDENTS" || audience === "ALL_GUARDIANS";
@@ -69,11 +155,13 @@ function ComposeForm({
         body: body.trim(),
         audience,
         classroomId: classroomFilterable && classroomId ? classroomId : undefined,
+        attachments: attachments.length > 0 ? attachments : undefined,
       });
       setStatus(`Mesaj ${result.message.recipientCount} kişiye gönderildi.`);
       setTitle("");
       setBody("");
       setClassroomId("");
+      setAttachments([]);
       queryClient.invalidateQueries({ queryKey: messageKeys.sent() });
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Mesaj gönderilemedi.");
@@ -125,6 +213,22 @@ function ComposeForm({
         <label>Mesaj</label>
         <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={4} placeholder="Mesaj içeriği…" />
       </div>
+      <div className="field" style={{ marginTop: 12 }}>
+        <label>Ek Dosya (PDF, Görsel, Ses — opsiyonel)</label>
+        <input type="file" accept=".pdf,image/*,audio/*" multiple onChange={handleFilesSelected} />
+        {attachments.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 8 }}>
+            {attachments.map((a, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "var(--text-xs)" }}>
+                <span>{a.fileName}</span>
+                <button type="button" className="btn xs" onClick={() => removeAttachment(i)}>
+                  Kaldır
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
       {error && <p style={{ margin: "8px 0 0", fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--critical)" }}>{error}</p>}
       {status && <p style={{ margin: "8px 0 0", fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--strong)" }}>{status}</p>}
       <button type="button" onClick={handleSend} disabled={sending} className="btn primary" style={{ marginTop: 12 }}>
@@ -159,7 +263,14 @@ function SentList() {
             <p style={{ margin: "2px 0 0", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>{m.body}</p>
             <p style={{ margin: "4px 0 0", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
               {m.audienceLabel} · {m.recipientCount} alıcı
+              {m.attachments.length > 0 && (
+                <>
+                  {" · "}
+                  <Icon name="attach" /> {m.attachments.length}
+                </>
+              )}
             </p>
+            <AttachmentList attachments={m.attachments} />
           </div>
         ))}
       </div>
@@ -217,9 +328,16 @@ function Inbox() {
               <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>{formatDateTime(m.createdAt)}</span>
             </div>
             <p style={{ margin: "4px 0 0", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>{m.body}</p>
+            {m.readAt && <AttachmentList attachments={m.attachments} />}
             <div style={{ marginTop: 4, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
                 {m.senderLabel} · {m.audienceLabel}
+                {m.attachments.length > 0 && (
+                  <>
+                    {" · "}
+                    <Icon name="attach" /> {m.attachments.length}
+                  </>
+                )}
               </span>
               <button
                 type="button"

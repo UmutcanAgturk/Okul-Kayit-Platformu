@@ -17,6 +17,10 @@
 //      kutusuna düştüğü.
 //   6. Gönderilen mesajlar listesinin (sent) doğru recipientCount döndürdüğü.
 //   7. Aktivite Akışı'na yansıma.
+//   8. task #58: mesaja dosya eki eklenebildiği (POST/GET sent + GET inbox'ta
+//      dataUrl'in geri döndüğü, bir mesajın BİRDEN FAZLA eki olabildiği),
+//      desteklenmeyen MIME türünün ve boyut limitini aşan bir dosyanın 400
+//      ile reddedildiği.
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient({
@@ -76,7 +80,36 @@ async function main() {
   });
   check("TEACHER ALL_STAFF hedefleyemez: 403", teacherStaffSendRes.status === 403, teacherStaffSendRes.status);
 
-  // ===== BRANCH_ADMIN -> 9-A sınıfı velileri =====
+  // ===== task #58: desteklenmeyen MIME / boyut limiti reddedilir =====
+  const badMimeRes = await fetch(`${BASE}/api/branch/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({
+      title: "x",
+      body: "y",
+      audience: "ALL_GUARDIANS",
+      attachments: [{ fileName: "virus.exe", mimeType: "application/x-msdownload", dataUrl: "data:application/x-msdownload;base64,AAAA" }],
+    }),
+  });
+  check("Desteklenmeyen MIME türü 400 ile reddediliyor", badMimeRes.status === 400, badMimeRes.status);
+
+  const tooBigRes = await fetch(`${BASE}/api/branch/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({
+      title: "x",
+      body: "y",
+      audience: "ALL_GUARDIANS",
+      attachments: [{ fileName: "buyuk.png", mimeType: "image/png", dataUrl: "data:image/png;base64," + "A".repeat(3_600_000) }],
+    }),
+  });
+  check("Boyut limitini aşan dosya 400 ile reddediliyor", tooBigRes.status === 400, tooBigRes.status);
+
+  // ===== BRANCH_ADMIN -> 9-A sınıfı velileri (iki ek dosyayla) =====
+  const testAttachments = [
+    { fileName: "toplanti-gundemi.pdf", mimeType: "application/pdf", dataUrl: "data:application/pdf;base64,JVBERi0xLjQK" },
+    { fileName: "afis.png", mimeType: "image/png", dataUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=" },
+  ];
   const sendRes = await fetch(`${BASE}/api/branch/messages`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
@@ -85,12 +118,14 @@ async function main() {
       body: "Dönem değerlendirme toplantımız yakında gerçekleşecektir.",
       audience: "ALL_GUARDIANS",
       classroomId: classroom.id,
+      attachments: testAttachments,
     }),
   });
   const sendBody = await sendRes.json();
   check("POST /api/branch/messages: 9-A velilerine 201 dönüyor", sendRes.status === 201, sendRes.status);
   check("recipientCount >= 1", sendBody.message?.recipientCount >= 1, sendBody.message?.recipientCount);
   check("audienceLabel sınıf adını içeriyor", sendBody.message?.audienceLabel?.includes("9-A"), sendBody.message?.audienceLabel);
+  check("POST yanıtında 2 ek dönüyor", sendBody.message?.attachments?.length === 2, sendBody.message?.attachments?.length);
   const sentMessageId = sendBody.message.id;
 
   // ===== Veli gelen kutusu =====
@@ -99,6 +134,12 @@ async function main() {
   const inboxEntry = parentInboxBody.messages?.find((m) => m.id === sentMessageId);
   check("Veli gelen kutusunda mesaj görünüyor", !!inboxEntry, inboxEntry?.title);
   check("Mesaj başlangıçta okunmamış", inboxEntry?.readAt === null, inboxEntry?.readAt);
+  check("Veli gelen kutusunda 2 ek görünüyor", inboxEntry?.attachments?.length === 2, inboxEntry?.attachments?.length);
+  check(
+    "Ek dataUrl'i eksiksiz geri dönüyor",
+    inboxEntry?.attachments?.[0]?.dataUrl === testAttachments[0].dataUrl,
+    inboxEntry?.attachments?.[0]?.dataUrl?.slice(0, 30),
+  );
 
   // ===== Gönderilen mesajlar listesi (veli henüz kendi kopyasını silmeden önce) =====
   const sentListRes = await fetch(`${BASE}/api/branch/messages`, { headers: { Cookie: branchAdminCookie } });
@@ -106,6 +147,7 @@ async function main() {
   const sentEntry = sentListBody.messages?.find((m) => m.id === sentMessageId);
   check("BRANCH_ADMIN'in gönderilenler listesinde mesaj var", !!sentEntry, sentEntry?.title);
   check("Gönderilenler listesinde recipientCount doğru", sentEntry?.recipientCount === sendBody.message.recipientCount);
+  check("Gönderilenler listesinde 2 ek görünüyor", sentEntry?.attachments?.length === 2, sentEntry?.attachments?.length);
 
   const readRes = await fetch(`${BASE}/api/messages/${sentMessageId}`, { method: "PATCH", headers: { Cookie: parentCookie } });
   check("PATCH okundu işaretleme 200", readRes.status === 200, readRes.status);

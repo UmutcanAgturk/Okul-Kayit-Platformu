@@ -1274,9 +1274,30 @@ model Message {
 
   createdAt DateTime @default(now())
 
-  recipients MessageRecipient[]
+  recipients  MessageRecipient[]
+  attachments MessageAttachment[]
 
   @@index([tenantId, createdAt])
+}
+
+// İletişim — dosya eki (task #58). demo'daki iletisimAttachments'in gerçek
+// karşılığı: bir mesajın BİRDEN FAZLA eki olabilir (demo'daki gibi çoklu
+// dosya seçimi), bu yüzden Message'a doğrudan fileName/mimeType/dataUrl
+// EKLENMEZ — PaymentReceipt'ten farklı olarak burada 1 mesaj:N ek ilişkisi
+// var. MessageRecipient ile aynı gerekçeyle kendi tenantId'si/RLS'i yoktur,
+// Message'ın RLS'sine güvenir (ek her zaman messageId üzerinden erişilir).
+model MessageAttachment {
+  id        String  @id @default(cuid())
+  messageId String
+  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  fileName String
+  mimeType String
+  dataUrl  String  @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([messageId])
 }
 
 // İletişim — Hazır Şablonlar. demo/seviye360-app.html'deki MESSAGE_TEMPLATES'in

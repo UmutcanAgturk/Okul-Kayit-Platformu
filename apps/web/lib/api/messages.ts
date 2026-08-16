@@ -2,6 +2,13 @@ import { apiFetch } from "./client";
 
 export type MessageAudience = "ALL_STUDENTS" | "ALL_GUARDIANS" | "ALL_TEACHERS" | "ALL_STAFF";
 
+export interface MessageAttachmentRow {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  dataUrl: string;
+}
+
 export interface SentMessage {
   id: string;
   title: string;
@@ -9,13 +16,20 @@ export interface SentMessage {
   audienceLabel: string;
   recipientCount: number;
   createdAt: string;
+  attachments: MessageAttachmentRow[];
 }
 
 export function fetchSentMessages() {
   return apiFetch<{ messages: SentMessage[] }>("/api/branch/messages", { cache: "no-store" });
 }
 
-export function sendMessage(input: { title: string; body: string; audience: MessageAudience; classroomId?: string }) {
+export function sendMessage(input: {
+  title: string;
+  body: string;
+  audience: MessageAudience;
+  classroomId?: string;
+  attachments?: { fileName: string; mimeType: string; dataUrl: string }[];
+}) {
   return apiFetch<{ message: SentMessage }>("/api/branch/messages", { method: "POST", body: JSON.stringify(input) });
 }
 
@@ -27,6 +41,7 @@ export interface InboxMessage {
   audienceLabel: string;
   createdAt: string;
   readAt: string | null;
+  attachments: MessageAttachmentRow[];
 }
 
 export function fetchInbox() {

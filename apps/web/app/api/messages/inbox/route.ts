@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
   const rows = await withTenantContext(actor, (tx) =>
     tx.messageRecipient.findMany({
       where: { userId: actor.id },
-      include: { message: true },
+      include: { message: { include: { attachments: true } } },
       orderBy: { message: { createdAt: "desc" } },
     }),
   );
@@ -31,6 +31,7 @@ export async function GET(request: NextRequest) {
       audienceLabel: r.message.audienceLabel,
       createdAt: r.message.createdAt.toISOString(),
       readAt: r.readAt ? r.readAt.toISOString() : null,
+      attachments: r.message.attachments.map((a) => ({ id: a.id, fileName: a.fileName, mimeType: a.mimeType, dataUrl: a.dataUrl })),
     })),
     unreadCount: rows.filter((r) => !r.readAt).length,
   });

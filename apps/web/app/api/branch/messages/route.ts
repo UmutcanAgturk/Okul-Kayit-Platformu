@@ -4,6 +4,23 @@ import { getSessionActor } from "@/lib/session";
 import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { actorLabel, logActivity } from "@/lib/audit-log";
 
+// task #58 — demo'daki MESSAGE_ATTACHMENT_MAX_CHARS ile aynı depolama sınırı
+// ve PaymentReceipt'teki (bkz. app/api/students/[studentId]/payment-receipts)
+// ile aynı allowlist deseni, demo'nun "PDF, Görsel, Ses" kapsamına genişletildi.
+const ACCEPTED_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "application/pdf",
+  "audio/mpeg",
+  "audio/wav",
+  "audio/ogg",
+  "audio/webm",
+];
+const MAX_DATA_URL_LENGTH = 3_500_000;
+const MAX_ATTACHMENTS_PER_MESSAGE = 5;
+
 /**
  * İletişim — demo'daki `createMessage()`'ın gönderme tarafı. Demo'nun
  * SMS/e-posta kanalları ve dosya ekleri yalnızca SİMÜLASYONDUR (gerçek bir
@@ -37,7 +54,7 @@ export async function GET(request: NextRequest) {
   const messages = await withBranchTenantContext(actor, (tx) =>
     tx.message.findMany({
       where: { senderUserId: actor.id },
-      include: { _count: { select: { recipients: true } } },
+      include: { _count: { select: { recipients: true } }, attachments: true },
       orderBy: { createdAt: "desc" },
     }),
   );
@@ -50,6 +67,7 @@ export async function GET(request: NextRequest) {
       audienceLabel: m.audienceLabel,
       recipientCount: m._count.recipients,
       createdAt: m.createdAt.toISOString(),
+      attachments: m.attachments.map((a) => ({ id: a.id, fileName: a.fileName, mimeType: a.mimeType, dataUrl: a.dataUrl })),
     })),
   });
 }
@@ -68,9 +86,29 @@ export async function POST(request: NextRequest) {
   const messageBody = typeof body?.body === "string" ? body.body.trim() : "";
   const audience = body?.audience as Audience;
   const classroomId = typeof body?.classroomId === "string" && body.classroomId ? body.classroomId : null;
+  const rawAttachments = Array.isArray(body?.attachments) ? body.attachments : [];
 
   if (!title || !messageBody || !AUDIENCE_VALUES.includes(audience)) {
     return NextResponse.json({ message: "Başlık, mesaj ve geçerli bir hedef kitle zorunludur" }, { status: 400 });
+  }
+  if (rawAttachments.length > MAX_ATTACHMENTS_PER_MESSAGE) {
+    return NextResponse.json({ message: `En fazla ${MAX_ATTACHMENTS_PER_MESSAGE} dosya eklenebilir` }, { status: 400 });
+  }
+  const attachments: { fileName: string; mimeType: string; dataUrl: string }[] = [];
+  for (const a of rawAttachments) {
+    const fileName = typeof a?.fileName === "string" && a.fileName.trim() ? a.fileName.trim() : null;
+    const mimeType = typeof a?.mimeType === "string" ? a.mimeType : null;
+    const dataUrl = typeof a?.dataUrl === "string" ? a.dataUrl : null;
+    if (!fileName || !mimeType || !dataUrl) {
+      return NextResponse.json({ message: "Her ek için fileName, mimeType ve dataUrl zorunludur" }, { status: 400 });
+    }
+    if (!ACCEPTED_MIME_TYPES.includes(mimeType)) {
+      return NextResponse.json({ message: `Desteklenmeyen dosya türü: ${mimeType}` }, { status: 400 });
+    }
+    if (dataUrl.length > MAX_DATA_URL_LENGTH) {
+      return NextResponse.json({ message: `"${fileName}" dosyası çok büyük (limit ~2,5MB)` }, { status: 400 });
+    }
+    attachments.push({ fileName, mimeType, dataUrl });
   }
   if (actor.role === UserRole.TEACHER && (audience === "ALL_TEACHERS" || audience === "ALL_STAFF")) {
     return NextResponse.json({ message: "Öğretmenler yalnızca öğrenci/veli hedefleyebilir" }, { status: 403 });
@@ -122,7 +160,9 @@ export async function POST(request: NextRequest) {
         body: messageBody,
         audienceLabel,
         recipients: { createMany: { data: recipientUserIds.map((userId) => ({ userId })) } },
+        attachments: { createMany: { data: attachments } },
       },
+      include: { attachments: true },
     });
 
     await logActivity(tx, {
@@ -149,6 +189,7 @@ export async function POST(request: NextRequest) {
         audienceLabel: result.message.audienceLabel,
         recipientCount: result.recipientCount,
         createdAt: result.message.createdAt.toISOString(),
+        attachments: result.message.attachments.map((a) => ({ id: a.id, fileName: a.fileName, mimeType: a.mimeType, dataUrl: a.dataUrl })),
       },
     },
     { status: 201 },
