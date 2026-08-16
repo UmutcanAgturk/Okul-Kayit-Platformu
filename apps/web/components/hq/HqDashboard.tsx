@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { authKeys, fetchMe, logout } from "@/lib/api/auth";
+import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import {
   createHqExam,
@@ -43,58 +43,51 @@ function formatTl(n: number) {
 function TenantCard({ tenant, onToggleActive, toggling }: { tenant: HqTenant; onToggleActive: (tenantId: string) => void; toggling: boolean }) {
   const occupancyPct = tenant.capacity && tenant.capacity > 0 ? Math.round((tenant.studentCount / tenant.capacity) * 100) : null;
   return (
-    <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-      <div className="flex items-start justify-between">
+    <div className="card card-pad">
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
         <div>
-          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-50">{tenant.name}</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+          <h3 style={{ margin: 0, fontSize: "var(--text-base)", fontWeight: 700 }}>{tenant.name}</h3>
+          <p style={{ margin: "2px 0 0", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
             {TENANT_TYPE_LABEL[tenant.type] ?? tenant.type} · {tenant.code}
             {tenant.city && ` · ${tenant.city}${tenant.district ? "/" + tenant.district : ""}`}
           </p>
         </div>
-        {!tenant.isActive && (
-          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">Pasif</span>
-        )}
+        {!tenant.isActive && <span className="chip neutral">Pasif</span>}
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+      <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, fontSize: "var(--text-sm)" }}>
         <div>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Öğrenci</p>
-          <p className="font-medium text-slate-900 dark:text-slate-50">
+          <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>Öğrenci</p>
+          <p style={{ margin: 0, fontWeight: 600 }}>
             {tenant.studentCount}
             {tenant.capacity ? ` / ${tenant.capacity}` : ""}
           </p>
         </div>
         <div>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Öğretmen</p>
-          <p className="font-medium text-slate-900 dark:text-slate-50">{tenant.teacherCount}</p>
+          <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>Öğretmen</p>
+          <p style={{ margin: 0, fontWeight: 600 }}>{tenant.teacherCount}</p>
         </div>
         <div>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Personel</p>
-          <p className="font-medium text-slate-900 dark:text-slate-50">{tenant.staffCount}</p>
+          <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>Personel</p>
+          <p style={{ margin: 0, fontWeight: 600 }}>{tenant.staffCount}</p>
         </div>
         <div>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Sınıf</p>
-          <p className="font-medium text-slate-900 dark:text-slate-50">{tenant.classroomCount}</p>
+          <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>Sınıf</p>
+          <p style={{ margin: 0, fontWeight: 600 }}>{tenant.classroomCount}</p>
         </div>
       </div>
       {occupancyPct !== null && (
-        <div className="mt-2">
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-            <div className="h-full rounded-full bg-[#0071ce]" style={{ width: `${Math.min(100, occupancyPct)}%` }} />
+        <div style={{ marginTop: 10 }}>
+          <div className="progress-track" style={{ height: 6 }}>
+            <div className="progress-fill" style={{ width: `${Math.min(100, occupancyPct)}%` }} />
           </div>
-          <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">Doluluk %{occupancyPct}</p>
+          <p style={{ margin: "4px 0 0", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>Doluluk %{occupancyPct}</p>
         </div>
       )}
-      <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
-        Şube Müdürü: <span className="font-medium text-slate-700 dark:text-slate-300">{tenant.branchAdminName ?? "Atanmamış"}</span>
+      <p style={{ margin: "12px 0 0", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
+        Şube Müdürü: <span style={{ fontWeight: 600, color: "var(--ink-muted)" }}>{tenant.branchAdminName ?? "Atanmamış"}</span>
       </p>
       {tenant.type !== "GENEL_MERKEZ" && (
-        <button
-          type="button"
-          onClick={() => onToggleActive(tenant.id)}
-          disabled={toggling}
-          className="mt-3 rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-        >
+        <button type="button" onClick={() => onToggleActive(tenant.id)} disabled={toggling} className="btn xs" style={{ marginTop: 12 }}>
           {tenant.isActive ? "Devre Dışı Bırak" : "Yeniden Etkinleştir"}
         </button>
       )}
@@ -158,85 +151,83 @@ function CreateTenantForm() {
   }
 
   return (
-    <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-      <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Yeni Kurum Ekle</h2>
-      <form onSubmit={handleSubmit} className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div>
-          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Kurum Adı</label>
-          <input value={name} onChange={(e) => setName(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900" />
+    <div className="card card-pad">
+      <div className="card-head">
+        <h3>Yeni Kurum Ekle</h3>
+      </div>
+      <form onSubmit={handleSubmit} style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
+        <div className="field">
+          <label>Kurum Adı</label>
+          <input value={name} onChange={(e) => setName(e.target.value)} />
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Şehir</label>
-            <input value={city} onChange={(e) => setCity(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900" />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div className="field">
+            <label>Şehir</label>
+            <input value={city} onChange={(e) => setCity(e.target.value)} />
           </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">İlçe</label>
-            <input value={district} onChange={(e) => setDistrict(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900" />
-          </div>
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Açık Adres (opsiyonel)</label>
-          <input value={address} onChange={(e) => setAddress(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900" />
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Telefon (opsiyonel)</label>
-            <input value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">E-posta (opsiyonel)</label>
-            <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900" />
+          <div className="field">
+            <label>İlçe</label>
+            <input value={district} onChange={(e) => setDistrict(e.target.value)} />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Öğrenci Kapasitesi (opsiyonel)</label>
-            <input value={capacity} onChange={(e) => setCapacity(e.target.value)} type="number" min="1" className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900" />
+        <div className="field">
+          <label>Açık Adres (opsiyonel)</label>
+          <input value={address} onChange={(e) => setAddress(e.target.value)} />
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div className="field">
+            <label>Telefon (opsiyonel)</label>
+            <input value={phone} onChange={(e) => setPhone(e.target.value)} />
           </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Vergi No (opsiyonel)</label>
-            <input value={taxNo} onChange={(e) => setTaxNo(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900" />
+          <div className="field">
+            <label>E-posta (opsiyonel)</label>
+            <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Şube Müdürü Adı</label>
-            <input value={managerFirstName} onChange={(e) => setManagerFirstName(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900" />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div className="field">
+            <label>Öğrenci Kapasitesi (opsiyonel)</label>
+            <input value={capacity} onChange={(e) => setCapacity(e.target.value)} type="number" min="1" />
           </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Şube Müdürü Soyadı</label>
-            <input value={managerLastName} onChange={(e) => setManagerLastName(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900" />
+          <div className="field">
+            <label>Vergi No (opsiyonel)</label>
+            <input value={taxNo} onChange={(e) => setTaxNo(e.target.value)} />
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div className="field">
+            <label>Şube Müdürü Adı</label>
+            <input value={managerFirstName} onChange={(e) => setManagerFirstName(e.target.value)} />
+          </div>
+          <div className="field">
+            <label>Şube Müdürü Soyadı</label>
+            <input value={managerLastName} onChange={(e) => setManagerLastName(e.target.value)} />
           </div>
         </div>
 
-        {formError && <p className="text-xs text-red-600 dark:text-red-400 sm:col-span-2">{formError}</p>}
+        {formError && <p style={{ gridColumn: "span 2", margin: 0, fontSize: "var(--text-xs)", color: "var(--critical)" }}>{formError}</p>}
 
-        <div className="sm:col-span-2">
-          <button
-            type="submit"
-            disabled={createMutation.isPending}
-            className="rounded-lg bg-[#0071ce] px-4 py-2 text-sm font-semibold text-white hover:bg-[#00558f] disabled:opacity-60"
-          >
+        <div style={{ gridColumn: "span 2" }}>
+          <button type="submit" disabled={createMutation.isPending} className="btn primary">
             {createMutation.isPending ? "Oluşturuluyor…" : "Kurumu Ekle"}
           </button>
         </div>
       </form>
 
       {credentials && (
-        <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900 dark:bg-emerald-950/40">
-          <h3 className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">Şube Müdürü Giriş Bilgileri Oluşturuldu</h3>
-          <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-400">
+        <div className="card card-pad" style={{ marginTop: 16, borderColor: "var(--strong)", background: "var(--strong-bg)" }}>
+          <h3 style={{ margin: 0, fontSize: "var(--text-base)", fontWeight: 700, color: "var(--strong)" }}>Şube Müdürü Giriş Bilgileri Oluşturuldu</h3>
+          <p style={{ margin: "4px 0 0", fontSize: "var(--text-xs)", color: "var(--strong)" }}>
             Bu şifre yalnızca burada gösterilir — hemen şube müdürüne iletin, tekrar görüntülenemez.
           </p>
-          <dl className="mt-2 space-y-1 text-xs text-emerald-800 dark:text-emerald-300">
-            <div className="flex justify-between">
+          <dl style={{ margin: "8px 0 0", display: "flex", flexDirection: "column", gap: 4, fontSize: "var(--text-xs)", color: "var(--strong)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
               <dt>Kullanıcı adı</dt>
-              <dd className="font-mono">{credentials.username}</dd>
+              <dd style={{ margin: 0, fontFamily: "monospace" }}>{credentials.username}</dd>
             </div>
-            <div className="flex justify-between">
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
               <dt>Şifre</dt>
-              <dd className="font-mono">{credentials.password}</dd>
+              <dd style={{ margin: 0, fontFamily: "monospace" }}>{credentials.password}</dd>
             </div>
           </dl>
         </div>
@@ -252,86 +243,83 @@ function HqStudentsPanel({ tenants }: { tenants: HqTenant[] }) {
   const data = query.data;
 
   return (
-    <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-      <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Öğrenciler — Tüm Şubeler</h2>
-      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+    <div className="card card-pad">
+      <div className="card-head">
+        <h3>Öğrenciler — Tüm Şubeler</h3>
+      </div>
+      <p style={{ margin: "0 0 12px", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
         Genel Merkez, tüm şubelerdeki her öğrenciyi tek tek görebilir — şube bazlı kısıtlama uygulanmaz.
       </p>
 
       {data && (
-        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Toplam Öğrenci</p>
-            <p className="font-semibold text-slate-900 dark:text-slate-50">{data.summary.totalStudents}</p>
+        <div className="grid cols-4" style={{ marginBottom: 16 }}>
+          <div className="card stat-card">
+            <p className="stat-label">Toplam Öğrenci</p>
+            <p className="stat-value">{data.summary.totalStudents}</p>
           </div>
-          <div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Şube Sayısı</p>
-            <p className="font-semibold text-slate-900 dark:text-slate-50">{data.summary.branchCount}</p>
+          <div className="card stat-card">
+            <p className="stat-label">Şube Sayısı</p>
+            <p className="stat-value">{data.summary.branchCount}</p>
           </div>
-          <div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">En Kalabalık Şube</p>
-            <p className="font-semibold text-slate-900 dark:text-slate-50">
+          <div className="card stat-card">
+            <p className="stat-label">En Kalabalık Şube</p>
+            <p className="stat-value" style={{ fontSize: "var(--text-md)" }}>
               {data.summary.busiestBranch ? `${data.summary.busiestBranch.name} (${data.summary.busiestBranch.count})` : "—"}
             </p>
           </div>
-          <div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Sınıfa Atanmamış</p>
-            <p className="font-semibold text-slate-900 dark:text-slate-50">{data.summary.unassignedCount}</p>
+          <div className="card stat-card tone-weak">
+            <p className="stat-label">Sınıfa Atanmamış</p>
+            <p className="stat-value">{data.summary.unassignedCount}</p>
           </div>
         </div>
       )}
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="İsim veya öğrenci no ile ara…"
-          className="min-w-[200px] flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-        />
-        <select
-          value={tenantId}
-          onChange={(e) => setTenantId(e.target.value)}
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-        >
-          <option value="">Tüm Şubeler</option>
-          {tenants.filter((t) => t.type !== "GENEL_MERKEZ").map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name}
-            </option>
-          ))}
-        </select>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+        <div className="field" style={{ flex: 1, minWidth: 200 }}>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="İsim veya öğrenci no ile ara…" />
+        </div>
+        <div className="field">
+          <select value={tenantId} onChange={(e) => setTenantId(e.target.value)}>
+            <option value="">Tüm Şubeler</option>
+            {tenants
+              .filter((t) => t.type !== "GENEL_MERKEZ")
+              .map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+          </select>
+        </div>
       </div>
 
-      {query.isLoading && <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</p>}
+      {query.isLoading && <p style={{ marginTop: 12, color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
       {data && (
-        <div className="mt-3 max-h-[420px] overflow-y-auto">
-          <table className="w-full text-sm">
+        <div className="table-wrap" style={{ marginTop: 14, maxHeight: 420, overflowY: "auto" }}>
+          <table className="data">
             <thead>
-              <tr className="sticky top-0 bg-white text-left text-xs text-slate-500 dark:bg-slate-950 dark:text-slate-400">
-                <th className="pb-2">Öğrenci</th>
-                <th className="pb-2">Öğrenci No</th>
-                <th className="pb-2">Şube</th>
-                <th className="pb-2">Sınıf</th>
-                <th className="pb-2 text-right">Net</th>
+              <tr>
+                <th>Öğrenci</th>
+                <th>Öğrenci No</th>
+                <th>Şube</th>
+                <th>Sınıf</th>
+                <th style={{ textAlign: "right" }}>Net</th>
               </tr>
             </thead>
             <tbody>
               {data.students.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="py-3 text-center text-slate-500 dark:text-slate-400">
+                  <td colSpan={5} style={{ textAlign: "center", color: "var(--ink-faint)" }}>
                     Öğrenci bulunamadı
                   </td>
                 </tr>
               )}
               {data.students.map((s) => (
-                <tr key={s.id} className="border-t border-slate-100 dark:border-slate-800">
-                  <td className="py-1.5 font-medium text-slate-900 dark:text-slate-50">{s.name}</td>
-                  <td className="py-1.5">{s.studentNo}</td>
-                  <td className="py-1.5">{s.tenantName}</td>
-                  <td className="py-1.5">
-                    {s.classroomName ?? <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">Atanmadı</span>}
-                  </td>
-                  <td className="py-1.5 text-right tabular-nums">{s.avgNet ?? "—"}</td>
+                <tr key={s.id}>
+                  <td style={{ fontWeight: 600 }}>{s.name}</td>
+                  <td>{s.studentNo}</td>
+                  <td>{s.tenantName}</td>
+                  <td>{s.classroomName ?? <span className="chip critical">Atanmadı</span>}</td>
+                  <td style={{ textAlign: "right" }}>{s.avgNet ?? "—"}</td>
                 </tr>
               ))}
             </tbody>
@@ -386,58 +374,42 @@ function HqExamsPanel() {
   const exams = examsQuery.data?.exams ?? [];
 
   return (
-    <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-      <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Genel Sınav Merkezi</h2>
-      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+    <div className="card card-pad">
+      <div className="card-head">
+        <h3>Genel Sınav Merkezi</h3>
+      </div>
+      <p style={{ margin: "0 0 14px", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
         Türkiye geneli deneme sınavı tanımlayın — seçilen sınıf düzeylerindeki (Ortaokul+Lise) TÜM şubelerde optik form
         ihtiyacı ve toplam fatura tutarı canlı öğrenci sayısından otomatik hesaplanır.
       </p>
 
-      <form onSubmit={handleSubmit} className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div>
-          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Sınav Adı</label>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Örn. Seviye 360 Türkiye Geneli Deneme #1"
-            className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900"
-          />
+      <form onSubmit={handleSubmit} style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
+        <div className="field">
+          <label>Sınav Adı</label>
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Örn. Seviye 360 Türkiye Geneli Deneme #1" />
         </div>
-        <div>
-          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Sınav Tarihi</label>
-          <input
-            type="date"
-            value={examDate}
-            onChange={(e) => setExamDate(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900"
-          />
+        <div className="field">
+          <label>Sınav Tarihi</label>
+          <input type="date" value={examDate} onChange={(e) => setExamDate(e.target.value)} />
         </div>
-        <div>
-          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Kitapçık Sayısı</label>
-          <select
-            value={bookletCount}
-            onChange={(e) => setBookletCount(Number(e.target.value) as 2 | 4)}
-            className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900"
-          >
+        <div className="field">
+          <label>Kitapçık Sayısı</label>
+          <select value={bookletCount} onChange={(e) => setBookletCount(Number(e.target.value) as 2 | 4)}>
             <option value={4}>4 (A/B/C/D)</option>
             <option value={2}>2 (A/B)</option>
           </select>
         </div>
-        <div>
-          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Öğrenci Başına Ücret (₺, opsiyonel)</label>
-          <input
-            type="number"
-            min="0"
-            value={feePerStudent}
-            onChange={(e) => setFeePerStudent(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900"
-          />
+        <div className="field">
+          <label>Öğrenci Başına Ücret (₺, opsiyonel)</label>
+          <input type="number" min="0" value={feePerStudent} onChange={(e) => setFeePerStudent(e.target.value)} />
         </div>
-        <div className="sm:col-span-2">
-          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Katılacak Sınıf Düzeyleri</label>
-          <div className="mt-1 flex flex-wrap gap-2 rounded-lg border border-slate-300 p-2 dark:border-slate-700">
+        <div style={{ gridColumn: "span 2" }}>
+          <label style={{ display: "block", fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--ink-muted)", marginBottom: 5 }}>
+            Katılacak Sınıf Düzeyleri
+          </label>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, border: "1px solid var(--border-strong)", borderRadius: "var(--radius-sm)", padding: 10 }}>
             {EXAM_ELIGIBLE_GRADE_OPTIONS.map((g) => (
-              <label key={g} className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300">
+              <label key={g} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
                 <input type="checkbox" checked={selectedGrades.includes(g)} onChange={() => toggleGrade(g)} />
                 {GRADE_LABEL[g]}
               </label>
@@ -445,33 +417,27 @@ function HqExamsPanel() {
           </div>
         </div>
 
-        {formError && <p className="text-xs text-red-600 dark:text-red-400 sm:col-span-2">{formError}</p>}
+        {formError && <p style={{ gridColumn: "span 2", margin: 0, fontSize: "var(--text-xs)", color: "var(--critical)" }}>{formError}</p>}
 
-        <div className="sm:col-span-2">
-          <button
-            type="submit"
-            disabled={createMutation.isPending}
-            className="rounded-lg bg-[#0071ce] px-4 py-2 text-sm font-semibold text-white hover:bg-[#00558f] disabled:opacity-60"
-          >
+        <div style={{ gridColumn: "span 2" }}>
+          <button type="submit" disabled={createMutation.isPending} className="btn primary">
             {createMutation.isPending ? "Oluşturuluyor…" : "Sınavı Oluştur"}
           </button>
         </div>
       </form>
 
-      <div className="mt-5">
-        <h3 className="text-xs font-semibold text-slate-700 dark:text-slate-300">Tanımlı Sınavlar ({exams.length})</h3>
-        {examsQuery.isLoading && <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</p>}
-        {!examsQuery.isLoading && exams.length === 0 && (
-          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Henüz tanımlı bir Genel Sınav yok.</p>
-        )}
-        <div className="mt-2 space-y-2">
+      <div style={{ marginTop: 20 }}>
+        <h3 style={{ margin: "0 0 8px", fontSize: "var(--text-sm)", fontWeight: 700 }}>Tanımlı Sınavlar ({exams.length})</h3>
+        {examsQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
+        {!examsQuery.isLoading && exams.length === 0 && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Henüz tanımlı bir Genel Sınav yok.</p>}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {exams.map((exam) => (
-            <div key={exam.id} className="rounded-lg border border-slate-100 p-3 text-sm dark:border-slate-800">
-              <div className="flex items-center justify-between">
-                <span className="font-medium text-slate-900 dark:text-slate-50">{exam.name}</span>
-                <span className="text-xs text-slate-500 dark:text-slate-400">{new Date(exam.examDate).toLocaleDateString("tr-TR")}</span>
+            <div key={exam.id} style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: 10, fontSize: "var(--text-sm)" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontWeight: 600 }}>{exam.name}</span>
+                <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>{new Date(exam.examDate).toLocaleDateString("tr-TR")}</span>
               </div>
-              <div className="mt-1 grid grid-cols-3 gap-2 text-xs text-slate-600 dark:text-slate-400">
+              <div style={{ marginTop: 4, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
                 <span>{exam.studentCount} öğrenci</span>
                 <span>{exam.opticFormCount} optik form</span>
                 <span>{exam.feePerStudent ? formatTl2(exam.totalFee) : "—"}</span>
@@ -486,18 +452,18 @@ function HqExamsPanel() {
 
 function HBar({ label, sub, value, max, valueLabel, tone }: { label: string; sub?: string; value: number; max: number; valueLabel: string; tone?: "strong" | "weak" | "critical" }) {
   const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
-  const barColor = tone === "strong" ? "bg-emerald-500" : tone === "critical" ? "bg-red-500" : tone === "weak" ? "bg-amber-500" : "bg-[#0071ce]";
+  const barColor = tone === "strong" ? "var(--strong)" : tone === "critical" ? "var(--critical)" : tone === "weak" ? "var(--weak)" : "var(--brand)";
   return (
     <div>
-      <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
         <span>
           {label}
-          {sub && <span className="ml-1 text-slate-400 dark:text-slate-500">· {sub}</span>}
+          {sub && <span style={{ marginLeft: 4, color: "var(--ink-faint)" }}>· {sub}</span>}
         </span>
         <span>{valueLabel}</span>
       </div>
-      <div className="mt-1 h-2 w-full rounded-full bg-slate-100 dark:bg-slate-800">
-        <div className={`h-2 rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
+      <div className="progress-track" style={{ marginTop: 4, height: 6 }}>
+        <div style={{ height: "100%", borderRadius: 999, width: `${pct}%`, background: barColor, transition: "width .5s var(--ease)" }} />
       </div>
     </div>
   );
@@ -509,42 +475,42 @@ function HqAnalyticsPanel() {
   const medal = ["🥇", "🥈", "🥉"];
 
   return (
-    <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-      <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Global Analytics</h2>
-      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+    <div className="card card-pad">
+      <div className="card-head">
+        <h3>Global Analytics</h3>
+      </div>
+      <p style={{ margin: "0 0 14px", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
         Tüm kurumlar genelinde gerçek sınav sonuçlarından ders bazlı başarı ve şube bazlı gelir karşılaştırması.
       </p>
 
-      {query.isLoading && <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</p>}
+      {query.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
 
       {data && (
         <>
-          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Toplam Şube</p>
-              <p className="font-semibold text-slate-900 dark:text-slate-50">{data.totalBranches}</p>
+          <div className="grid cols-3">
+            <div className="card stat-card">
+              <p className="stat-label">Toplam Şube</p>
+              <p className="stat-value">{data.totalBranches}</p>
             </div>
-            <div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Toplam Öğrenci</p>
-              <p className="font-semibold text-slate-900 dark:text-slate-50">{data.totalStudents}</p>
+            <div className="card stat-card">
+              <p className="stat-label">Toplam Öğrenci</p>
+              <p className="stat-value">{data.totalStudents}</p>
             </div>
-            <div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Genel Ortalama Net</p>
-              <p className="font-semibold text-slate-900 dark:text-slate-50">
-                {data.orgAvgNet !== null ? (Math.round(data.orgAvgNet * 10) / 10).toString() : "—"}
-              </p>
+            <div className="card stat-card tone-strong">
+              <p className="stat-label">Genel Ortalama Net</p>
+              <p className="stat-value">{data.orgAvgNet !== null ? (Math.round(data.orgAvgNet * 10) / 10).toString() : "—"}</p>
             </div>
           </div>
 
           {data.topBranches.length > 0 && (
-            <div className="mt-5">
-              <h3 className="text-xs font-semibold text-slate-700 dark:text-slate-300">🏆 Akademik Olarak En Başarılı Şubeler</h3>
-              <div className="mt-2 flex flex-wrap gap-3">
+            <div style={{ marginTop: 20 }}>
+              <h3 style={{ margin: "0 0 8px", fontSize: "var(--text-sm)", fontWeight: 700 }}>🏆 Akademik Olarak En Başarılı Şubeler</h3>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
                 {data.topBranches.map((b, i) => (
-                  <div key={b.tenantId} className="min-w-[160px] flex-1 rounded-lg border border-slate-100 p-3 text-center dark:border-slate-800">
-                    <p className="text-2xl">{medal[i]}</p>
-                    <p className="text-xs font-semibold text-slate-900 dark:text-slate-50">{b.tenantName}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                  <div key={b.tenantId} className="card card-pad" style={{ minWidth: 160, flex: 1, textAlign: "center" }}>
+                    <p style={{ margin: 0, fontSize: "var(--text-xl)" }}>{medal[i]}</p>
+                    <p style={{ margin: 0, fontSize: "var(--text-xs)", fontWeight: 700 }}>{b.tenantName}</p>
+                    <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
                       {b.city} · {Math.round((b.avgNet as number) * 10) / 10} net
                     </p>
                   </div>
@@ -553,13 +519,13 @@ function HqAnalyticsPanel() {
             </div>
           )}
 
-          <div className="mt-5 grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <div className="grid cols-2" style={{ marginTop: 20 }}>
             <div>
-              <h3 className="text-xs font-semibold text-slate-700 dark:text-slate-300">Ders Bazlı Ortalama Başarı</h3>
+              <h3 style={{ margin: "0 0 8px", fontSize: "var(--text-sm)", fontWeight: 700 }}>Ders Bazlı Ortalama Başarı</h3>
               {data.subjectPerformance.length === 0 ? (
-                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Henüz kazanım sonucu yok.</p>
+                <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Henüz kazanım sonucu yok.</p>
               ) : (
-                <div className="mt-2 space-y-2">
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {data.subjectPerformance.map((s) => (
                     <HBar
                       key={s.subject}
@@ -575,11 +541,11 @@ function HqAnalyticsPanel() {
               )}
             </div>
             <div>
-              <h3 className="text-xs font-semibold text-slate-700 dark:text-slate-300">Şube Bazlı Gelir</h3>
+              <h3 style={{ margin: "0 0 8px", fontSize: "var(--text-sm)", fontWeight: 700 }}>Şube Bazlı Gelir</h3>
               {data.branchRevenue.length === 0 ? (
-                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Kurum yok.</p>
+                <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Kurum yok.</p>
               ) : (
-                <div className="mt-2 space-y-2">
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {data.branchRevenue.map((b) => (
                     <HBar
                       key={b.tenantId}
@@ -630,25 +596,19 @@ export function HqDashboard() {
     }
   }, [isError, error, router]);
 
-  async function handleLogout() {
-    await logout();
-    queryClient.clear();
-    router.replace("/login");
-  }
-
   const tenantsQuery = useQuery({ queryKey: hqKeys.tenants(), queryFn: fetchHqTenants, enabled: !!me });
   const ledgerQuery = useQuery({ queryKey: hqKeys.accountingSummary(), queryFn: fetchHqAccountingSummary, enabled: !!me });
 
   if (isLoading) {
-    return <div className="animate-pulse text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</div>;
+    return <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>;
   }
   if (!me || (isError && error instanceof ApiError && error.status === 401)) {
     return null;
   }
   if (!ALLOWED_ROLES.includes(me.role)) {
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center dark:border-red-900 dark:bg-red-950/40">
-        <p className="text-sm font-medium text-red-700 dark:text-red-300">
+      <div className="card card-pad">
+        <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
           Bu modüle erişim yetkiniz yok. Kurum Yönetimi yalnızca Genel Merkez (Superadmin) rolüne açıktır.
         </p>
       </div>
@@ -662,93 +622,85 @@ export function HqDashboard() {
   const ledger = ledgerQuery.data;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="screen">
+      <h1>Kurum Yönetimi</h1>
+      <p className="lede">
+        {me.firstName} {me.lastName}
+      </p>
+
+      {tenantsQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        <div className="grid cols-3">
+          <div className="card stat-card">
+            <p className="stat-label">Toplam Şube</p>
+            <p className="stat-value">{branches.length}</p>
+          </div>
+          <div className="card stat-card">
+            <p className="stat-label">Toplam Öğrenci</p>
+            <p className="stat-value">{totalStudents}</p>
+          </div>
+          <div className="card stat-card">
+            <p className="stat-label">Toplam Öğretmen + Personel</p>
+            <p className="stat-value">{totalStaff}</p>
+          </div>
+        </div>
+
         <div>
-          <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-50">Kurum Yönetimi</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            {me.firstName} {me.lastName}
-          </p>
+          <h2 style={{ margin: "0 0 12px", fontSize: "var(--text-md)", fontWeight: 700 }}>Tüm Kurumlar</h2>
+          <div className="grid cols-2">
+            {tenants.map((t) => (
+              <TenantCard key={t.id} tenant={t} onToggleActive={(id) => toggleActiveMutation.mutate(id)} toggling={toggleActiveMutation.isPending} />
+            ))}
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <a href="/dashboard" className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
-            Ana Sayfa
-          </a>
-          <button type="button" onClick={handleLogout} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
-            Çıkış Yap
-          </button>
-        </div>
-      </div>
 
-      {tenantsQuery.isLoading && <p className="text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</p>}
+        <CreateTenantForm />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-          <p className="text-xs text-slate-500 dark:text-slate-400">Toplam Şube</p>
-          <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-50">{branches.length}</p>
-        </div>
-        <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-          <p className="text-xs text-slate-500 dark:text-slate-400">Toplam Öğrenci</p>
-          <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-50">{totalStudents}</p>
-        </div>
-        <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-          <p className="text-xs text-slate-500 dark:text-slate-400">Toplam Öğretmen + Personel</p>
-          <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-50">{totalStaff}</p>
-        </div>
-      </div>
+        <HqStudentsPanel tenants={tenants} />
 
-      <div>
-        <h2 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-50">Tüm Kurumlar</h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {tenants.map((t) => (
-            <TenantCard key={t.id} tenant={t} onToggleActive={(id) => toggleActiveMutation.mutate(id)} toggling={toggleActiveMutation.isPending} />
-          ))}
-        </div>
-      </div>
+        <HqExamsPanel />
 
-      <CreateTenantForm />
+        <HqAnalyticsPanel />
 
-      <HqStudentsPanel tenants={tenants} />
-
-      <HqExamsPanel />
-
-      <HqAnalyticsPanel />
-
-      <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Konsolide Mali Özet</h2>
-        {ledgerQuery.isLoading && <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</p>}
-        {ledger && (
-          <>
-            <div className="mt-3 overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-xs text-slate-500 dark:text-slate-400">
-                    <th className="pb-2">Kurum</th>
-                    <th className="pb-2 text-right">Kayıt</th>
-                    <th className="pb-2 text-right">Gelir</th>
-                    <th className="pb-2 text-right">Gider</th>
-                    <th className="pb-2 text-right">Net</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ledger.tenants.map((t) => (
-                    <tr key={t.tenantId} className="border-t border-slate-100 dark:border-slate-800">
-                      <td className="py-1.5">{t.tenantName}</td>
-                      <td className="py-1.5 text-right">{t.entryCount}</td>
-                      <td className="py-1.5 text-right">{formatTl(t.totalGelir)}</td>
-                      <td className="py-1.5 text-right">{formatTl(t.totalGider)}</td>
-                      <td className="py-1.5 text-right">{formatTl(t.net)}</td>
+        <div className="card card-pad">
+          <div className="card-head">
+            <h3>Konsolide Mali Özet</h3>
+          </div>
+          {ledgerQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
+          {ledger && (
+            <>
+              <div className="table-wrap">
+                <table className="data">
+                  <thead>
+                    <tr>
+                      <th>Kurum</th>
+                      <th style={{ textAlign: "right" }}>Kayıt</th>
+                      <th style={{ textAlign: "right" }}>Gelir</th>
+                      <th style={{ textAlign: "right" }}>Gider</th>
+                      <th style={{ textAlign: "right" }}>Net</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="mt-4 flex justify-between border-t border-slate-200 pt-3 text-base font-semibold dark:border-slate-800">
-              <span>Genel Toplam Net</span>
-              <span>{formatTl(ledger.grandTotal.net)}</span>
-            </div>
-          </>
-        )}
+                  </thead>
+                  <tbody>
+                    {ledger.tenants.map((t) => (
+                      <tr key={t.tenantId}>
+                        <td>{t.tenantName}</td>
+                        <td style={{ textAlign: "right" }}>{t.entryCount}</td>
+                        <td style={{ textAlign: "right" }}>{formatTl(t.totalGelir)}</td>
+                        <td style={{ textAlign: "right" }}>{formatTl(t.totalGider)}</td>
+                        <td style={{ textAlign: "right" }}>{formatTl(t.net)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{ marginTop: 14, display: "flex", justifyContent: "space-between", borderTop: "1px solid var(--border)", paddingTop: 12, fontSize: "var(--text-md)", fontWeight: 700 }}>
+                <span>Genel Toplam Net</span>
+                <span>{formatTl(ledger.grandTotal.net)}</span>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

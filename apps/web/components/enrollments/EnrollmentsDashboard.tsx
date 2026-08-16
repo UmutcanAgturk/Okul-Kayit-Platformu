@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { authKeys, fetchMe, logout } from "@/lib/api/auth";
+import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import {
   cancelEnrollment,
@@ -21,16 +21,13 @@ const ALLOWED_ROLES = ["BRANCH_ADMIN", "GUIDANCE_COORDINATOR"];
 const GRADE_OPTIONS = Object.keys(GRADE_LEVEL_LABEL);
 const LOCKED_STAGES = ["KAYIT_TAMAMLANDI", "IPTAL_EDILDI"];
 
-const STAGE_TONE: Record<string, string> = {
-  ON_KAYIT_ALINDI: "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200",
-  SOZLESME_BEKLENIYOR: "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300",
-  ODEME_PLANI_OLUSTURULDU: "bg-blue-100 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300",
-  KAYIT_TAMAMLANDI: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300",
-  IPTAL_EDILDI: "bg-red-100 text-red-800 dark:bg-red-950/50 dark:text-red-300",
+const STAGE_CHIP: Record<string, string> = {
+  ON_KAYIT_ALINDI: "neutral",
+  SOZLESME_BEKLENIYOR: "weak",
+  ODEME_PLANI_OLUSTURULDU: "neutral",
+  KAYIT_TAMAMLANDI: "strong",
+  IPTAL_EDILDI: "critical",
 };
-
-const inputCls =
-  "mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800";
 
 /**
  * "Öğrenci Ön Kayıt" + "Normal Kayıt (Tekli Dönüştürme)" — Enrollment
@@ -56,12 +53,6 @@ export function EnrollmentsDashboard() {
       router.replace("/login");
     }
   }, [isError, error, router]);
-
-  async function handleLogout() {
-    await logout();
-    queryClient.clear();
-    router.replace("/login");
-  }
 
   const enrollmentsQuery = useQuery({ queryKey: enrollmentKeys.list(), queryFn: () => fetchEnrollments(), enabled: !!me });
 
@@ -172,7 +163,7 @@ export function EnrollmentsDashboard() {
   }
 
   if (isLoading) {
-    return <div className="animate-pulse text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</div>;
+    return <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>;
   }
 
   if (!me || (isError && error instanceof ApiError && error.status === 401)) {
@@ -181,8 +172,8 @@ export function EnrollmentsDashboard() {
 
   if (!ALLOWED_ROLES.includes(me.role)) {
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center dark:border-red-900 dark:bg-red-950/40">
-        <p className="text-sm font-medium text-red-700 dark:text-red-300">
+      <div className="card card-pad">
+        <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
           Bu modüle erişim yetkiniz yok. Ön Kayıt yalnızca Şube Yöneticisi/Rehber Öğretmen rolüne açıktır.
         </p>
       </div>
@@ -192,43 +183,28 @@ export function EnrollmentsDashboard() {
   const enrollments = enrollmentsQuery.data?.enrollments ?? [];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-50">Öğrenci Ön Kayıt</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            {me.firstName} {me.lastName} · Aday öğrencinin yerini ayırtın, ardından sözleşme ve ödeme planıyla tam kayda dönüştürün.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <a
-            href="/dashboard"
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            Ana Sayfa
-          </a>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            Çıkış Yap
-          </button>
-        </div>
-      </div>
+    <div className="screen">
+      <h1>Öğrenci Ön Kayıt</h1>
+      <p className="lede">
+        {me.firstName} {me.lastName} · Aday öğrencinin yerini ayırtın, ardından sözleşme ve ödeme planıyla tam kayda dönüştürün.
+      </p>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="space-y-4">
-          <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Yeni Ön Kayıt</h2>
-            <form onSubmit={handleSubmit} className="mt-3 space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Aday Adı Soyadı</label>
-                <input value={candidateFullName} onChange={(e) => setCandidateFullName(e.target.value)} className={inputCls} />
+      {enrollmentsQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
+
+      <div className="grid cols-2">
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div className="card card-pad">
+            <div className="card-head">
+              <h3>Yeni Ön Kayıt</h3>
+            </div>
+            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div className="field">
+                <label>Aday Adı Soyadı</label>
+                <input value={candidateFullName} onChange={(e) => setCandidateFullName(e.target.value)} />
               </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Sınıf Düzeyi</label>
-                <select value={candidateGradeLevel} onChange={(e) => setCandidateGradeLevel(e.target.value)} className={inputCls}>
+              <div className="field">
+                <label>Sınıf Düzeyi</label>
+                <select value={candidateGradeLevel} onChange={(e) => setCandidateGradeLevel(e.target.value)}>
                   {GRADE_OPTIONS.map((g) => (
                     <option key={g} value={g}>
                       {GRADE_LEVEL_LABEL[g]}
@@ -236,88 +212,75 @@ export function EnrollmentsDashboard() {
                   ))}
                 </select>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Veli Adı Soyadı</label>
-                  <input value={guardianFullName} onChange={(e) => setGuardianFullName(e.target.value)} className={inputCls} />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div className="field">
+                  <label>Veli Adı Soyadı</label>
+                  <input value={guardianFullName} onChange={(e) => setGuardianFullName(e.target.value)} />
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Veli Telefonu</label>
-                  <input value={guardianPhone} onChange={(e) => setGuardianPhone(e.target.value)} placeholder="05xx xxx xx xx" className={inputCls} />
+                <div className="field">
+                  <label>Veli Telefonu</label>
+                  <input value={guardianPhone} onChange={(e) => setGuardianPhone(e.target.value)} placeholder="05xx xxx xx xx" />
                 </div>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Kapora (₺, opsiyonel)</label>
-                <input type="number" min="0" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} className={inputCls} />
+              <div className="field">
+                <label>Kapora (₺, opsiyonel)</label>
+                <input type="number" min="0" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} />
               </div>
 
-              {formError && <p className="text-xs text-red-600 dark:text-red-400">{formError}</p>}
+              {formError && <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--critical)" }}>{formError}</p>}
 
-              <button
-                type="submit"
-                disabled={createMutation.isPending}
-                className="w-full rounded-lg bg-[#0071ce] px-4 py-2 text-sm font-semibold text-white hover:bg-[#00558f] disabled:opacity-60"
-              >
+              <button type="submit" disabled={createMutation.isPending} className="btn primary" style={{ width: "100%", justifyContent: "center" }}>
                 {createMutation.isPending ? "Oluşturuluyor…" : "Ön Kaydı Oluştur"}
               </button>
             </form>
           </div>
 
           {credentials && (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900 dark:bg-emerald-950/40">
-              <h2 className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">Kayıt Tamamlandı — Giriş Bilgileri</h2>
-              <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-400">
+            <div className="card card-pad" style={{ borderColor: "var(--strong)", background: "var(--strong-bg)" }}>
+              <h3 style={{ margin: 0, fontSize: "var(--text-base)", fontWeight: 700, color: "var(--strong)" }}>Kayıt Tamamlandı — Giriş Bilgileri</h3>
+              <p style={{ margin: "4px 0 0", fontSize: "var(--text-xs)", color: "var(--strong)" }}>
                 Bu şifre yalnızca burada gösterilir — hemen veliye/öğrenciye iletin, tekrar görüntülenemez.
               </p>
-              <dl className="mt-2 space-y-1 text-xs text-emerald-800 dark:text-emerald-300">
-                <div className="flex justify-between">
+              <dl style={{ margin: "8px 0 0", display: "flex", flexDirection: "column", gap: 4, fontSize: "var(--text-xs)", color: "var(--strong)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <dt>Kullanıcı adı</dt>
-                  <dd className="font-mono">{credentials.username}</dd>
+                  <dd style={{ margin: 0, fontFamily: "monospace" }}>{credentials.username}</dd>
                 </div>
-                <div className="flex justify-between">
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <dt>Şifre</dt>
-                  <dd className="font-mono">{credentials.password}</dd>
+                  <dd style={{ margin: 0, fontFamily: "monospace" }}>{credentials.password}</dd>
                 </div>
               </dl>
             </div>
           )}
         </div>
 
-        <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Ön Kayıt Listesi</h2>
-            <span className="text-xs text-slate-400">{enrollments.length} aday</span>
+        <div className="card card-pad">
+          <div className="card-head">
+            <h3>Ön Kayıt Listesi</h3>
+            <span className="hint">{enrollments.length} aday</span>
           </div>
 
-          {enrollmentsQuery.isLoading && <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</p>}
+          {enrollmentsQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
           {!enrollmentsQuery.isLoading && enrollments.length === 0 && (
-            <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Henüz ön kayıt yok. Soldaki formdan ilk adayınızı ekleyin.</p>
+            <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Henüz ön kayıt yok. Soldaki formdan ilk adayınızı ekleyin.</p>
           )}
 
-          <div className="mt-3 max-h-[640px] space-y-3 overflow-y-auto">
+          <div style={{ maxHeight: 640, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10 }}>
             {enrollments.map((row) => {
               const locked = LOCKED_STAGES.includes(row.stage);
 
               if (cancelingId === row.id) {
                 return (
-                  <div key={row.id} className="rounded-lg border border-red-200 p-3 text-sm dark:border-red-900">
-                    <p className="text-red-700 dark:text-red-300">
+                  <div key={row.id} style={{ border: "1px solid var(--critical)", borderRadius: "var(--radius-sm)", padding: 12, fontSize: "var(--text-sm)" }}>
+                    <p style={{ margin: 0, color: "var(--critical)" }}>
                       <b>{row.candidateFullName}</b> iptal edilsin mi?
                     </p>
-                    <div className="mt-2 flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => cancelMutation.mutate(row.id)}
-                        disabled={cancelMutation.isPending}
-                        className="rounded-lg bg-red-600 px-3 py-1 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-60"
-                      >
+                    <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
+                      <button type="button" onClick={() => cancelMutation.mutate(row.id)} disabled={cancelMutation.isPending} className="btn danger solid xs">
                         Evet, İptal Et
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => setCancelingId(null)}
-                        className="rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700 dark:border-slate-700 dark:text-slate-300"
-                      >
+                      <button type="button" onClick={() => setCancelingId(null)} className="btn xs">
                         Vazgeç
                       </button>
                     </div>
@@ -327,39 +290,27 @@ export function EnrollmentsDashboard() {
 
               if (editingId === row.id) {
                 return (
-                  <div key={row.id} className="space-y-2 rounded-lg border border-slate-300 p-3 text-sm dark:border-slate-700">
+                  <div key={row.id} style={{ display: "flex", flexDirection: "column", gap: 8, border: "1px solid var(--border-strong)", borderRadius: "var(--radius-sm)", padding: 12 }}>
                     <input
                       value={editDraft.candidateFullName}
                       onChange={(e) => setEditDraft((d) => ({ ...d, candidateFullName: e.target.value }))}
                       placeholder="Aday adı soyadı"
-                      className={inputCls}
                     />
                     <input
                       value={editDraft.guardianFullName}
                       onChange={(e) => setEditDraft((d) => ({ ...d, guardianFullName: e.target.value }))}
                       placeholder="Veli adı soyadı"
-                      className={inputCls}
                     />
                     <input
                       value={editDraft.guardianPhone}
                       onChange={(e) => setEditDraft((d) => ({ ...d, guardianPhone: e.target.value }))}
                       placeholder="Veli telefonu"
-                      className={inputCls}
                     />
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => saveEdit(row.id)}
-                        disabled={updateMutation.isPending}
-                        className="rounded-lg bg-[#0071ce] px-3 py-1 text-xs font-semibold text-white hover:bg-[#00558f] disabled:opacity-60"
-                      >
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button type="button" onClick={() => saveEdit(row.id)} disabled={updateMutation.isPending} className="btn primary xs">
                         Kaydet
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => setEditingId(null)}
-                        className="rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700 dark:border-slate-700 dark:text-slate-300"
-                      >
+                      <button type="button" onClick={() => setEditingId(null)} className="btn xs">
                         Vazgeç
                       </button>
                     </div>
@@ -369,57 +320,39 @@ export function EnrollmentsDashboard() {
 
               if (completingId === row.id) {
                 return (
-                  <div key={row.id} className="space-y-2 rounded-lg border border-[#0071ce] p-3 text-sm dark:border-blue-700">
-                    <p className="font-medium text-slate-900 dark:text-slate-50">
-                      {row.candidateFullName} — Kayıt Tamamla
-                    </p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Taksit Sayısı</label>
+                  <div key={row.id} style={{ display: "flex", flexDirection: "column", gap: 8, border: "1px solid var(--brand)", borderRadius: "var(--radius-sm)", padding: 12 }}>
+                    <p style={{ margin: 0, fontWeight: 600, fontSize: "var(--text-sm)" }}>{row.candidateFullName} — Kayıt Tamamla</p>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                      <div className="field">
+                        <label>Taksit Sayısı</label>
                         <input
                           type="number"
                           min="1"
                           max="36"
                           value={completeDraft.installmentCount}
                           onChange={(e) => setCompleteDraft((d) => ({ ...d, installmentCount: e.target.value }))}
-                          className={inputCls}
                         />
                       </div>
-                      <div>
-                        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Taksit Tutarı (₺)</label>
+                      <div className="field">
+                        <label>Taksit Tutarı (₺)</label>
                         <input
                           type="number"
                           min="0"
                           value={completeDraft.installmentAmount}
                           onChange={(e) => setCompleteDraft((d) => ({ ...d, installmentAmount: e.target.value }))}
-                          className={inputCls}
                         />
                       </div>
                     </div>
-                    <div>
-                      <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">İlk Vade Tarihi</label>
-                      <input
-                        type="date"
-                        value={completeDraft.firstDueDate}
-                        onChange={(e) => setCompleteDraft((d) => ({ ...d, firstDueDate: e.target.value }))}
-                        className={inputCls}
-                      />
+                    <div className="field">
+                      <label>İlk Vade Tarihi</label>
+                      <input type="date" value={completeDraft.firstDueDate} onChange={(e) => setCompleteDraft((d) => ({ ...d, firstDueDate: e.target.value }))} />
                     </div>
-                    {completeError && <p className="text-xs text-red-600 dark:text-red-400">{completeError}</p>}
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => submitComplete(row.id)}
-                        disabled={completeMutation.isPending}
-                        className="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
-                      >
+                    {completeError && <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--critical)" }}>{completeError}</p>}
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button type="button" onClick={() => submitComplete(row.id)} disabled={completeMutation.isPending} className="btn success solid xs">
                         {completeMutation.isPending ? "Tamamlanıyor…" : "Onayla ve Tamamla"}
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => setCompletingId(null)}
-                        className="rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700 dark:border-slate-700 dark:text-slate-300"
-                      >
+                      <button type="button" onClick={() => setCompletingId(null)} className="btn xs">
                         Vazgeç
                       </button>
                     </div>
@@ -428,27 +361,37 @@ export function EnrollmentsDashboard() {
               }
 
               return (
-                <div key={row.id} className="border-b border-slate-100 pb-2 text-sm dark:border-slate-800">
-                  <div className="flex items-start justify-between gap-2">
+                <div key={row.id} style={{ borderBottom: "1px solid var(--border)", paddingBottom: 10, fontSize: "var(--text-sm)" }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
                     <div>
-                      <div className="font-medium text-slate-900 dark:text-slate-50">{row.candidateFullName}</div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400">
+                      <div style={{ fontWeight: 600 }}>{row.candidateFullName}</div>
+                      <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
                         {GRADE_LEVEL_LABEL[row.candidateGradeLevel] ?? row.candidateGradeLevel} · Veli: {row.guardianFullName} ({row.guardianPhone})
                       </div>
                     </div>
-                    <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${STAGE_TONE[row.stage] ?? ""}`}>
-                      {STAGE_LABEL[row.stage]}
-                    </span>
+                    <span className={`chip ${STAGE_CHIP[row.stage] ?? "neutral"}`}>{STAGE_LABEL[row.stage]}</span>
                   </div>
                   {!locked && (
-                    <div className="mt-1.5 flex gap-3 text-xs">
-                      <button type="button" onClick={() => startComplete(row)} className="font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400">
+                    <div style={{ marginTop: 8, display: "flex", gap: 12, fontSize: "var(--text-xs)" }}>
+                      <button
+                        type="button"
+                        onClick={() => startComplete(row)}
+                        style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--strong)", fontWeight: 600 }}
+                      >
                         Kaydı Tamamla
                       </button>
-                      <button type="button" onClick={() => startEdit(row)} className="text-slate-500 hover:text-slate-700 dark:text-slate-400">
+                      <button
+                        type="button"
+                        onClick={() => startEdit(row)}
+                        style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--ink-muted)" }}
+                      >
                         Düzenle
                       </button>
-                      <button type="button" onClick={() => setCancelingId(row.id)} className="text-slate-400 hover:text-red-600 dark:hover:text-red-400">
+                      <button
+                        type="button"
+                        onClick={() => setCancelingId(row.id)}
+                        style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--ink-faint)" }}
+                      >
                         İptal Et
                       </button>
                     </div>

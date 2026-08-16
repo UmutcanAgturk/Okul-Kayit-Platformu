@@ -50,11 +50,11 @@ export function StudentDetailDrawer({
               <SheetDescription>{achievement.subject} · {achievement.label}</SheetDescription>
             </SheetHeader>
 
-            <div className="mt-6 space-y-4">
-              <div className="flex items-center justify-between rounded-lg border border-border p-4">
+            <div style={{ marginTop: 24, display: "flex", flexDirection: "column", gap: 16 }}>
+              <div className="card card-pad" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div>
-                  <p className="text-sm text-muted-foreground">Doğru Oranı</p>
-                  <p className="text-2xl font-semibold text-foreground">
+                  <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--ink-faint)" }}>Doğru Oranı</p>
+                  <p style={{ margin: 0, fontSize: "var(--text-xl)", fontWeight: 750 }}>
                     %{Math.round(cell.correctRatio * 100)}
                   </p>
                 </div>
@@ -63,7 +63,7 @@ export function StudentDetailDrawer({
                 </Badge>
               </div>
 
-              <p className="text-sm text-muted-foreground">
+              <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--ink-faint)" }}>
                 Bu kazanım için {cell.questionCount} soru sorulmuştur. Kritik eksik tespit edilen
                 öğrenciler için tek tıkla VIP Etüt talebi oluşturabilirsiniz; Seviye 360 AI Otomatik
                 Etüt Atama servisi öğretmenin uygun saatini bularak rezervasyonu tamamlar.
@@ -73,7 +73,8 @@ export function StudentDetailDrawer({
                 <button
                   type="button"
                   onClick={() => onAssignStudySession(student, achievement)}
-                  className="w-full rounded-lg bg-slate-900 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+                  className="btn primary"
+                  style={{ width: "100%", justifyContent: "center" }}
                 >
                   VIP Etüt Talebi Oluştur
                 </button>
