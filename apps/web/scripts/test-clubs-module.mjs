@@ -13,6 +13,8 @@
 //      görüyor.
 //   4. GET /api/clubs + POST /api/clubs/:id/membership — öğrenci tüm
 //      kulüpleri görüp kendi üyeliğini açıp/kapatabiliyor.
+//   5. PARENT: studentId'siz 400, velisi olmadığı öğrenci için 403,
+//      çocuğu adına kulüp listesini görüp üyeliğini açıp/kapatabiliyor.
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient({
@@ -188,6 +190,50 @@ async function main() {
   const leaveRes = await fetch(`${BASE}/api/clubs/${clubId}/membership`, { method: "POST", headers: { Cookie: studentCookie } });
   const leaveBody = await leaveRes.json();
   check("POST membership: öğrenci ayrılabiliyor (200, isMember=false)", leaveRes.status === 200 && leaveBody.isMember === false, leaveBody.isMember);
+
+  // ===== 5) PARENT — çocuğu adına kulüp üyeliği (demo'da guardianOnly DEĞİL) =====
+  const parentCookie = await loginAs("hakan.yilmaz@veli.seviye360.com", SEED_DEV_PASSWORD);
+  const cankayaStudent = await prisma.studentProfile.findFirst({ where: { NOT: { tenantId: elif.tenantId } } });
+
+  const parentNoStudentIdRes = await fetch(`${BASE}/api/clubs`, { headers: { Cookie: parentCookie } });
+  check("GET clubs: PARENT studentId'siz 400 dönüyor", parentNoStudentIdRes.status === 400, parentNoStudentIdRes.status);
+
+  const parentNotGuardianRes = await fetch(`${BASE}/api/clubs?studentId=${cankayaStudent.id}`, { headers: { Cookie: parentCookie } });
+  check("GET clubs: PARENT velisi olmadığı öğrenci için 403 dönüyor", parentNotGuardianRes.status === 403, parentNotGuardianRes.status);
+
+  const parentClubsRes = await fetch(`${BASE}/api/clubs?studentId=${elif.id}`, { headers: { Cookie: parentCookie } });
+  const parentClubsBody = await parentClubsRes.json();
+  check(
+    "GET clubs: PARENT (Elif'in velisi) kulüp listesini görebiliyor (200)",
+    parentClubsRes.status === 200 && parentClubsBody.clubs?.some((c) => c.id === clubId && c.isMember === false),
+    parentClubsBody.clubs?.length,
+  );
+
+  const parentMembershipNoStudentIdRes = await fetch(`${BASE}/api/clubs/${clubId}/membership`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: parentCookie },
+    body: JSON.stringify({}),
+  });
+  check("POST membership: PARENT studentId'siz 400 dönüyor", parentMembershipNoStudentIdRes.status === 400, parentMembershipNoStudentIdRes.status);
+
+  const parentJoinRes = await fetch(`${BASE}/api/clubs/${clubId}/membership`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: parentCookie },
+    body: JSON.stringify({ studentId: elif.id }),
+  });
+  const parentJoinBody = await parentJoinRes.json();
+  check("POST membership: PARENT çocuğunu kulübe katılımını sağlayabiliyor (200, isMember=true)", parentJoinRes.status === 200 && parentJoinBody.isMember === true, parentJoinBody.isMember);
+
+  const dbMembership = await prisma.clubMembership.findUnique({ where: { clubId_studentId: { clubId, studentId: elif.id } } });
+  check("DB: ClubMembership gerçekten oluştu", !!dbMembership, dbMembership);
+
+  const parentLeaveRes = await fetch(`${BASE}/api/clubs/${clubId}/membership`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: parentCookie },
+    body: JSON.stringify({ studentId: elif.id }),
+  });
+  const parentLeaveBody = await parentLeaveRes.json();
+  check("POST membership: PARENT çocuğunu kulüpten çıkarabiliyor (200, isMember=false)", parentLeaveRes.status === 200 && parentLeaveBody.isMember === false, parentLeaveBody.isMember);
 
   // Temizlik
   await prisma.club.delete({ where: { id: otherClub.id } });

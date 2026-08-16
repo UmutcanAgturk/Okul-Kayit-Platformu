@@ -198,20 +198,64 @@ function TeacherClubsView({ me }: { me: { firstName: string; lastName: string } 
   );
 }
 
-function StudentClubsView({ me }: { me: { firstName: string; lastName: string } }) {
+/**
+ * STUDENT kendi kulüp üyeliğini yönetir; PARENT (demo'da guardianOnly
+ * OLMAYAN tek istisna, bkz. ClubsDashboard yorumu) çocuğu adına yönetir —
+ * gamification'daki (Başarı Rozetlerim) çoklu-çocuk seçici deseniyle aynı.
+ */
+function StudentOrParentClubsView({
+  me,
+}: {
+  me: { firstName: string; lastName: string; role: string; students?: { studentId: string; fullName: string }[] };
+}) {
   const queryClient = useQueryClient();
-  const clubsQuery = useQuery({ queryKey: clubKeys.studentList(), queryFn: fetchStudentClubs });
+  const students = me.students ?? [];
+  const isParent = me.role === "PARENT";
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!selectedStudentId && students.length > 0) setSelectedStudentId(students[0].studentId);
+  }, [students, selectedStudentId]);
+
+  const activeStudentId = isParent ? selectedStudentId : undefined;
+  const clubsQuery = useQuery({
+    queryKey: clubKeys.studentList(activeStudentId ?? undefined),
+    queryFn: () => fetchStudentClubs(activeStudentId ?? undefined),
+    enabled: !isParent || !!selectedStudentId,
+  });
   const clubs = clubsQuery.data?.clubs ?? [];
 
   const joinMutation = useMutation({
-    mutationFn: (clubId: string) => toggleMyClubMembership(clubId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: clubKeys.studentList() }),
+    mutationFn: (clubId: string) => toggleMyClubMembership(clubId, activeStudentId ?? undefined),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: clubKeys.studentList(activeStudentId ?? undefined) }),
   });
+
+  if (isParent && students.length === 0) {
+    return (
+      <div className="card card-pad">
+        <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--weak)" }}>Velisi olduğunuz bir öğrenci bulunamadı.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="screen">
       <h1>Kulüpler</h1>
       <p className="lede">Kurumunuzdaki kulüplere katılın.</p>
+
+      {isParent && students.length > 1 && (
+        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+          {students.map((s) => (
+            <button
+              key={s.studentId}
+              type="button"
+              onClick={() => setSelectedStudentId(s.studentId)}
+              className={`btn sm ${selectedStudentId === s.studentId ? "primary" : ""}`}
+            >
+              {s.fullName}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="grid cols-2">
         {clubsQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
@@ -249,9 +293,11 @@ function StudentClubsView({ me }: { me: { firstName: string; lastName: string } 
  * Kulüpler / Sosyal Etkinlikler — demo'daki "branch:kulup"/"teacher:kulup"/
  * "student:kulup" ekranlarının gerçek karşılığı. `Club` yalnızca düz
  * `tenant_isolation` taşır (bkz. prisma/schema.prisma) — Devamsızlık/
- * Disiplin/PTA ile aynı desen. Üç rol üç farklı görünüm alır: BRANCH_ADMIN
+ * Disiplin/PTA ile aynı desen. Roller dört farklı görünüm alır: BRANCH_ADMIN
  * kulüp oluşturur/tüm üyelikleri yönetir, TEACHER yalnızca danışmanı olduğu
  * kulüplerin üyeliklerini yönetir, STUDENT kendi üyeliğini açar/kapatır.
+ * PARENT de (demo'da `kulup` guardianOnly DEĞİLDİR) çocuğu adına üyeliği
+ * açıp/kapatabilir — bkz. StudentOrParentClubsView.
  */
 export function ClubsDashboard() {
   const router = useRouter();
@@ -277,13 +323,13 @@ export function ClubsDashboard() {
 
   if (me.role === "BRANCH_ADMIN" || (me.role === "SUPERADMIN" && me.actingTenantId)) return <BranchClubsView me={me} />;
   if (me.role === "TEACHER") return <TeacherClubsView me={me} />;
-  if (me.role === "STUDENT") return <StudentClubsView me={me} />;
+  if (me.role === "STUDENT" || me.role === "PARENT") return <StudentOrParentClubsView me={me} />;
 
   return (
     <div className="card card-pad">
       <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
-        Bu modüle erişim yetkiniz yok. Kulüpler/Sosyal Etkinlikler yalnızca Şube Yöneticisi/Öğretmen/Öğrenci rolüne
-        açıktır.
+        Bu modüle erişim yetkiniz yok. Kulüpler/Sosyal Etkinlikler yalnızca Şube Yöneticisi/Öğretmen/Öğrenci/Veli
+        rolüne açıktır.
       </p>
     </div>
   );

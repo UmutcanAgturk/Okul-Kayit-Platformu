@@ -58,17 +58,24 @@ export interface StudentClub {
   isMember: boolean;
 }
 
-export function fetchStudentClubs() {
-  return apiFetch<{ clubs: StudentClub[] }>("/api/clubs", { cache: "no-store" });
+// studentId yalnızca PARENT için gerekli — çocuğu adına kulüp listesini
+// çeker (bkz. app/api/clubs GET'teki STUDENT/PARENT ayrımı). STUDENT kendi
+// oturumundan çözüldüğü için studentId'yi görmezden gelir.
+export function fetchStudentClubs(studentId?: string) {
+  const qs = studentId ? `?studentId=${encodeURIComponent(studentId)}` : "";
+  return apiFetch<{ clubs: StudentClub[] }>(`/api/clubs${qs}`, { cache: "no-store" });
 }
 
-export function toggleMyClubMembership(clubId: string) {
-  return apiFetch<{ isMember: boolean }>(`/api/clubs/${clubId}/membership`, { method: "POST" });
+export function toggleMyClubMembership(clubId: string, studentId?: string) {
+  return apiFetch<{ isMember: boolean }>(`/api/clubs/${clubId}/membership`, {
+    method: "POST",
+    body: JSON.stringify(studentId ? { studentId } : {}),
+  });
 }
 
 export const clubKeys = {
   branchList: () => ["clubs", "branch-list"] as const,
   detail: (clubId: string) => ["clubs", "detail", clubId] as const,
   teacherList: () => ["clubs", "teacher-list"] as const,
-  studentList: () => ["clubs", "student-list"] as const,
+  studentList: (studentId?: string) => ["clubs", "student-list", studentId ?? "self"] as const,
 };
