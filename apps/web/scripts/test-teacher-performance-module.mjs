@@ -78,6 +78,49 @@ async function main() {
     cankayaBody.teachers?.map((t) => t.name),
   );
 
+  // ===== Özet kartları — task #62 =====
+  check(
+    "GET: summary.totalTeachers/avgAttendancePct/totalRoster alanları içeriyor",
+    typeof body.summary?.totalTeachers === "number" &&
+      "avgAttendancePct" in (body.summary ?? {}) &&
+      typeof body.summary?.totalRoster === "number",
+    JSON.stringify(body.summary),
+  );
+  check("summary.totalTeachers listedeki öğretmen sayısıyla eşleşiyor", body.summary?.totalTeachers === body.teachers?.length, body.summary?.totalTeachers);
+  check(
+    "Ayşe Demir satırı classroomCodes/rosterSize/avgAttendancePct/positiveCount/negativeCount içeriyor (henüz TimetableSlot yoksa 0/boş/null)",
+    Array.isArray(ayseRow?.classroomCodes) &&
+      typeof ayseRow?.rosterSize === "number" &&
+      "avgAttendancePct" in (ayseRow ?? {}) &&
+      typeof ayseRow?.positiveCount === "number" &&
+      typeof ayseRow?.negativeCount === "number",
+    JSON.stringify(ayseRow),
+  );
+
+  // ===== TimetableSlot varlığında Sınıflar/Öğrenci sütununun gerçekten dolduğu =====
+  const elif = await prisma.studentProfile.findFirst({ where: { user: { email: "elif.yilmaz@ogrenci.seviye360.com" } } });
+  const classroom = await prisma.classroom.findUnique({ where: { id: elif.classroomId } });
+  const slotPostRes = await fetch(`${BASE}/api/branch/timetable`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: branchCookie },
+    body: JSON.stringify({ classroomId: elif.classroomId, teacherId: mezitliTeacher.id, subject: "Matematik", dayOfWeek: 0, startTime: "09:00", endTime: "09:40" }),
+  });
+  const slotPostBody = await slotPostRes.json();
+  check("POST timetable: test slotu oluşturuldu (201)", slotPostRes.status === 201, slotPostRes.status);
+
+  const resAfterSlot = await fetch(`${BASE}/api/branch/teacher-performance`, { headers: { Cookie: branchCookie } });
+  const bodyAfterSlot = await resAfterSlot.json();
+  const ayseRowAfterSlot = bodyAfterSlot.teachers?.find((t) => t.teacherId === mezitliTeacher.id);
+  check(
+    "TimetableSlot eklendikten sonra Ayşe Demir'in Sınıflar listesinde sınıf var",
+    ayseRowAfterSlot?.classroomCodes?.includes(classroom.name),
+    ayseRowAfterSlot?.classroomCodes,
+  );
+  check("TimetableSlot eklendikten sonra rosterSize > 0", ayseRowAfterSlot?.rosterSize > 0, ayseRowAfterSlot?.rosterSize);
+
+  // Temizlik
+  await prisma.timetableSlot.delete({ where: { id: slotPostBody.slot.id } });
+
   console.log("\n=== ÖZET ===");
   const fails = results.filter((r) => !r.ok);
   console.log(`Toplam: ${results.length} | Başarılı: ${results.length - fails.length} | Başarısız: ${fails.length}`);
