@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { authKeys, fetchMe, logout } from "@/lib/api/auth";
+import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import {
   busRouteKeys,
@@ -13,34 +13,7 @@ import {
   fetchStudentBusRoute,
   toggleBusRouteMember,
 } from "@/lib/api/bus-routes";
-
-function TopBar({ title, firstName, lastName, onLogout }: { title: string; firstName: string; lastName: string; onLogout: () => void }) {
-  return (
-    <div className="flex items-center justify-between">
-      <div>
-        <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-50">{title}</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          {firstName} {lastName}
-        </p>
-      </div>
-      <div className="flex items-center gap-3">
-        <a
-          href="/dashboard"
-          className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-        >
-          Ana Sayfa
-        </a>
-        <button
-          type="button"
-          onClick={onLogout}
-          className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-        >
-          Çıkış Yap
-        </button>
-      </div>
-    </div>
-  );
-}
+import { Icon } from "@/components/ui/icons";
 
 function RouteRosterPanel({ routeId, onClose }: { routeId: string; onClose: () => void }) {
   const queryClient = useQueryClient();
@@ -56,28 +29,25 @@ function RouteRosterPanel({ routeId, onClose }: { routeId: string; onClose: () =
   const roster = detailQuery.data?.roster ?? [];
 
   return (
-    <div className="mt-3 border-t border-slate-100 pt-3 dark:border-slate-800">
-      <div className="mb-2 flex items-center justify-between">
-        <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Öğrencileri Yönet</span>
-        <button type="button" onClick={onClose} className="text-xs text-slate-500 hover:underline dark:text-slate-400">
+    <div style={{ marginTop: 12, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
+      <div style={{ marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <span style={{ fontSize: "var(--text-xs)", fontWeight: 700, color: "var(--ink-faint)" }}>Öğrencileri Yönet</span>
+        <button type="button" onClick={onClose} className="btn xs">
           Kapat
         </button>
       </div>
-      {detailQuery.isLoading && <p className="text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</p>}
-      <div className="max-h-64 space-y-1 overflow-y-auto">
+      {detailQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
+      <div style={{ maxHeight: 256, overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}>
         {roster.map((s) => (
-          <div key={s.studentId} className="flex items-center justify-between border-b border-slate-100 py-1.5 text-sm dark:border-slate-800">
+          <div key={s.studentId} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid var(--border)", padding: "6px 0" }}>
             <div>
-              <span className="text-slate-900 dark:text-slate-50">{s.name}</span>
-              <span className="ml-2 text-xs text-slate-500 dark:text-slate-400">{s.classroom ?? "—"}</span>
+              <span style={{ fontSize: "var(--text-base)" }}>{s.name}</span>
+              <span style={{ marginLeft: 8, fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>{s.classroom ?? "—"}</span>
             </div>
             <button
               type="button"
               onClick={() => toggleMutation.mutate(s.studentId)}
-              className={
-                "rounded-lg px-2 py-1 text-xs font-semibold " +
-                (s.isMember ? "bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-950/40 dark:text-red-300" : "bg-[#0071ce] text-white hover:bg-[#00558f]")
-              }
+              className={s.isMember ? "btn danger xs" : "btn primary xs"}
             >
               {s.isMember ? "Çıkar" : "Ekle"}
             </button>
@@ -88,7 +58,7 @@ function RouteRosterPanel({ routeId, onClose }: { routeId: string; onClose: () =
   );
 }
 
-function BranchBusRoutesView({ me, onLogout }: { me: { firstName: string; lastName: string }; onLogout: () => void }) {
+function BranchBusRoutesView({ me }: { me: { firstName: string; lastName: string } }) {
   const queryClient = useQueryClient();
   const routesQuery = useQuery({ queryKey: busRouteKeys.branchList(), queryFn: fetchBusRoutes });
 
@@ -136,89 +106,76 @@ function BranchBusRoutesView({ me, onLogout }: { me: { firstName: string; lastNa
   const routes = routesQuery.data?.routes ?? [];
 
   return (
-    <div className="space-y-6">
-      <TopBar title="Servis / Ulaşım Takibi" firstName={me.firstName} lastName={me.lastName} onLogout={onLogout} />
+    <div className="screen">
+      <h1>Servis / Ulaşım Takibi</h1>
+      <p className="lede">
+        {me.firstName} {me.lastName}
+      </p>
 
-      <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Yeni Güzergah</h2>
-        <form onSubmit={handleSubmit} className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Güzergah Adı</label>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Örn. Kuzey Hattı"
-              className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-            />
+      <div className="card card-pad" style={{ marginBottom: 14 }}>
+        <div className="card-head">
+          <h3>Yeni Güzergah</h3>
+        </div>
+        <form onSubmit={handleSubmit} className="grid cols-2" style={{ rowGap: 12 }}>
+          <div className="field">
+            <label>Güzergah Adı</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Örn. Kuzey Hattı" />
           </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Kapasite</label>
-            <input
-              type="number"
-              min={1}
-              value={capacity}
-              onChange={(e) => setCapacity(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-            />
+          <div className="field">
+            <label>Kapasite</label>
+            <input type="number" min={1} value={capacity} onChange={(e) => setCapacity(e.target.value)} />
           </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Şoför (opsiyonel)</label>
-            <input
-              value={driverName}
-              onChange={(e) => setDriverName(e.target.value)}
-              placeholder="Ad Soyad"
-              className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-            />
+          <div className="field">
+            <label>Şoför (opsiyonel)</label>
+            <input value={driverName} onChange={(e) => setDriverName(e.target.value)} placeholder="Ad Soyad" />
           </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Şoför Telefonu (opsiyonel)</label>
-            <input
-              value={driverPhone}
-              onChange={(e) => setDriverPhone(e.target.value)}
-              placeholder="05XX XXX XX XX"
-              className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-            />
+          <div className="field">
+            <label>Şoför Telefonu (opsiyonel)</label>
+            <input value={driverPhone} onChange={(e) => setDriverPhone(e.target.value)} placeholder="05XX XXX XX XX" />
           </div>
-          <div className="sm:col-span-2">
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Duraklar (virgülle ayırın)</label>
+          <div className="field" style={{ gridColumn: "1 / -1" }}>
+            <label>Duraklar (virgülle ayırın)</label>
             <input
               value={stopsText}
               onChange={(e) => setStopsText(e.target.value)}
               placeholder="Örn. Merkez Meydan, Çamlık Mah., Okul"
-              className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
             />
           </div>
-          {formError && <p className="text-xs text-red-600 dark:text-red-400 sm:col-span-2">{formError}</p>}
+          {formError && <p style={{ gridColumn: "1 / -1", margin: 0, fontSize: "var(--text-xs)", color: "var(--critical)" }}>{formError}</p>}
           <button
             type="submit"
             disabled={createMutation.isPending}
-            className="rounded-lg bg-[#0071ce] px-4 py-2 text-sm font-semibold text-white hover:bg-[#00558f] disabled:opacity-60 sm:col-span-2"
+            className="btn primary"
+            style={{ gridColumn: "1 / -1", justifyContent: "center" }}
           >
             {createMutation.isPending ? "Oluşturuluyor…" : "Güzergahı Oluştur"}
           </button>
         </form>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {routesQuery.isLoading && <p className="text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</p>}
-        {!routesQuery.isLoading && routes.length === 0 && <p className="text-sm text-slate-500 dark:text-slate-400">Henüz güzergah yok.</p>}
+      <div className="grid cols-2">
+        {routesQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
+        {!routesQuery.isLoading && routes.length === 0 && (
+          <div className="empty-state">
+            <Icon name="bus" />
+            <p>Henüz güzergah yok.</p>
+          </div>
+        )}
         {routes.map((r) => (
-          <div key={r.id} className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-50">{r.name}</h3>
-              <span className="text-xs text-slate-500 dark:text-slate-400">
+          <div key={r.id} className="card card-pad">
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <h3 style={{ margin: 0, fontSize: "var(--text-base)", fontWeight: 700 }}>{r.name}</h3>
+              <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
                 {r.memberCount}/{r.capacity}
               </span>
             </div>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            <p style={{ margin: "4px 0 0", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
               Şoför: {r.driverName ?? "—"} · {r.driverPhone ?? "—"}
             </p>
-            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">Duraklar: {r.stops.length ? r.stops.join(" → ") : "—"}</p>
-            <button
-              type="button"
-              onClick={() => setExpandedRouteId(expandedRouteId === r.id ? null : r.id)}
-              className="mt-2 rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-            >
+            <p style={{ margin: "4px 0 0", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
+              Duraklar: {r.stops.length ? r.stops.join(" → ") : "—"}
+            </p>
+            <button type="button" onClick={() => setExpandedRouteId(expandedRouteId === r.id ? null : r.id)} className="btn xs" style={{ marginTop: 8 }}>
               {expandedRouteId === r.id ? "Öğrencileri Gizle" : "Öğrencileri Yönet"}
             </button>
             {expandedRouteId === r.id && <RouteRosterPanel routeId={r.id} onClose={() => setExpandedRouteId(null)} />}
@@ -231,10 +188,8 @@ function BranchBusRoutesView({ me, onLogout }: { me: { firstName: string; lastNa
 
 function StudentBusRouteView({
   me,
-  onLogout,
 }: {
   me: { firstName: string; lastName: string; students?: { studentId: string; fullName: string }[] };
-  onLogout: () => void;
 }) {
   const students = me.students ?? [];
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
@@ -250,8 +205,13 @@ function StudentBusRouteView({
 
   if (students.length === 0) {
     return (
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
-        Öğrenci kaydı bulunamadı.
+      <div className="screen">
+        <h1>Servisim</h1>
+        <div className="card card-pad">
+          <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--weak)" }}>
+            Öğrenci kaydı bulunamadı.
+          </p>
+        </div>
       </div>
     );
   }
@@ -259,22 +219,21 @@ function StudentBusRouteView({
   const route = routeQuery.data?.route ?? null;
 
   return (
-    <div className="space-y-6">
-      <TopBar title="Servisim" firstName={me.firstName} lastName={me.lastName} onLogout={onLogout} />
+    <div className="screen">
+      <h1>Servisim</h1>
+      <p className="lede">
+        {me.firstName} {me.lastName}
+      </p>
 
       {students.length > 1 && (
-        <div className="flex gap-2">
+        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
           {students.map((s) => (
             <button
               key={s.studentId}
               type="button"
               onClick={() => setSelectedStudentId(s.studentId)}
-              className={
-                "rounded-lg border px-3 py-1.5 text-sm font-medium transition " +
-                (selectedStudentId === s.studentId
-                  ? "border-[#0071ce] bg-[#0071ce] text-white"
-                  : "border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800")
-              }
+              className="btn sm"
+              style={selectedStudentId === s.studentId ? { background: "var(--brand)", borderColor: "var(--brand)", color: "#fff" } : undefined}
             >
               {s.fullName}
             </button>
@@ -282,23 +241,26 @@ function StudentBusRouteView({
         </div>
       )}
 
-      {routeQuery.isLoading && <p className="text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</p>}
+      {routeQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
 
       {!routeQuery.isLoading && !route && (
-        <p className="text-sm text-slate-500 dark:text-slate-400">Henüz bir servis güzergahına atanmadı.</p>
+        <div className="empty-state">
+          <Icon name="bus" />
+          <p>Henüz bir servis güzergahına atanmadı.</p>
+        </div>
       )}
 
       {route && (
-        <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-          <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">{route.name}</h2>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+        <div className="card card-pad">
+          <h3 style={{ margin: 0, fontSize: "var(--text-base)", fontWeight: 700 }}>{route.name}</h3>
+          <p style={{ margin: "4px 0 0", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
             Şoför: {route.driverName ?? "—"} · {route.driverPhone ?? "—"}
           </p>
-          <p className="mt-2 text-xs font-medium text-slate-600 dark:text-slate-300">Duraklar:</p>
+          <p style={{ margin: "8px 0 0", fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--ink-muted)" }}>Duraklar:</p>
           {route.stops.length === 0 ? (
-            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">Durak bilgisi girilmemiş.</p>
+            <p style={{ margin: "4px 0 0", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>Durak bilgisi girilmemiş.</p>
           ) : (
-            <ol className="mt-1 list-decimal space-y-0.5 pl-5 text-xs text-slate-500 dark:text-slate-400">
+            <ol style={{ margin: "4px 0 0", paddingLeft: 20, fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
               {route.stops.map((s, i) => (
                 <li key={i}>{s}</li>
               ))}
@@ -319,7 +281,6 @@ function StudentBusRouteView({
  */
 export function BusRoutesDashboard() {
   const router = useRouter();
-  const queryClient = useQueryClient();
 
   const { data: me, isLoading, isError, error } = useQuery({
     queryKey: authKeys.me(),
@@ -333,25 +294,19 @@ export function BusRoutesDashboard() {
     }
   }, [isError, error, router]);
 
-  async function handleLogout() {
-    await logout();
-    queryClient.clear();
-    router.replace("/login");
-  }
-
   if (isLoading) {
-    return <div className="animate-pulse text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</div>;
+    return <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>;
   }
   if (!me || (isError && error instanceof ApiError && error.status === 401)) {
     return null;
   }
 
-  if (me.role === "BRANCH_ADMIN") return <BranchBusRoutesView me={me} onLogout={handleLogout} />;
-  if (me.role === "STUDENT" || me.role === "PARENT") return <StudentBusRouteView me={me} onLogout={handleLogout} />;
+  if (me.role === "BRANCH_ADMIN") return <BranchBusRoutesView me={me} />;
+  if (me.role === "STUDENT" || me.role === "PARENT") return <StudentBusRouteView me={me} />;
 
   return (
-    <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center dark:border-red-900 dark:bg-red-950/40">
-      <p className="text-sm font-medium text-red-700 dark:text-red-300">
+    <div className="card card-pad">
+      <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
         Bu modüle erişim yetkiniz yok. Servis/Ulaşım Takibi yalnızca Şube Yöneticisi/Öğrenci/Veli rolüne açıktır.
       </p>
     </div>

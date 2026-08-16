@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { authKeys, fetchMe, logout } from "@/lib/api/auth";
+import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import {
   deleteInboxMessage,
@@ -15,6 +15,7 @@ import {
   sendMessage,
   type MessageAudience,
 } from "@/lib/api/messages";
+import { Icon } from "@/components/ui/icons";
 
 const SENDER_ROLES = ["BRANCH_ADMIN", "TEACHER"];
 
@@ -63,18 +64,19 @@ function ComposeForm({ canTargetStaff }: { canTargetStaff: boolean }) {
   }
 
   return (
-    <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-      <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Yeni Mesaj Gönder</h2>
-      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div>
-          <label className="text-xs text-slate-500 dark:text-slate-400">Hedef Kitle</label>
+    <div className="card card-pad">
+      <div className="card-head">
+        <h3>Yeni Mesaj Gönder</h3>
+      </div>
+      <div className="grid cols-2">
+        <div className="field">
+          <label>Hedef Kitle</label>
           <select
             value={audience}
             onChange={(e) => {
               setAudience(e.target.value as MessageAudience);
               setClassroomId("");
             }}
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
           >
             <option value="ALL_GUARDIANS">Tüm Veliler</option>
             <option value="ALL_STUDENTS">Tüm Öğrenciler</option>
@@ -83,13 +85,9 @@ function ComposeForm({ canTargetStaff }: { canTargetStaff: boolean }) {
           </select>
         </div>
         {classroomFilterable && (
-          <div>
-            <label className="text-xs text-slate-500 dark:text-slate-400">Sınıf (opsiyonel filtre)</label>
-            <select
-              value={classroomId}
-              onChange={(e) => setClassroomId(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-            >
+          <div className="field">
+            <label>Sınıf (opsiyonel filtre)</label>
+            <select value={classroomId} onChange={(e) => setClassroomId(e.target.value)}>
               <option value="">Tüm Sınıflar</option>
               {classroomsQuery.data?.classrooms.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -100,33 +98,17 @@ function ComposeForm({ canTargetStaff }: { canTargetStaff: boolean }) {
           </div>
         )}
       </div>
-      <div className="mt-3">
-        <label className="text-xs text-slate-500 dark:text-slate-400">Başlık</label>
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-          placeholder="Örn. Veli Toplantısı Daveti"
-        />
+      <div className="field" style={{ marginTop: 12 }}>
+        <label>Başlık</label>
+        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Örn. Veli Toplantısı Daveti" />
       </div>
-      <div className="mt-3">
-        <label className="text-xs text-slate-500 dark:text-slate-400">Mesaj</label>
-        <textarea
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          rows={4}
-          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-          placeholder="Mesaj içeriği…"
-        />
+      <div className="field" style={{ marginTop: 12 }}>
+        <label>Mesaj</label>
+        <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={4} placeholder="Mesaj içeriği…" />
       </div>
-      {error && <p className="mt-2 text-xs font-medium text-red-600 dark:text-red-400">{error}</p>}
-      {status && <p className="mt-2 text-xs font-medium text-emerald-600 dark:text-emerald-400">{status}</p>}
-      <button
-        type="button"
-        onClick={handleSend}
-        disabled={sending}
-        className="mt-3 rounded-lg bg-[#0071ce] px-4 py-2 text-sm font-semibold text-white hover:bg-[#00558f] disabled:opacity-50"
-      >
+      {error && <p style={{ margin: "8px 0 0", fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--critical)" }}>{error}</p>}
+      {status && <p style={{ margin: "8px 0 0", fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--strong)" }}>{status}</p>}
+      <button type="button" onClick={handleSend} disabled={sending} className="btn primary" style={{ marginTop: 12 }}>
         {sending ? "Gönderiliyor…" : "Gönder"}
       </button>
     </div>
@@ -137,21 +119,26 @@ function SentList() {
   const sentQuery = useQuery({ queryKey: messageKeys.sent(), queryFn: fetchSentMessages });
   const messages = sentQuery.data?.messages ?? [];
   return (
-    <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-      <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Gönderilen Mesajlar</h2>
-      {sentQuery.isLoading && <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</p>}
+    <div className="card card-pad">
+      <div className="card-head">
+        <h3>Gönderilen Mesajlar</h3>
+      </div>
+      {sentQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
       {!sentQuery.isLoading && messages.length === 0 && (
-        <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Henüz mesaj göndermediniz.</p>
+        <div className="empty-state">
+          <Icon name="send" />
+          <p>Henüz mesaj göndermediniz.</p>
+        </div>
       )}
-      <div className="mt-3 space-y-2">
+      <div style={{ display: "flex", flexDirection: "column" }}>
         {messages.map((m) => (
-          <div key={m.id} className="border-b border-slate-100 py-2 text-sm dark:border-slate-800">
-            <div className="flex items-center justify-between">
-              <span className="font-medium text-slate-900 dark:text-slate-50">{m.title}</span>
-              <span className="text-xs text-slate-400 dark:text-slate-500">{formatDateTime(m.createdAt)}</span>
+          <div key={m.id} style={{ borderBottom: "1px solid var(--border)", padding: "9px 0" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: "var(--text-base)", fontWeight: 600 }}>{m.title}</span>
+              <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>{formatDateTime(m.createdAt)}</span>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">{m.body}</p>
-            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+            <p style={{ margin: "2px 0 0", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>{m.body}</p>
+            <p style={{ margin: "4px 0 0", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
               {m.audienceLabel} · {m.recipientCount} alıcı
             </p>
           </div>
@@ -179,33 +166,40 @@ function Inbox() {
   }
 
   return (
-    <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Gelen Kutusu</h2>
-        {(inboxQuery.data?.unreadCount ?? 0) > 0 && (
-          <span className="rounded-full bg-[#0071ce] px-2 py-0.5 text-xs font-medium text-white">{inboxQuery.data?.unreadCount} yeni</span>
-        )}
+    <div className="card card-pad">
+      <div className="card-head">
+        <h3>Gelen Kutusu</h3>
+        {(inboxQuery.data?.unreadCount ?? 0) > 0 && <span className="chip strong">{inboxQuery.data?.unreadCount} yeni</span>}
       </div>
-      {inboxQuery.isLoading && <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</p>}
+      {inboxQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
       {!inboxQuery.isLoading && messages.length === 0 && (
-        <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Gelen kutunuz boş.</p>
+        <div className="empty-state">
+          <Icon name="inbox" />
+          <p>Gelen kutunuz boş.</p>
+        </div>
       )}
-      <div className="mt-3 space-y-2">
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {messages.map((m) => (
           <div
             key={m.id}
             onClick={() => handleOpen(m.id, m.readAt)}
-            className={`cursor-pointer rounded-lg border p-3 text-sm ${
-              m.readAt ? "border-slate-100 dark:border-slate-800" : "border-[#0071ce] bg-blue-50 dark:bg-blue-950/30"
-            }`}
+            className="card"
+            style={{
+              cursor: "pointer",
+              padding: "10px 14px",
+              fontSize: "var(--text-base)",
+              borderColor: m.readAt ? "var(--border)" : "var(--brand)",
+              background: m.readAt ? "var(--surface)" : "var(--brand-tint)",
+              boxShadow: "none",
+            }}
           >
-            <div className="flex items-center justify-between">
-              <span className="font-medium text-slate-900 dark:text-slate-50">{m.title}</span>
-              <span className="text-xs text-slate-400 dark:text-slate-500">{formatDateTime(m.createdAt)}</span>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontWeight: 600 }}>{m.title}</span>
+              <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>{formatDateTime(m.createdAt)}</span>
             </div>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{m.body}</p>
-            <div className="mt-1 flex items-center justify-between">
-              <span className="text-xs text-slate-400 dark:text-slate-500">
+            <p style={{ margin: "4px 0 0", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>{m.body}</p>
+            <div style={{ marginTop: 4, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
                 {m.senderLabel} · {m.audienceLabel}
               </span>
               <button
@@ -214,7 +208,7 @@ function Inbox() {
                   e.stopPropagation();
                   handleDelete(m.id);
                 }}
-                className="text-xs text-slate-400 hover:text-red-600 dark:hover:text-red-400"
+                className="btn xs"
               >
                 Kaldır
               </button>
@@ -234,7 +228,6 @@ function Inbox() {
  */
 export function MessagesDashboard() {
   const router = useRouter();
-  const queryClient = useQueryClient();
 
   const { data: me, isLoading, isError, error } = useQuery({
     queryKey: authKeys.me(),
@@ -248,14 +241,8 @@ export function MessagesDashboard() {
     }
   }, [isError, error, router]);
 
-  async function handleLogout() {
-    await logout();
-    queryClient.clear();
-    router.replace("/login");
-  }
-
   if (isLoading) {
-    return <div className="animate-pulse text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</div>;
+    return <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>;
   }
   if (!me || (isError && error instanceof ApiError && error.status === 401)) {
     return null;
@@ -264,26 +251,14 @@ export function MessagesDashboard() {
   const canSend = SENDER_ROLES.includes(me.role);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-50">İletişim</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            {me.firstName} {me.lastName}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <a href="/dashboard" className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
-            Ana Sayfa
-          </a>
-          <button type="button" onClick={handleLogout} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
-            Çıkış Yap
-          </button>
-        </div>
-      </div>
+    <div className="screen">
+      <h1>İletişim</h1>
+      <p className="lede">
+        {me.firstName} {me.lastName}
+      </p>
 
       {canSend && (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="grid cols-2" style={{ marginBottom: 14 }}>
           <ComposeForm canTargetStaff={me.role === "BRANCH_ADMIN"} />
           <SentList />
         </div>
