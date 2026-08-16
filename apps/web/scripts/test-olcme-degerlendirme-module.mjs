@@ -9,6 +9,8 @@
 // soru->kazanım eşlemesinden doğru hesaplanması, aynı öğrenci için tekrar
 // girişte ESKİ kazanım satırlarının silinip YENİleriyle değiştirilmesi
 // (çoğaltma değil), Kazanım Analizi özetinin gerçek veriden hesaplanması.
+// TEACHER'ın SADECE kendi Ders Programı'ndaki (TimetableSlot) sınıflar için
+// sonuç girebildiği, başka bir sınıf için giremediği (bkz. teacherOwnsClassroom).
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient({
@@ -90,12 +92,25 @@ async function main() {
   });
   check("POST results: eksik cevap sayısı reddediliyor (400)", mismatchRes.status === 400, mismatchRes.status);
 
+  // Henüz Ders Programı'nda kaydı yokken TEACHER, Elif'in sınıfı için sonuç GİREMEMELİ.
+  const teacherEnterNoSlotRes = await fetch(`${BASE}/api/branch/exams/${examId}/results`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: teacherCookie },
+    body: JSON.stringify({ studentId: elif.id, answers: [{ questionId: q1.id, isCorrect: true }, { questionId: q2.id, isCorrect: true }] }),
+  });
+  check("Yetki: kendi sınıfı OLMAYAN bir TEACHER sonuç giremez (403)", teacherEnterNoSlotRes.status === 403, teacherEnterNoSlotRes.status);
+
+  // Şimdi öğretmeni Elif'in sınıfının Ders Programı'na ekle — artık sonuç girebilmeli.
+  const teacherProfile = await prisma.teacherProfile.findFirst({ where: { user: { email: "ayse.demir@seviye360.com" } } });
+  const slot = await prisma.timetableSlot.create({
+    data: { tenantId: elif.tenantId, classroomId: elif.classroomId, teacherId: teacherProfile.id, subject: "Matematik", dayOfWeek: 2, startTime: "10:00", endTime: "10:40" },
+  });
   const teacherEnterRes = await fetch(`${BASE}/api/branch/exams/${examId}/results`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Cookie: teacherCookie },
     body: JSON.stringify({ studentId: elif.id, answers: [{ questionId: q1.id, isCorrect: true }, { questionId: q2.id, isCorrect: true }] }),
   });
-  check("Yetki: TEACHER sonuç giremez (403)", teacherEnterRes.status === 403, teacherEnterRes.status);
+  check("Yetki: KENDİ sınıfındaki TEACHER sonuç girebilir (200)", teacherEnterRes.status === 200, teacherEnterRes.status);
 
   const submitRes = await fetch(`${BASE}/api/branch/exams/${examId}/results`, {
     method: "POST",
@@ -165,6 +180,7 @@ async function main() {
   await prisma.exam.delete({ where: { id: examId } });
   const remainingExam = await prisma.exam.findUnique({ where: { id: examId } });
   check("Temizlik: test sınavı kalmadı", remainingExam === null, remainingExam);
+  await prisma.timetableSlot.delete({ where: { id: slot.id } });
 
   console.log("\n=== ÖZET ===");
   const fails = results.filter((r) => !r.ok);

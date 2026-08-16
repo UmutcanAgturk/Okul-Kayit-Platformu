@@ -7,6 +7,7 @@ import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { fetchReportCard, reportCardKeys, type ReportCard } from "@/lib/api/report-card";
 import { fetchBranchStudents } from "@/lib/api/students-roster";
+import { fetchMyClasses } from "@/lib/api/my-classes";
 import { Icon } from "@/components/ui/icons";
 
 const SELF_SERVICE_ROLES = ["STUDENT", "PARENT"];
@@ -87,32 +88,56 @@ function ReportCardBody({ card }: { card: ReportCard }) {
   );
 }
 
+interface StaffRosterRow {
+  id: string;
+  studentNo: string;
+  name: string;
+  gradeLevel: string;
+  classroomName: string | null;
+}
+
 /**
- * Personel (BRANCH_ADMIN/TEACHER) tarafı — demo'nun "branch:karne"/"teacher:karne"
- * ekranlarının karşılığı. Backend (app/api/students/[studentId]/report-card)
- * STAFF_ROLES'e zaten izin veriyordu ama bu bileşen yalnızca STUDENT/PARENT'ın
- * kendi karnesini gösteriyordu — personel için öğrenci roster/seçici arayüzü
- * eksikti.
+ * Personel (BRANCH_ADMIN/GUIDANCE_COORDINATOR/TEACHER) tarafı — demo'nun
+ * "branch:karne"/"teacher:karne" ekranlarının karşılığı. Backend
+ * (app/api/students/[studentId]/report-card) STAFF_ROLES'e zaten izin
+ * veriyordu ama bu bileşen yalnızca STUDENT/PARENT'ın kendi karnesini
+ * gösteriyordu — personel için öğrenci roster/seçici arayüzü eksikti.
+ *
+ * TEACHER için `/api/branch/students` 403 döner (o uç yalnızca BRANCH_ADMIN/
+ * GUIDANCE_COORDINATOR'a açık) — bu yüzden TEACHER, MyClassesView'daki gibi
+ * kendi sınıflarına scope edilmiş `/api/teacher/my-classes`'tan roster alır;
+ * demo'da da teacher:karne yalnızca `teacherRoster()` (kendi sınıfı) gösterir.
  */
-function StaffReportCardView({ me }: { me: { firstName: string; lastName: string } }) {
+function StaffReportCardView({ me }: { me: { firstName: string; lastName: string; role: string } }) {
   const [search, setSearch] = useState("");
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  const isTeacher = me.role === "TEACHER";
 
-  const studentsQuery = useQuery({ queryKey: ["branch-students"], queryFn: fetchBranchStudents });
+  const branchStudentsQuery = useQuery({ queryKey: ["branch-students"], queryFn: fetchBranchStudents, enabled: !isTeacher });
+  const myClassesQuery = useQuery({ queryKey: ["teacher-my-classes"], queryFn: fetchMyClasses, enabled: isTeacher });
   const reportCardQuery = useQuery({
     queryKey: reportCardKeys.byStudent(selectedStudentId ?? ""),
     queryFn: () => fetchReportCard(selectedStudentId!),
     enabled: !!selectedStudentId,
   });
 
-  const filtered = useMemo(() => {
-    const rows = studentsQuery.data?.students ?? [];
-    const q = search.trim().toLocaleLowerCase("tr-TR");
-    if (!q) return rows;
-    return rows.filter((s) => s.name.toLocaleLowerCase("tr-TR").includes(q) || s.studentNo.includes(q));
-  }, [studentsQuery.data, search]);
+  const isLoading = isTeacher ? myClassesQuery.isLoading : branchStudentsQuery.isLoading;
+  const roster: StaffRosterRow[] = useMemo(() => {
+    if (isTeacher) {
+      return (myClassesQuery.data?.classrooms ?? []).flatMap((c) =>
+        c.students.map((s) => ({ id: s.studentId, studentNo: s.studentNo, name: s.name, gradeLevel: s.gradeLevel, classroomName: c.classroomName })),
+      );
+    }
+    return branchStudentsQuery.data?.students ?? [];
+  }, [isTeacher, myClassesQuery.data, branchStudentsQuery.data]);
 
-  const selectedStudent = (studentsQuery.data?.students ?? []).find((s) => s.id === selectedStudentId) ?? null;
+  const filtered = useMemo(() => {
+    const q = search.trim().toLocaleLowerCase("tr-TR");
+    if (!q) return roster;
+    return roster.filter((s) => s.name.toLocaleLowerCase("tr-TR").includes(q) || s.studentNo.includes(q));
+  }, [roster, search]);
+
+  const selectedStudent = roster.find((s) => s.id === selectedStudentId) ?? null;
 
   return (
     <div className="screen">
@@ -127,7 +152,7 @@ function StaffReportCardView({ me }: { me: { firstName: string; lastName: string
           <input type="text" placeholder="İsim veya öğrenci no…" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
 
-        {studentsQuery.isLoading ? (
+        {isLoading ? (
           <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>
         ) : filtered.length === 0 ? (
           <div className="empty-state">

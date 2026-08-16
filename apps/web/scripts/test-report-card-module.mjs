@@ -87,6 +87,29 @@ async function main() {
   const missingRes = await fetch(`${BASE}/api/students/does-not-exist/report-card`, { headers: { Cookie: teacherCookie } });
   check("GET report-card: olmayan öğrenci için 404 dönüyor", missingRes.status === 404, missingRes.status);
 
+  // ===== TEACHER'ın Karne ekranındaki gerçek akışı: /api/branch/students 403
+  // verdiği için (yalnızca BRANCH_ADMIN/GUIDANCE_COORDINATOR) UI artık
+  // /api/teacher/my-classes'tan kendi roster'ını çekiyor (bkz.
+  // components/report-card/ReportCardView.tsx StaffReportCardView) =====
+  const branchStudentsAsTeacherRes = await fetch(`${BASE}/api/branch/students`, { headers: { Cookie: teacherCookie } });
+  check("Yetki: TEACHER /api/branch/students'ı GÖREMİYOR (403 — bu yüzden Karne artık my-classes kullanıyor)", branchStudentsAsTeacherRes.status === 403, branchStudentsAsTeacherRes.status);
+
+  const teacherProfile = await prisma.teacherProfile.findFirst({ where: { user: { email: "ayse.demir@seviye360.com" } } });
+  const slot = await prisma.timetableSlot.create({
+    data: { tenantId: elif.tenantId, classroomId: elif.classroomId, teacherId: teacherProfile.id, subject: "Matematik", dayOfWeek: 3, startTime: "11:00", endTime: "11:40" },
+  });
+  try {
+    const myClassesRes = await fetch(`${BASE}/api/teacher/my-classes`, { headers: { Cookie: teacherCookie } });
+    const myClassesBody = await myClassesRes.json();
+    const elifFromMyClasses = myClassesBody.classrooms?.flatMap((c) => c.students).find((s) => s.studentNo === "201001");
+    check("Karne akışı: TEACHER, my-classes üzerinden Elif'i bulabiliyor", !!elifFromMyClasses, elifFromMyClasses);
+
+    const reportCardViaTeacherRes = await fetch(`${BASE}/api/students/${elifFromMyClasses.studentId}/report-card`, { headers: { Cookie: teacherCookie } });
+    check("Karne akışı: TEACHER, my-classes'tan bulduğu öğrencinin karnesini açabiliyor (200)", reportCardViaTeacherRes.status === 200, reportCardViaTeacherRes.status);
+  } finally {
+    await prisma.timetableSlot.delete({ where: { id: slot.id } });
+  }
+
   console.log("\n=== ÖZET ===");
   const fails = results.filter((r) => !r.ok);
   console.log(`Toplam: ${results.length} | Başarılı: ${results.length - fails.length} | Başarısız: ${fails.length}`);

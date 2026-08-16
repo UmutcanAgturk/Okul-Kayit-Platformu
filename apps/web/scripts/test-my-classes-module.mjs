@@ -70,6 +70,7 @@ async function main() {
     const elifRow = cls?.students?.find((s) => s.studentNo === "201001");
     check("Elif roster'da doğru öğrenci no ile görünüyor", elifRow?.studentNo === "201001", elifRow);
     check("Elif'in net ortalaması sayısal veya null", elifRow && (typeof elifRow.netAvg === "number" || elifRow.netAvg === null), elifRow?.netAvg);
+    check("Elif'in gradeLevel'i mevcut (Karne'nin öğretmen görünümü bunu kullanır)", elifRow?.gradeLevel === elif.gradeLevel, elifRow?.gradeLevel);
   } finally {
     await prisma.timetableSlot.delete({ where: { id: slot.id } });
   }

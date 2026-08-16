@@ -4,6 +4,7 @@ export interface MyClassStudentRow {
   studentId: string;
   studentNo: string;
   name: string;
+  gradeLevel: string;
   netAvg: number | null;
   guardianName: string | null;
   guardianPhone: string | null;

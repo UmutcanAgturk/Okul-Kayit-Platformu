@@ -57,6 +57,7 @@ export async function GET(request: NextRequest) {
               studentId: s.id,
               studentNo: s.studentNo,
               name: `${s.user.firstName} ${s.user.lastName}`,
+              gradeLevel: s.gradeLevel,
               netAvg,
               guardianName: guardianUser ? `${guardianUser.firstName} ${guardianUser.lastName}` : null,
               guardianPhone: guardianUser?.phone ?? null,

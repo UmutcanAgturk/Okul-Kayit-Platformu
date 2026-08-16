@@ -80,7 +80,7 @@ async function main() {
       body: JSON.stringify({ role: "ACCOUNTING" }),
     });
     const changeBody = await changeRes.json();
-    check("PATCH: BRANCH_ADMIN rol değiştirebiliyor (200)", changeRes.status === 200 && changeBody.role === "ACCOUNTING", changeBody);
+    check("PATCH: BRANCH_ADMIN rol değiştirebiliyor (200)", changeRes.status === 200 && changeBody.staff?.role === "ACCOUNTING", changeBody);
 
     const listRes = await fetch(`${BASE}/api/branch/staff`, { headers: { Cookie: branchCookie } });
     const listBody = await listRes.json();

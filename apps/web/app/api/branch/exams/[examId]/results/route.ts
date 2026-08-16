@@ -13,9 +13,20 @@ import { actorLabel, logActivity } from "@/lib/audit-log";
  * ilkesi) — bunun yerine her soru için gerçek Doğru/Yanlış/Boş işaretlemesi
  * elle girilir (kamera/mobil OCR bu depoda kasıtlı olarak kapsam dışıdır).
  * Net puan = doğru - yanlış/4 (4 seçenekli çoktan seçmeli standart formülü).
+ *
+ * TEACHER da sonuç girebilir (demo'da öğretmen kendi sınıfının optiğini
+ * yüklüyordu) — ama yalnızca KENDİ Ders Programı'nda (TimetableSlot) yer
+ * alan sınıflar için; assertTeacherOwnsClassroom bunu doğrular.
  */
 const VIEW_ROLES: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.GUIDANCE_COORDINATOR, UserRole.TEACHER];
-const ENTER_ROLES: UserRole[] = [UserRole.BRANCH_ADMIN];
+const ENTER_ROLES: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.TEACHER];
+
+async function teacherOwnsClassroom(tx: { teacherProfile: { findUnique: Function }; timetableSlot: { findFirst: Function } }, teacherUserId: string, classroomId: string) {
+  const teacherProfile = await tx.teacherProfile.findUnique({ where: { userId: teacherUserId } });
+  if (!teacherProfile) return false;
+  const slot = await tx.timetableSlot.findFirst({ where: { teacherId: teacherProfile.id, classroomId } });
+  return !!slot;
+}
 
 export async function GET(request: NextRequest, { params }: { params: { examId: string } }) {
   const actor = await getSessionActor(request);
@@ -87,6 +98,11 @@ export async function POST(request: NextRequest, { params }: { params: { examId:
     const student = await tx.studentProfile.findUnique({ where: { id: studentId } });
     if (!student) return { kind: "student_not_found" as const };
 
+    if (actor.role === UserRole.TEACHER) {
+      const ownsClassroom = student.classroomId && (await teacherOwnsClassroom(tx, actor.id, student.classroomId));
+      if (!ownsClassroom) return { kind: "not_own_classroom" as const };
+    }
+
     const questionIds = new Set(exam.questions.map((q) => q.id));
     if (answers.length !== exam.questions.length || answers.some((a) => !questionIds.has(a.questionId))) {
       return { kind: "answer_mismatch" as const };
@@ -141,6 +157,9 @@ export async function POST(request: NextRequest, { params }: { params: { examId:
   }
   if (outcome.kind === "student_not_found") {
     return NextResponse.json({ message: "Öğrenci bulunamadı" }, { status: 404 });
+  }
+  if (outcome.kind === "not_own_classroom") {
+    return NextResponse.json({ message: "Yalnızca kendi Ders Programınızda yer alan sınıflar için sonuç girebilirsiniz" }, { status: 403 });
   }
   if (outcome.kind === "answer_mismatch") {
     return NextResponse.json({ message: "answers, sınavdaki tüm sorular için tam olarak bir kez girilmelidir" }, { status: 400 });

@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { fetchBranchClassrooms } from "@/lib/api/students-roster";
+import { fetchMyClasses } from "@/lib/api/my-classes";
 import {
   createBranchExam,
   examKeys,
@@ -23,6 +24,12 @@ import { KazanimYuklemeTab } from "./KazanimYuklemeTab";
 
 const VIEW_ROLES = ["BRANCH_ADMIN", "GUIDANCE_COORDINATOR", "TEACHER"];
 const CREATE_ROLES = ["BRANCH_ADMIN"];
+// Sonuç Girişi demo'da öğretmene de açıktı (kendi sınıfının optiğini
+// yüklüyordu) — Sınav Uygulaması (yeni sınav tanımı) ise HQ/BRANCH_ADMIN'e
+// özel kalıyor (kazanimYuklemeAllowed() ile aynı kural). API tarafı
+// (app/api/branch/exams/[examId]/results POST) TEACHER'ı yalnızca kendi
+// Ders Programı'ndaki sınıflarla sınırlıyor.
+const ENTER_RESULTS_ROLES = ["BRANCH_ADMIN", "TEACHER"];
 // Kazanım Yükleme (ders bazlı kazanım taksonomisi yönetimi) yalnızca Genel
 // Merkez veya Şube Yöneticisi'ne açıktır — demo'daki kazanimYuklemeAllowed()
 // ile aynı kural. `CurriculumNode` tenant'a özgü olmadığından (bkz.
@@ -78,12 +85,14 @@ export function OlcmeDegerlendirmeView() {
   }
 
   const canCreate = CREATE_ROLES.includes(me.role) || (me.role === "SUPERADMIN" && !!me.actingTenantId);
+  const canEnterResults = ENTER_RESULTS_ROLES.includes(me.role) || (me.role === "SUPERADMIN" && !!me.actingTenantId);
   const canManageCurriculum = MANAGE_CURRICULUM_ROLES.includes(me.role);
   const hasTenantScope = VIEW_ROLES.includes(me.role) || (me.role === "SUPERADMIN" && !!me.actingTenantId);
   const visibleTabs = TABS.filter((t) => {
     if (t.id === "kazanimYukle") return canManageCurriculum;
     if (!hasTenantScope) return false;
-    if (t.id === "uygulama" || t.id === "sonuc") return canCreate;
+    if (t.id === "uygulama") return canCreate;
+    if (t.id === "sonuc") return canEnterResults;
     return true;
   });
 
@@ -103,7 +112,7 @@ export function OlcmeDegerlendirmeView() {
       {tab === "durum" && <DurumTab />}
       {tab === "kazanim" && <KazanimTab />}
       {tab === "uygulama" && canCreate && <UygulamaTab />}
-      {tab === "sonuc" && canCreate && <SonucTab />}
+      {tab === "sonuc" && canEnterResults && <SonucTab isTeacher={me.role === "TEACHER"} />}
       {tab === "kazanimYukle" && canManageCurriculum && <KazanimYuklemeTab />}
     </div>
   );
@@ -314,10 +323,14 @@ function UygulamaTab() {
 
 type AnswerState = Record<string, boolean | null | undefined>;
 
-function SonucTab() {
+function SonucTab({ isTeacher }: { isTeacher: boolean }) {
   const queryClient = useQueryClient();
   const examsQuery = useQuery({ queryKey: examKeys.list(), queryFn: fetchBranchExams });
-  const classroomsQuery = useQuery({ queryKey: ["branch-classrooms"], queryFn: fetchBranchClassrooms });
+  // TEACHER yalnızca kendi Ders Programı'ndaki sınıflar için sonuç girebilir
+  // (bkz. app/api/branch/exams/[examId]/results POST'taki teacherOwnsClassroom
+  // kontrolü) — bu yüzden sınıf listesi tüm şube yerine fetchMyClasses'tan gelir.
+  const branchClassroomsQuery = useQuery({ queryKey: ["branch-classrooms"], queryFn: fetchBranchClassrooms, enabled: !isTeacher });
+  const myClassesQuery = useQuery({ queryKey: ["teacher-my-classes"], queryFn: fetchMyClasses, enabled: isTeacher });
 
   const [examId, setExamId] = useState("");
   const [classroomId, setClassroomId] = useState("");
@@ -345,7 +358,9 @@ function SonucTab() {
   });
 
   const exams = examsQuery.data?.exams ?? [];
-  const classrooms = classroomsQuery.data?.classrooms ?? [];
+  const classrooms = isTeacher
+    ? (myClassesQuery.data?.classrooms ?? []).map((c) => ({ id: c.classroomId, name: c.classroomName, studentCount: c.students.length }))
+    : (branchClassroomsQuery.data?.classrooms ?? []);
   const roster = rosterQuery.data?.roster ?? [];
   const questions = examDetailQuery.data?.exam.questions ?? [];
 
