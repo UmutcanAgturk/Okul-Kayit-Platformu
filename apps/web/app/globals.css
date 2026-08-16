@@ -304,3 +304,12 @@ table.data tr:hover td { background: var(--surface-2); }
 
 .progress-track { height: 8px; border-radius: 999px; background: var(--surface-sunken); overflow: hidden; }
 .progress-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--brand-strong), var(--brand)); transition: width .5s var(--ease); }
+
+.map-wrap { display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; align-items: stretch; }
+@media (max-width: 980px) { .map-wrap { grid-template-columns: 1fr; } }
+.map-svg-holder { position: relative; }
+.map-province { cursor: pointer; transition: filter .12s, opacity .12s; }
+.map-province:hover { filter: brightness(0.9); }
+.map-province.active-city { filter: drop-shadow(0 0 2px color-mix(in srgb, var(--brand) 70%, transparent)); }
+.map-legend-scale { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--ink-muted); margin-top: 10px; }
+.row-clickable { cursor: pointer; }

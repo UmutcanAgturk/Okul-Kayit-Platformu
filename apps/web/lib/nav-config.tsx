@@ -39,6 +39,7 @@ const SERVIS_CARD: ModuleCard = { href: "/servis", title: "Servis", description:
 const QUIZ_CARD: ModuleCard = { href: "/quiz", title: "Pratik Quiz", description: "Ders bazlı hızlı pratik denemeleri ve geçmiş sonuçlar.", icon: "help", group: "Akademik" };
 const RAPORLAR_CARD: ModuleCard = { href: "/raporlar", title: "Raporlar", description: "Öğrenci, personel, devamsızlık, sınav ve mali özet raporları.", icon: "download", group: "Yönetim & Finans" };
 const KURUMLAR_CARD: ModuleCard = { href: "/kurumlar", title: "Kurum Yönetimi", description: "Tüm şubelerin öğrenci/personel/sınıf sayıları ve konsolide mali özet.", icon: "briefcase", group: "Genel Bakış" };
+const SUBE_HARITASI_CARD: ModuleCard = { href: "/sube-haritasi", title: "Şube Performans Haritası", description: "Türkiye haritasında gerçek doluluk/tahsilat/ciro verisi.", icon: "map", group: "Genel Bakış" };
 const ILETISIM_CARD: ModuleCard = { href: "/iletisim", title: "İletişim", description: "Öğrenci/veli/öğretmenlere mesaj gönderme ve gelen kutusu.", icon: "bell", group: "Diğer" };
 const MENTOR_CARD: ModuleCard = { href: "/mentor", title: "Seviye Mentör", description: "Otomatik atanan mentör öğretmenle online randevu talebi.", icon: "road", group: "Öğrenci Yaşamı" };
 const ETUT_ONAYI_CARD: ModuleCard = { href: "/etut-onayi", title: "Etüt Onayı", description: "Yapay zekanın önerdiği etüt seanslarını onaylama/reddetme.", icon: "heart", group: "Öğrenci Yaşamı" };
@@ -56,7 +57,7 @@ export const MODULES_BY_ROLE: Record<UserRole, ModuleCard[]> = {
   TEACHER: [DEVAMSIZLIK_CARD, DERS_PROGRAMI_CARD, DISIPLIN_CARD, VELI_GORUSME_CARD, KULUPLER_CARD, ETUT_ONAYI_CARD, ILETISIM_CARD, MENTOR_CARD, LEADERBOARD_CARD, PROFILIM_CARD],
   STUDENT: [KARNE_CARD, DERS_PROGRAMI_CARD, ROADMAP_CARD, SINAV_BELGESI_CARD, KULUPLER_CARD, SERVIS_CARD, QUIZ_CARD, ETUT_RANDEVU_CARD, ILETISIM_CARD, MENTOR_CARD, BASARI_CARD, PROFILIM_CARD],
   PARENT: [KARNE_CARD, DERS_PROGRAMI_CARD, ROADMAP_CARD, SINAV_BELGESI_CARD, VELI_GORUSME_CARD, SERVIS_CARD, QUIZ_CARD, ETUT_RANDEVU_CARD, ILETISIM_CARD, MENTOR_CARD, BASARI_CARD, PROFILIM_CARD],
-  SUPERADMIN: [KURUMLAR_CARD, PROFILIM_CARD],
+  SUPERADMIN: [SUBE_HARITASI_CARD, KURUMLAR_CARD, PROFILIM_CARD],
 };
 
 // Grup görüntüleme sırası — demo'daki sidebar grup sıralamasıyla aynı mantık.
