@@ -13,7 +13,15 @@ import { Icon } from "@/components/ui/icons";
  * sağdan açılır; özet bilgi gösterir ve veli iletişim bilgisini satır içi
  * düzenlemeye izin verir (bkz. app/api/branch/students/[studentId] PATCH).
  */
-export function StudentDetailDrawer({ student, onClose }: { student: BranchStudentRow | null; onClose: () => void }) {
+export function StudentDetailDrawer({
+  student,
+  onClose,
+  readOnly = false,
+}: {
+  student: BranchStudentRow | null;
+  onClose: () => void;
+  readOnly?: boolean;
+}) {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [guardianFullName, setGuardianFullName] = useState("");
@@ -95,7 +103,7 @@ export function StudentDetailDrawer({ student, onClose }: { student: BranchStude
             <div className="card card-pad">
               <div className="card-head">
                 <h3>Veli İletişim Bilgisi</h3>
-                {!editing && (
+                {!editing && !readOnly && (
                   <button type="button" className="btn xs" onClick={() => setEditing(true)}>
                     Düzenle
                   </button>

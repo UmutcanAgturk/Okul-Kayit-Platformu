@@ -72,7 +72,10 @@ export interface HqStudentRow {
   tenantId: string;
   tenantName: string;
   gradeLevel: string;
+  classroomId: string | null;
   classroomName: string | null;
+  guardianName: string | null;
+  guardianPhone: string | null;
   avgNet: number | null;
 }
 

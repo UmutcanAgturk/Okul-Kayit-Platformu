@@ -25,7 +25,13 @@ export async function GET(request: NextRequest) {
 
   const result = await withTenantContext(actor, async (tx) => {
     const students = await tx.studentProfile.findMany({
-      include: { user: true, tenant: true, classroom: true, examResults: { select: { netScore: true } } },
+      include: {
+        user: true,
+        tenant: true,
+        classroom: true,
+        examResults: { select: { netScore: true } },
+        guardians: { include: { parent: { include: { user: true } } } },
+      },
       orderBy: { user: { firstName: "asc" } },
     });
 
@@ -55,6 +61,8 @@ export async function GET(request: NextRequest) {
       },
       students: filtered.map((s) => {
         const avgNet = s.examResults.length > 0 ? Number((s.examResults.reduce((sum, r) => sum + r.netScore, 0) / s.examResults.length).toFixed(2)) : null;
+        const guardianRow = s.guardians.find((g) => g.isBillingResponsible) ?? s.guardians[0];
+        const guardianUser = guardianRow?.parent.user;
         return {
           id: s.id,
           studentNo: s.studentNo,
@@ -62,7 +70,10 @@ export async function GET(request: NextRequest) {
           tenantId: s.tenantId,
           tenantName: s.tenant.name,
           gradeLevel: s.gradeLevel,
+          classroomId: s.classroomId,
           classroomName: s.classroom?.name ?? null,
+          guardianName: guardianUser ? `${guardianUser.firstName} ${guardianUser.lastName}` : null,
+          guardianPhone: guardianUser?.phone ?? null,
           avgNet,
         };
       }),

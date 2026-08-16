@@ -24,6 +24,7 @@ import { HBarChart } from "@/components/ui/charts/HBarChart";
 import { setActingTenant } from "@/lib/api/hq";
 import { PrintDocumentViewer } from "@/components/documents/PrintDocumentViewer";
 import { AnalyticsReportPrintBody } from "@/components/documents/DocumentPrintBodies";
+import { StudentDetailDrawer } from "@/components/students-roster/StudentDetailDrawer";
 
 const ALLOWED_ROLES = ["SUPERADMIN"];
 const TENANT_TYPE_LABEL: Record<string, string> = { GENEL_MERKEZ: "Genel Merkez", SUBE: "Şube", BOLUM: "Bölüm" };
@@ -265,8 +266,10 @@ function CreateTenantForm() {
 function HqStudentsPanel({ tenants }: { tenants: HqTenant[] }) {
   const [q, setQ] = useState("");
   const [tenantId, setTenantId] = useState("");
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const query = useQuery({ queryKey: hqKeys.students(q, tenantId), queryFn: () => fetchHqStudents({ q, tenantId }) });
   const data = query.data;
+  const selectedStudent = data?.students.find((s) => s.id === selectedStudentId) ?? null;
 
   return (
     <div className="card card-pad">
@@ -340,7 +343,7 @@ function HqStudentsPanel({ tenants }: { tenants: HqTenant[] }) {
                 </tr>
               )}
               {data.students.map((s) => (
-                <tr key={s.id}>
+                <tr key={s.id} className="row-clickable" onClick={() => setSelectedStudentId(s.id)}>
                   <td style={{ fontWeight: 600 }}>{s.name}</td>
                   <td>{s.studentNo}</td>
                   <td>{s.tenantName}</td>
@@ -352,6 +355,25 @@ function HqStudentsPanel({ tenants }: { tenants: HqTenant[] }) {
           </table>
         </div>
       )}
+
+      <StudentDetailDrawer
+        student={
+          selectedStudent
+            ? {
+                id: selectedStudent.id,
+                studentNo: selectedStudent.studentNo,
+                name: selectedStudent.name,
+                gradeLevel: selectedStudent.gradeLevel,
+                classroomId: selectedStudent.classroomId,
+                classroomName: selectedStudent.classroomName,
+                guardianName: selectedStudent.guardianName,
+                guardianPhone: selectedStudent.guardianPhone,
+              }
+            : null
+        }
+        onClose={() => setSelectedStudentId(null)}
+        readOnly
+      />
     </div>
   );
 }

@@ -81,6 +81,10 @@ async function main() {
   check("Elif'in avgNet'i ham DB ortalamasıyla eşleşiyor", elifRow?.avgNet === expectedAvgNet, `${elifRow?.avgNet} vs ${expectedAvgNet}`);
   check("Elif'in sınıfı 9-A olarak görünüyor", elifRow?.classroomName === "9-A", elifRow?.classroomName);
 
+  // ===== Öğrenci detay çekmecesi için gereken alanlar (bkz. HqStudentsPanel + StudentDetailDrawer readOnly) =====
+  check("Elif'in classroomId'si dolu (çekmece için gerekli)", !!elifRow?.classroomId, elifRow?.classroomId);
+  check("Elif'in veli adı 'Hakan Yılmaz' olarak görünüyor", elifRow?.guardianName === "Hakan Yılmaz", elifRow?.guardianName);
+
   console.log("\n=== ÖZET ===");
   const fails = results.filter((r) => !r.ok);
   console.log(`Toplam: ${results.length} | Başarılı: ${results.length - fails.length} | Başarısız: ${fails.length}`);
