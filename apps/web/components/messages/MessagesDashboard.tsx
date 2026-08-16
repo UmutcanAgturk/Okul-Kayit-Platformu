@@ -248,7 +248,7 @@ export function MessagesDashboard() {
     return null;
   }
 
-  const canSend = SENDER_ROLES.includes(me.role);
+  const canSend = SENDER_ROLES.includes(me.role) || (me.role === "SUPERADMIN" && !!me.actingTenantId);
 
   return (
     <div className="screen">
@@ -259,7 +259,7 @@ export function MessagesDashboard() {
 
       {canSend && (
         <div className="grid cols-2" style={{ marginBottom: 14 }}>
-          <ComposeForm canTargetStaff={me.role === "BRANCH_ADMIN"} />
+          <ComposeForm canTargetStaff={me.role === "BRANCH_ADMIN" || (me.role === "SUPERADMIN" && !!me.actingTenantId)} />
           <SentList />
         </div>
       )}

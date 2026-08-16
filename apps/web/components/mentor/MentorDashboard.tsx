@@ -390,7 +390,7 @@ export function MentorDashboard() {
 
   if (me.role === "STUDENT" || me.role === "PARENT") return <StudentOrParentMentorView me={me} />;
   if (me.role === "TEACHER") return <TeacherMentorView me={me} />;
-  if (me.role === "BRANCH_ADMIN") return <BranchMentorView me={me} />;
+  if (me.role === "BRANCH_ADMIN" || (me.role === "SUPERADMIN" && me.actingTenantId)) return <BranchMentorView me={me} />;
 
   return (
     <div className="card card-pad">

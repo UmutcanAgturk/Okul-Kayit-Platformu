@@ -275,7 +275,7 @@ export function ClubsDashboard() {
     return null;
   }
 
-  if (me.role === "BRANCH_ADMIN") return <BranchClubsView me={me} />;
+  if (me.role === "BRANCH_ADMIN" || (me.role === "SUPERADMIN" && me.actingTenantId)) return <BranchClubsView me={me} />;
   if (me.role === "TEACHER") return <TeacherClubsView me={me} />;
   if (me.role === "STUDENT") return <StudentClubsView me={me} />;
 

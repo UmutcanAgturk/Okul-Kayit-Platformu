@@ -50,7 +50,7 @@ export function OlcmeDegerlendirmeView() {
 
   if (isLoading) return <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>;
   if (!me || (isError && error instanceof ApiError && error.status === 401)) return null;
-  if (!VIEW_ROLES.includes(me.role)) {
+  if (!VIEW_ROLES.includes(me.role) && !(me.role === "SUPERADMIN" && me.actingTenantId)) {
     return (
       <div className="card card-pad">
         <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
@@ -60,7 +60,7 @@ export function OlcmeDegerlendirmeView() {
     );
   }
 
-  const canCreate = CREATE_ROLES.includes(me.role);
+  const canCreate = CREATE_ROLES.includes(me.role) || (me.role === "SUPERADMIN" && !!me.actingTenantId);
   const visibleTabs = TABS.filter((t) => canCreate || (t.id !== "uygulama" && t.id !== "sonuc"));
 
   return (

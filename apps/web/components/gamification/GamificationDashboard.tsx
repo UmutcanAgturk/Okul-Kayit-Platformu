@@ -212,7 +212,7 @@ export function GamificationDashboard() {
   }
 
   if (me.role === "STUDENT" || me.role === "PARENT") return <StudentOrParentAchievementsView me={me} />;
-  if (me.role === "BRANCH_ADMIN") return <LeaderboardView me={me} title="Lider Tablosu" />;
+  if (me.role === "BRANCH_ADMIN" || (me.role === "SUPERADMIN" && me.actingTenantId)) return <LeaderboardView me={me} title="Lider Tablosu" />;
   if (me.role === "TEACHER") return <LeaderboardView me={me} title="Sınıf Lider Tablosu" />;
 
   return (

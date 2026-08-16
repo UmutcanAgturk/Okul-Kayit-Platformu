@@ -98,7 +98,7 @@ export function PersonelDashboard() {
     return null; // yönlendirme useEffect'te yapılıyor
   }
 
-  if (!ALLOWED_ROLES.includes(me.role)) {
+  if (!ALLOWED_ROLES.includes(me.role) && !(me.role === "SUPERADMIN" && me.actingTenantId)) {
     return (
       <div className="card card-pad">
         <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
@@ -114,7 +114,7 @@ export function PersonelDashboard() {
     <div className="screen">
       <h1>Personel</h1>
       <p className="lede">
-        {me.firstName} {me.lastName} · {me.role === "BRANCH_ADMIN" ? "Şube Yöneticisi" : "Muhasebe"}
+        {me.firstName} {me.lastName} · {me.role === "BRANCH_ADMIN" ? "Şube Yöneticisi" : me.role === "SUPERADMIN" ? "Genel Merkez (Şube Yöneticisi yetkisiyle)" : "Muhasebe"}
       </p>
 
       <div className="grid cols-2">

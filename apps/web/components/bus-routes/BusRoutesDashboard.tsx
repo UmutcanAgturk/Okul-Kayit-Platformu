@@ -301,7 +301,7 @@ export function BusRoutesDashboard() {
     return null;
   }
 
-  if (me.role === "BRANCH_ADMIN") return <BranchBusRoutesView me={me} />;
+  if (me.role === "BRANCH_ADMIN" || (me.role === "SUPERADMIN" && me.actingTenantId)) return <BranchBusRoutesView me={me} />;
   if (me.role === "STUDENT" || me.role === "PARENT") return <StudentBusRouteView me={me} />;
 
   return (

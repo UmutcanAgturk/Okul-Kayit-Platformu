@@ -347,7 +347,7 @@ export function PtaDashboard() {
 
   if (me.role === "PARENT") return <ParentPtaView me={me} />;
   if (me.role === "TEACHER") return <TeacherPtaView me={me} />;
-  if (me.role === "BRANCH_ADMIN" || me.role === "GUIDANCE_COORDINATOR") return <BranchPtaView me={me} />;
+  if (me.role === "BRANCH_ADMIN" || me.role === "GUIDANCE_COORDINATOR" || (me.role === "SUPERADMIN" && me.actingTenantId)) return <BranchPtaView me={me} />;
 
   return (
     <div className="card card-pad">

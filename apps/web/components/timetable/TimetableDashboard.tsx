@@ -45,7 +45,7 @@ export function TimetableDashboard() {
     return null;
   }
 
-  if (me.role === "BRANCH_ADMIN") return <BranchTimetable />;
+  if (me.role === "BRANCH_ADMIN" || (me.role === "SUPERADMIN" && me.actingTenantId)) return <BranchTimetable />;
   if (me.role === "TEACHER") return <TeacherTimetable />;
   if (me.role === "STUDENT" || me.role === "PARENT") return <StudentTimetable students={me.students ?? []} />;
 

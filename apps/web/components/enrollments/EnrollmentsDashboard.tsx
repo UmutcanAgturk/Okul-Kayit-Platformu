@@ -170,7 +170,7 @@ export function EnrollmentsDashboard() {
     return null;
   }
 
-  if (!ALLOWED_ROLES.includes(me.role)) {
+  if (!ALLOWED_ROLES.includes(me.role) && !(me.role === "SUPERADMIN" && me.actingTenantId)) {
     return (
       <div className="card card-pad">
         <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>

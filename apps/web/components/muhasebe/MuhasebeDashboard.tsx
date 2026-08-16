@@ -48,7 +48,7 @@ export function MuhasebeDashboard() {
     return null; // yönlendirme useEffect'te yapılıyor
   }
 
-  if (!ALLOWED_ROLES.includes(me.role)) {
+  if (!ALLOWED_ROLES.includes(me.role) && !(me.role === "SUPERADMIN" && me.actingTenantId)) {
     return (
       <div className="card card-pad">
         <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
@@ -62,7 +62,7 @@ export function MuhasebeDashboard() {
     <div className="screen">
       <h1>Muhasebe</h1>
       <p className="lede">
-        {me.firstName} {me.lastName} · {me.role === "BRANCH_ADMIN" ? "Şube Yöneticisi" : "Muhasebe"}
+        {me.firstName} {me.lastName} · {me.role === "BRANCH_ADMIN" ? "Şube Yöneticisi" : me.role === "SUPERADMIN" ? "Genel Merkez (Şube Yöneticisi yetkisiyle)" : "Muhasebe"}
       </p>
 
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 18 }}>
