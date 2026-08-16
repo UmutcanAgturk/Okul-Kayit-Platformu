@@ -9,11 +9,15 @@ import { LedgerPanel } from "./LedgerPanel";
 import { InstallmentsPanel } from "./InstallmentsPanel";
 import { PayrollPanel } from "./PayrollPanel";
 import { BelgelerPanel } from "./BelgelerPanel";
+import { StatistikTab } from "./StatistikTab";
+import { BeklentiTab } from "./BeklentiTab";
 
 const ALLOWED_ROLES = ["BRANCH_ADMIN", "ACCOUNTING"];
 const TABS = [
   { id: "genel", label: "Genel Bakış (Kayıt Defteri)" },
+  { id: "istatistik", label: "İstatistikler" },
   { id: "tahsilat", label: "Tahsilat Takibi" },
+  { id: "beklenti", label: "Beklentiler" },
   { id: "bordro", label: "Bordro" },
   { id: "belgeler", label: "Belgeler (Fatura/Dekont/Senet)" },
 ] as const;
@@ -79,7 +83,9 @@ export function MuhasebeDashboard() {
       </div>
 
       {tab === "genel" && <LedgerPanel />}
+      {tab === "istatistik" && <StatistikTab />}
       {tab === "tahsilat" && <InstallmentsPanel />}
+      {tab === "beklenti" && <BeklentiTab />}
       {tab === "bordro" && <PayrollPanel />}
       {tab === "belgeler" && <BelgelerPanel />}
     </div>

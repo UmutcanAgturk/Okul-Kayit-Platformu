@@ -6,6 +6,9 @@ import { useQuery } from "@tanstack/react-query";
 import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { downloadReport, fetchFinancialSummary, reportsKeys } from "@/lib/api/reports";
+import { examKeys, fetchAchievementSummary, fetchBranchExams } from "@/lib/api/exams";
+import { PrintDocumentViewer } from "@/components/documents/PrintDocumentViewer";
+import { OlcmeReportPrintBody } from "@/components/documents/DocumentPrintBodies";
 
 const ALLOWED_ROLES = ["BRANCH_ADMIN"];
 
@@ -40,6 +43,7 @@ function ReportCard({ icon, title, description, actionLabel, onAction }: { icon:
 export function ReportsDashboard() {
   const router = useRouter();
   const [showFinancial, setShowFinancial] = useState(false);
+  const [showOlcme, setShowOlcme] = useState(false);
 
   const { data: me, isLoading, isError, error } = useQuery({
     queryKey: authKeys.me(),
@@ -58,6 +62,8 @@ export function ReportsDashboard() {
     queryFn: fetchFinancialSummary,
     enabled: showFinancial,
   });
+  const examsQuery = useQuery({ queryKey: examKeys.list(), queryFn: fetchBranchExams, enabled: showOlcme });
+  const achievementsQuery = useQuery({ queryKey: examKeys.achievementSummary(), queryFn: fetchAchievementSummary, enabled: showOlcme });
 
   if (isLoading) {
     return <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>;
@@ -118,7 +124,22 @@ export function ReportsDashboard() {
           actionLabel="Görüntüle"
           onAction={() => setShowFinancial(true)}
         />
+        <ReportCard
+          icon="📊"
+          title="Ölçme-Değerlendirme Raporu"
+          description="Net/katılım trendi ve kazanım dağılımı grafikleriyle."
+          actionLabel="Görüntüle / Yazdır"
+          onAction={() => setShowOlcme(true)}
+        />
       </div>
+
+      <PrintDocumentViewer open={showOlcme} onClose={() => setShowOlcme(false)} documentNo="Ölçme-Değerlendirme Raporu">
+        <OlcmeReportPrintBody
+          scopeName={`${me.firstName} ${me.lastName}`}
+          netTrend={[...(examsQuery.data?.exams ?? [])].filter((e) => e.avgNet !== null).reverse().map((e) => ({ label: e.name, value: e.avgNet! }))}
+          achievements={(achievementsQuery.data?.achievements ?? []).map((a) => ({ label: `${a.code} — ${a.label}`, sub: `${a.subject} · ${a.count} sonuç`, avgMasteryPct: a.avgMasteryPct }))}
+        />
+      </PrintDocumentViewer>
 
       {showFinancial && (
         <div className="card card-pad" style={{ marginTop: 14 }}>

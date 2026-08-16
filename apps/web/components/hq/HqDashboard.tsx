@@ -22,6 +22,8 @@ import {
 import { downloadLogoTigerCsv } from "@/lib/logo-tiger-csv";
 import { HBarChart } from "@/components/ui/charts/HBarChart";
 import { setActingTenant } from "@/lib/api/hq";
+import { PrintDocumentViewer } from "@/components/documents/PrintDocumentViewer";
+import { AnalyticsReportPrintBody } from "@/components/documents/DocumentPrintBodies";
 
 const ALLOWED_ROLES = ["SUPERADMIN"];
 const TENANT_TYPE_LABEL: Record<string, string> = { GENEL_MERKEZ: "Genel Merkez", SUBE: "Şube", BOLUM: "Bölüm" };
@@ -513,12 +515,25 @@ function HqAnalyticsPanel() {
   const query = useQuery({ queryKey: hqKeys.analytics(), queryFn: fetchHqAnalytics });
   const data = query.data;
   const medal = ["🥇", "🥈", "🥉"];
+  const [showPrint, setShowPrint] = useState(false);
 
   return (
     <div className="card card-pad">
       <div className="card-head">
         <h3>Global Analytics</h3>
+        <button type="button" className="btn xs" onClick={() => setShowPrint(true)} disabled={!data}>
+          Görüntüle / Yazdır
+        </button>
       </div>
+      <PrintDocumentViewer open={showPrint} onClose={() => setShowPrint(false)} documentNo="Global Analytics Raporu">
+        {data && (
+          <AnalyticsReportPrintBody
+            scopeName="Seviye 360 Genel Merkez"
+            subjectPerformance={data.subjectPerformance}
+            branchRevenue={data.branchRevenue}
+          />
+        )}
+      </PrintDocumentViewer>
       <p style={{ margin: "0 0 14px", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
         Tüm kurumlar genelinde gerçek sınav sonuçlarından ders bazlı başarı ve şube bazlı gelir karşılaştırması.
       </p>

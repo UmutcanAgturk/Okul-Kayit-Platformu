@@ -105,6 +105,7 @@ model Tenant {
   busRoutes           BusRoute[]
   quizAttempts        QuizAttempt[]
   messages            Message[]
+  messageTemplates    MessageTemplate[]
   mentorRequests      MentorRequest[]
   timetableSlots      TimetableSlot[]
 
@@ -1144,6 +1145,26 @@ model Message {
   recipients MessageRecipient[]
 
   @@index([tenantId, createdAt])
+}
+
+// İletişim — Hazır Şablonlar. demo/seviye360-app.html'deki MESSAGE_TEMPLATES'in
+// gerçek karşılığı: BRANCH_ADMIN/TEACHER'ın sık kullandığı mesaj/bildirim
+// metinlerini kaydedip, yeni mesaj gönderirken başlık+gövdeyi otomatik
+// doldurmak için seçebilmesi. Demo'nun aksine varsayılan/önceden dolu
+// şablonlar TOHUMLANMAZ — her şube kendi şablonlarını oluşturur.
+model MessageTemplate {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  kind     String // "bildirim" | "mesaj"
+  category String
+  title    String
+  body     String
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
 }
 
 model MessageRecipient {

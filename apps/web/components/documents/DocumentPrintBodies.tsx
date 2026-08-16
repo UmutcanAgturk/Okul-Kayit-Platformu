@@ -1,5 +1,7 @@
 import type { Invoice, PromissoryNote, Receipt } from "@/lib/api/documents";
 import { DocHeader, DocRow } from "./PrintDocumentViewer";
+import { LineChart } from "@/components/ui/charts/LineChart";
+import { HBarChart } from "@/components/ui/charts/HBarChart";
 
 function tl(n: number | string) {
   return "₺" + Math.round(Number(n)).toLocaleString("tr-TR");
@@ -132,6 +134,66 @@ export function EnrollmentContractPrintBody({ enrollment, gradeLabel }: { enroll
         <div style={{ borderTop: "1px solid #111", paddingTop: 6, width: 180, textAlign: "center" }}>Veli/Vasi İmza</div>
         <div style={{ borderTop: "1px solid #111", paddingTop: 6, width: 180, textAlign: "center" }}>Kurum Yetkilisi İmza</div>
       </div>
+    </div>
+  );
+}
+
+export function OlcmeReportPrintBody({
+  scopeName,
+  netTrend,
+  achievements,
+}: {
+  scopeName: string;
+  netTrend: { label: string; value: number }[];
+  achievements: { label: string; sub: string; avgMasteryPct: number }[];
+}) {
+  return (
+    <div>
+      <DocHeader title="ÖLÇME-DEĞERLENDİRME RAPORU" no={scopeName} date={new Date().toISOString()} />
+      <h3 style={{ fontSize: 14, margin: "20px 0 10px" }}>Net Ortalama Trendi</h3>
+      {netTrend.length >= 2 ? (
+        <LineChart points={netTrend} color="#2f7a5c" height={140} unit=" net" />
+      ) : (
+        <p style={{ fontSize: 12, color: "#6b7280" }}>Trend için en az 2 sınavda sonuç girilmiş olmalı.</p>
+      )}
+      <h3 style={{ fontSize: 14, margin: "24px 0 10px" }}>Kazanım Bazlı Ortalama Başarı</h3>
+      {achievements.length > 0 ? (
+        <HBarChart max={100} unit="%" rows={achievements.map((a) => ({ label: a.label, sub: a.sub, value: a.avgMasteryPct }))} />
+      ) : (
+        <p style={{ fontSize: 12, color: "#6b7280" }}>Henüz kazanım verisi yok.</p>
+      )}
+    </div>
+  );
+}
+
+export function AnalyticsReportPrintBody({
+  scopeName,
+  subjectPerformance,
+  branchRevenue,
+}: {
+  scopeName: string;
+  subjectPerformance: { subject: string; avgMasteryPct: number; count: number }[];
+  branchRevenue: { tenantName: string; city: string | null; totalGelir: number }[];
+}) {
+  const maxRevenue = Math.max(...branchRevenue.map((b) => b.totalGelir), 1);
+  return (
+    <div>
+      <DocHeader title="GLOBAL ANALYTICS RAPORU" no={scopeName} date={new Date().toISOString()} />
+      <h3 style={{ fontSize: 14, margin: "20px 0 10px" }}>Ders Bazlı Ortalama Başarı</h3>
+      {subjectPerformance.length > 0 ? (
+        <HBarChart max={100} unit="%" rows={subjectPerformance.map((s) => ({ label: s.subject, sub: `${s.count} sonuç`, value: s.avgMasteryPct }))} />
+      ) : (
+        <p style={{ fontSize: 12, color: "#6b7280" }}>Henüz kazanım sonucu yok.</p>
+      )}
+      <h3 style={{ fontSize: 14, margin: "24px 0 10px" }}>Şube Bazlı Gelir</h3>
+      {branchRevenue.length > 0 ? (
+        <HBarChart
+          max={maxRevenue}
+          rows={branchRevenue.map((b) => ({ label: b.tenantName, sub: b.city ?? undefined, value: b.totalGelir, valueLabel: "₺" + Math.round(b.totalGelir).toLocaleString("tr-TR") }))}
+        />
+      ) : (
+        <p style={{ fontSize: 12, color: "#6b7280" }}>Kurum yok.</p>
+      )}
     </div>
   );
 }

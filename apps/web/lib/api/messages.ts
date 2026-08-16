@@ -52,8 +52,36 @@ export function fetchClassroomsForMessaging() {
   return apiFetch<{ classrooms: BranchClassroom[] }>("/api/branch/classrooms", { cache: "no-store" });
 }
 
+export type MessageTemplateKind = "bildirim" | "mesaj";
+
+export interface MessageTemplate {
+  id: string;
+  kind: MessageTemplateKind;
+  category: string;
+  title: string;
+  body: string;
+  createdAt: string;
+}
+
+export function fetchTemplates() {
+  return apiFetch<{ templates: MessageTemplate[] }>("/api/branch/message-templates", { cache: "no-store" });
+}
+
+export function createTemplate(input: { kind: MessageTemplateKind; category: string; title: string; body: string }) {
+  return apiFetch<{ template: MessageTemplate }>("/api/branch/message-templates", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function updateTemplate(templateId: string, input: Partial<{ kind: MessageTemplateKind; category: string; title: string; body: string }>) {
+  return apiFetch<{ template: MessageTemplate }>(`/api/branch/message-templates/${templateId}`, { method: "PATCH", body: JSON.stringify(input) });
+}
+
+export function deleteTemplate(templateId: string) {
+  return apiFetch<{ ok: true }>(`/api/branch/message-templates/${templateId}`, { method: "DELETE" });
+}
+
 export const messageKeys = {
   sent: () => ["messages", "sent"] as const,
   inbox: () => ["messages", "inbox"] as const,
   classrooms: () => ["messages", "classrooms"] as const,
+  templates: () => ["messages", "templates"] as const,
 };

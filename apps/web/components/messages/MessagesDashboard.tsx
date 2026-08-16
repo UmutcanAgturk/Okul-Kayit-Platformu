@@ -6,14 +6,20 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import {
+  createTemplate,
   deleteInboxMessage,
+  deleteTemplate,
   fetchClassroomsForMessaging,
   fetchInbox,
   fetchSentMessages,
+  fetchTemplates,
   markMessageRead,
   messageKeys,
   sendMessage,
+  updateTemplate,
   type MessageAudience,
+  type MessageTemplate,
+  type MessageTemplateKind,
 } from "@/lib/api/messages";
 import { Icon } from "@/components/ui/icons";
 
@@ -23,7 +29,13 @@ function formatDateTime(iso: string) {
   return new Date(iso).toLocaleString("tr-TR", { dateStyle: "medium", timeStyle: "short" });
 }
 
-function ComposeForm({ canTargetStaff }: { canTargetStaff: boolean }) {
+function ComposeForm({
+  canTargetStaff,
+  appliedTemplate,
+}: {
+  canTargetStaff: boolean;
+  appliedTemplate: MessageTemplate | null;
+}) {
   const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -35,6 +47,13 @@ function ComposeForm({ canTargetStaff }: { canTargetStaff: boolean }) {
 
   const classroomsQuery = useQuery({ queryKey: messageKeys.classrooms(), queryFn: fetchClassroomsForMessaging });
   const classroomFilterable = audience === "ALL_STUDENTS" || audience === "ALL_GUARDIANS";
+
+  useEffect(() => {
+    if (appliedTemplate) {
+      setTitle(appliedTemplate.title);
+      setBody(appliedTemplate.body);
+    }
+  }, [appliedTemplate]);
 
   async function handleSend() {
     setError(null);
@@ -220,6 +239,137 @@ function Inbox() {
   );
 }
 
+const KIND_LABELS: Record<MessageTemplateKind, string> = { bildirim: "Bildirim", mesaj: "Mesaj" };
+
+function TemplatesPanel({ onUse }: { onUse: (template: MessageTemplate) => void }) {
+  const queryClient = useQueryClient();
+  const templatesQuery = useQuery({ queryKey: messageKeys.templates(), queryFn: fetchTemplates });
+  const templates = templatesQuery.data?.templates ?? [];
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [kind, setKind] = useState<MessageTemplateKind>("mesaj");
+  const [category, setCategory] = useState("Genel");
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  function resetForm() {
+    setEditingId(null);
+    setKind("mesaj");
+    setCategory("Genel");
+    setTitle("");
+    setBody("");
+  }
+
+  function startEdit(template: MessageTemplate) {
+    setEditingId(template.id);
+    setKind(template.kind);
+    setCategory(template.category);
+    setTitle(template.title);
+    setBody(template.body);
+  }
+
+  async function handleSave() {
+    setError(null);
+    if (!title.trim() || !body.trim()) {
+      setError("Başlık ve içerik zorunludur.");
+      return;
+    }
+    setSaving(true);
+    try {
+      if (editingId) {
+        await updateTemplate(editingId, { kind, category: category.trim() || "Genel", title: title.trim(), body: body.trim() });
+      } else {
+        await createTemplate({ kind, category: category.trim() || "Genel", title: title.trim(), body: body.trim() });
+      }
+      resetForm();
+      queryClient.invalidateQueries({ queryKey: messageKeys.templates() });
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Şablon kaydedilemedi.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    await deleteTemplate(id);
+    if (editingId === id) resetForm();
+    queryClient.invalidateQueries({ queryKey: messageKeys.templates() });
+  }
+
+  return (
+    <div className="card card-pad">
+      <div className="card-head">
+        <h3>Hazır Şablonlar</h3>
+      </div>
+      <div className="grid cols-2">
+        <div className="field">
+          <label>Tür</label>
+          <select value={kind} onChange={(e) => setKind(e.target.value as MessageTemplateKind)}>
+            <option value="mesaj">Mesaj</option>
+            <option value="bildirim">Bildirim</option>
+          </select>
+        </div>
+        <div className="field">
+          <label>Kategori</label>
+          <input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Örn. Ödeme, Etkinlik" />
+        </div>
+      </div>
+      <div className="field" style={{ marginTop: 12 }}>
+        <label>Başlık</label>
+        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Şablon başlığı" />
+      </div>
+      <div className="field" style={{ marginTop: 12 }}>
+        <label>İçerik</label>
+        <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={3} placeholder="Şablon metni…" />
+      </div>
+      {error && <p style={{ margin: "8px 0 0", fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--critical)" }}>{error}</p>}
+      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+        <button type="button" onClick={handleSave} disabled={saving} className="btn primary">
+          {saving ? "Kaydediliyor…" : editingId ? "Şablonu Güncelle" : "Şablon Ekle"}
+        </button>
+        {editingId && (
+          <button type="button" onClick={resetForm} className="btn">
+            Vazgeç
+          </button>
+        )}
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", marginTop: 14 }}>
+        {!templatesQuery.isLoading && templates.length === 0 && (
+          <div className="empty-state">
+            <Icon name="ledger" />
+            <p>Henüz şablon eklemediniz.</p>
+          </div>
+        )}
+        {templates.map((t) => (
+          <div key={t.id} style={{ borderBottom: "1px solid var(--border)", padding: "9px 0" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: "var(--text-base)", fontWeight: 600 }}>{t.title}</span>
+              <span className="chip">{KIND_LABELS[t.kind]}</span>
+            </div>
+            <p style={{ margin: "2px 0 0", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
+              {t.category} · {t.body}
+            </p>
+            <div style={{ marginTop: 6, display: "flex", gap: 6 }}>
+              <button type="button" onClick={() => onUse(t)} className="btn xs primary">
+                Kullan
+              </button>
+              <button type="button" onClick={() => startEdit(t)} className="btn xs">
+                Düzenle
+              </button>
+              <button type="button" onClick={() => handleDelete(t.id)} className="btn xs">
+                Sil
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /**
  * İletişim — demo/seviye360-app.html'deki "branch:iletisim"/"teacher:iletisim"/
  * "student:iletisim" ekranlarının gerçek karşılığı. SMS/e-posta kanalları ve
@@ -228,6 +378,7 @@ function Inbox() {
  */
 export function MessagesDashboard() {
   const router = useRouter();
+  const [appliedTemplate, setAppliedTemplate] = useState<MessageTemplate | null>(null);
 
   const { data: me, isLoading, isError, error } = useQuery({
     queryKey: authKeys.me(),
@@ -259,7 +410,16 @@ export function MessagesDashboard() {
 
       {canSend && (
         <div className="grid cols-2" style={{ marginBottom: 14 }}>
-          <ComposeForm canTargetStaff={me.role === "BRANCH_ADMIN" || (me.role === "SUPERADMIN" && !!me.actingTenantId)} />
+          <ComposeForm
+            canTargetStaff={me.role === "BRANCH_ADMIN" || (me.role === "SUPERADMIN" && !!me.actingTenantId)}
+            appliedTemplate={appliedTemplate}
+          />
+          <TemplatesPanel onUse={(t) => setAppliedTemplate({ ...t })} />
+        </div>
+      )}
+
+      {canSend && (
+        <div style={{ marginBottom: 14 }}>
           <SentList />
         </div>
       )}
