@@ -51,6 +51,7 @@ const ETUT_RANDEVU_CARD: ModuleCard = { href: "/etut-randevularim", title: "Etü
 const BASARI_CARD: ModuleCard = { href: "/basari", title: "Başarı Rozetlerim", description: "XP, seviye ve rozetler.", icon: "trophy", group: "Ben" };
 const LEADERBOARD_CARD: ModuleCard = { href: "/basari", title: "Lider Tablosu", description: "Öğrencilerin gerçek katılım/başarı verisinden hesaplanan XP sıralaması.", icon: "trophy", group: "Akademik" };
 const ROADMAP_CARD: ModuleCard = { href: "/yol-haritasi", title: "Akademik Yol Haritam", description: "Net ortalama, hedef ve sınav/kazanım verisinden hesaplanan kişiye özel AI tavsiyesi.", icon: "road", group: "Akademik" };
+const ODEME_ISLEMLERIM_CARD: ModuleCard = { href: "/odeme-islemlerim", title: "Ödeme İşlemleri", description: "Çocuğunuzun taksit durumu ve ödeme işlemleri.", icon: "wallet", group: "Ben" };
 const PROFILIM_CARD: ModuleCard = { href: "/profilim", title: "Profilim", description: "Hesap bilgileriniz ve şifre değişikliği.", icon: "users", group: "Diğer" };
 const SINAV_BELGESI_CARD: ModuleCard = { href: "/sinav-belgesi", title: "QR Sınav Belgesi", description: "Girdiğiniz sınavlar için kimlik/salon belgesi.", icon: "qr", group: "Akademik" };
 
@@ -60,7 +61,7 @@ export const MODULES_BY_ROLE: Record<UserRole, ModuleCard[]> = {
   GUIDANCE_COORDINATOR: [CRM_CARD, ON_KAYIT_CARD, NORMAL_KAYIT_CARD, OGRENCILER_CARD, DEVAMSIZLIK_CARD, DISIPLIN_CARD, VELI_GORUSME_CARD, PROFILIM_CARD],
   TEACHER: [SINIFLARIM_CARD, DEVAMSIZLIK_CARD, DERS_PROGRAMI_CARD, DISIPLIN_CARD, VELI_GORUSME_CARD, KULUPLER_CARD, ETUT_ONAYI_CARD, ILETISIM_CARD, MENTOR_CARD, LEADERBOARD_CARD, PROFILIM_CARD],
   STUDENT: [KARNE_CARD, DEVAMSIZLIGIM_CARD, DERS_PROGRAMI_CARD, ROADMAP_CARD, SINAV_BELGESI_CARD, DAVRANIS_NOTLARIM_CARD, KULUPLER_CARD, SERVIS_CARD, QUIZ_CARD, ETUT_RANDEVU_CARD, ILETISIM_CARD, MENTOR_CARD, BASARI_CARD, PROFILIM_CARD],
-  PARENT: [KARNE_CARD, DEVAMSIZLIGIM_CARD, DERS_PROGRAMI_CARD, ROADMAP_CARD, SINAV_BELGESI_CARD, DAVRANIS_NOTLARIM_CARD, VELI_GORUSME_CARD, SERVIS_CARD, QUIZ_CARD, ETUT_RANDEVU_CARD, ILETISIM_CARD, MENTOR_CARD, BASARI_CARD, PROFILIM_CARD],
+  PARENT: [KARNE_CARD, DEVAMSIZLIGIM_CARD, DERS_PROGRAMI_CARD, ROADMAP_CARD, SINAV_BELGESI_CARD, DAVRANIS_NOTLARIM_CARD, VELI_GORUSME_CARD, SERVIS_CARD, QUIZ_CARD, ETUT_RANDEVU_CARD, ILETISIM_CARD, MENTOR_CARD, BASARI_CARD, ODEME_ISLEMLERIM_CARD, PROFILIM_CARD],
   SUPERADMIN: [SUBE_HARITASI_CARD, KURUMLAR_CARD, PROFILIM_CARD],
 };
 
