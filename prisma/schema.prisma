@@ -106,6 +106,7 @@ model Tenant {
   quizAttempts        QuizAttempt[]
   messages            Message[]
   mentorRequests      MentorRequest[]
+  timetableSlots      TimetableSlot[]
 
   @@index([parentId])
 }
@@ -189,6 +190,7 @@ model TeacherProfile {
   advisedClubs       Club[]
   mentees            StudentProfile[]
   mentorRequests     MentorRequest[]
+  timetableSlots     TimetableSlot[]
 
   @@index([branch])
 }
@@ -295,9 +297,43 @@ model Classroom {
   students          StudentProfile[]
   enrollments       Enrollment[]
   attendanceRecords AttendanceRecord[]
+  timetableSlots    TimetableSlot[]
 
   @@unique([tenantId, name])
   @@index([tenantId, gradeLevel])
+}
+
+// ---------------------------------------------------------------------------
+// DERS PROGRAMI
+// ---------------------------------------------------------------------------
+//
+// demo/seviye360-app.html'deki "schedule" ekranının gerçek karşılığı. Yeni
+// bir öğretmen-ders eşleme tablosu YOKTUR — TeacherAvailabilitySlot'la aynı
+// dayOfWeek/startTime/endTime konvansiyonunu kullanır, `subject` alanı ise
+// TeacherProfile.branch ile aynı serbest metin deseni (bkz. lib/curriculum.ts
+// "CurriculumNode'da ayrı bir subject alanı yok" notu — burada da ayrı bir
+// Subject modeli eklenmez). Çakışma kontrolü (aynı sınıf/aynı öğretmen aynı
+// gün+saatte iki kayıt) uygulama katmanında yapılır (bkz.
+// app/api/branch/timetable route'u).
+model TimetableSlot {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  classroomId String
+  classroom   Classroom @relation(fields: [classroomId], references: [id])
+  teacherId   String
+  teacher     TeacherProfile @relation(fields: [teacherId], references: [id])
+
+  subject   String // örn. "Matematik"
+  dayOfWeek Int // 0=Pazartesi ... 6=Pazar (TeacherAvailabilitySlot ile aynı konvansiyon)
+  startTime String // "09:00"
+  endTime   String // "09:40"
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, classroomId, dayOfWeek])
+  @@index([teacherId, dayOfWeek])
 }
 
 // ---------------------------------------------------------------------------
