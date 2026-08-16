@@ -5,10 +5,13 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
-import { fetchReportCard, reportCardKeys, type ReportCard } from "@/lib/api/report-card";
+import { buildReportCardNarrative, fetchReportCard, reportCardKeys, type ReportCard } from "@/lib/api/report-card";
 import { fetchBranchStudents } from "@/lib/api/students-roster";
 import { fetchMyClasses } from "@/lib/api/my-classes";
 import { Icon } from "@/components/ui/icons";
+import { LineChart } from "@/components/ui/charts/LineChart";
+import { PrintDocumentViewer } from "@/components/documents/PrintDocumentViewer";
+import { KarnePrintBody } from "@/components/documents/DocumentPrintBodies";
 
 const SELF_SERVICE_ROLES = ["STUDENT", "PARENT"];
 const STAFF_ROLES = ["BRANCH_ADMIN", "GUIDANCE_COORDINATOR", "TEACHER"];
@@ -17,9 +20,50 @@ function tl(n: number) {
   return Math.round(n * 10) / 10;
 }
 
-function ReportCardBody({ card }: { card: ReportCard }) {
+function ReportCardBody({ card, studentNo, classroomLabel }: { card: ReportCard; studentNo?: string; classroomLabel?: string }) {
+  const [showPrint, setShowPrint] = useState(false);
+  const trend = [...card.examHistory].reverse().map((e) => ({ label: e.examName, value: e.netScore }));
+  const presenceRatePct = 100 - card.attendanceSummary.absenceRatePct;
+  const narrative = buildReportCardNarrative(card);
+
   return (
     <div className="grid cols-2">
+      <div style={{ gridColumn: "span 2", display: "flex", justifyContent: "flex-end" }}>
+        <button type="button" className="btn primary" onClick={() => setShowPrint(true)}>
+          Karneyi Görüntüle / Yazdır
+        </button>
+      </div>
+
+      <div className="grid cols-4" style={{ gridColumn: "span 2" }}>
+        <div className="card card-pad" style={{ textAlign: "center" }}>
+          <div style={{ fontSize: "var(--text-2xs)", color: "var(--ink-faint)" }}>Genel Ortalama Başarı</div>
+          <div style={{ fontSize: "var(--text-lg)", fontWeight: 700 }}>
+            {card.summary.overallAvgMasteryPct === null ? "—" : `%${card.summary.overallAvgMasteryPct}`}
+          </div>
+        </div>
+        <div className="card card-pad" style={{ textAlign: "center" }}>
+          <div style={{ fontSize: "var(--text-2xs)", color: "var(--ink-faint)" }}>Devam Oranı</div>
+          <div style={{ fontSize: "var(--text-lg)", fontWeight: 700, color: "var(--strong)" }}>%{presenceRatePct}</div>
+        </div>
+        <div className="card card-pad" style={{ textAlign: "center" }}>
+          <div style={{ fontSize: "var(--text-2xs)", color: "var(--ink-faint)" }}>En Güçlü Ders</div>
+          <div style={{ fontSize: "var(--text-base)", fontWeight: 700 }}>{card.summary.strongestSubject ?? "—"}</div>
+        </div>
+        <div className="card card-pad" style={{ textAlign: "center" }}>
+          <div style={{ fontSize: "var(--text-2xs)", color: "var(--ink-faint)" }}>Gelişime Açık Ders</div>
+          <div style={{ fontSize: "var(--text-base)", fontWeight: 700 }}>{card.summary.weakestSubject ?? "—"}</div>
+        </div>
+      </div>
+
+      {trend.length >= 2 && (
+        <div className="card card-pad" style={{ gridColumn: "span 2" }}>
+          <div className="card-head">
+            <h3>Net İlerleyişi</h3>
+          </div>
+          <LineChart points={trend} unit=" net" height={140} />
+        </div>
+      )}
+
       <div className="card card-pad">
         <div className="card-head">
           <h3>Devamsızlık Özeti</h3>
@@ -84,6 +128,37 @@ function ReportCardBody({ card }: { card: ReportCard }) {
           ))}
         </div>
       </div>
+
+      {card.disciplineSummary.recordCount > 0 && (
+        <div className="card card-pad">
+          <div className="card-head">
+            <h3>Davranış Notları</h3>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", rowGap: 6, columnGap: 12, fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
+            <span>Toplam Kayıt</span>
+            <span style={{ textAlign: "right", fontWeight: 600, color: "var(--ink)" }}>{card.disciplineSummary.recordCount}</span>
+            <span>Olumlu</span>
+            <span style={{ textAlign: "right", fontWeight: 600, color: "var(--strong)" }}>{card.disciplineSummary.positiveCount}</span>
+            <span>Olumsuz</span>
+            <span style={{ textAlign: "right", fontWeight: 600, color: "var(--critical)" }}>{card.disciplineSummary.negativeCount}</span>
+            <span>Net Puan</span>
+            <span style={{ textAlign: "right", fontWeight: 700, color: "var(--ink)" }}>{card.disciplineSummary.netPoints}</span>
+          </div>
+        </div>
+      )}
+
+      <div className="card card-pad" style={card.disciplineSummary.recordCount > 0 ? undefined : { gridColumn: "span 2" }}>
+        <div className="card-head">
+          <h3>Öğretmen Değerlendirmesi</h3>
+        </div>
+        <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--ink-muted)" }}>{narrative}</p>
+      </div>
+
+      {showPrint && (
+        <PrintDocumentViewer open onClose={() => setShowPrint(false)} documentNo={card.studentName}>
+          <KarnePrintBody report={card} studentNo={studentNo} classroomLabel={classroomLabel} />
+        </PrintDocumentViewer>
+      )}
     </div>
   );
 }
@@ -197,7 +272,9 @@ function StaffReportCardView({ me }: { me: { firstName: string; lastName: string
             <h3>{selectedStudent.name} — Karne</h3>
           </div>
           {reportCardQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
-          {reportCardQuery.data && <ReportCardBody card={reportCardQuery.data} />}
+          {reportCardQuery.data && (
+            <ReportCardBody card={reportCardQuery.data} studentNo={selectedStudent.studentNo} classroomLabel={selectedStudent.classroomName ?? undefined} />
+          )}
         </>
       )}
     </div>

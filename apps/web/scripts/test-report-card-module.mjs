@@ -68,6 +68,39 @@ async function main() {
     typeof ownBody.attendanceSummary?.totalDays === "number" && typeof ownBody.attendanceSummary?.absenceRatePct === "number",
   );
 
+  // ===== Özet blok + davranış — task #63 =====
+  check(
+    "summary.overallAvgMasteryPct = (%70+%40+%100)/3 = %70",
+    ownBody.summary?.overallAvgMasteryPct === 70,
+    JSON.stringify(ownBody.summary),
+  );
+  check("summary.strongestSubject = Türkçe (%100)", ownBody.summary?.strongestSubject === "Türkçe", ownBody.summary?.strongestSubject);
+  check("summary.weakestSubject = Fizik (%40)", ownBody.summary?.weakestSubject === "Fizik", ownBody.summary?.weakestSubject);
+  check(
+    "disciplineSummary alanları mevcut (recordCount/positiveCount/negativeCount/netPoints)",
+    typeof ownBody.disciplineSummary?.recordCount === "number" &&
+      typeof ownBody.disciplineSummary?.positiveCount === "number" &&
+      typeof ownBody.disciplineSummary?.negativeCount === "number" &&
+      typeof ownBody.disciplineSummary?.netPoints === "number",
+    JSON.stringify(ownBody.disciplineSummary),
+  );
+
+  // Davranış kaydı eklenince disciplineSummary'nin gerçekten güncellendiği
+  const discRecord = await prisma.disciplineRecord.create({
+    data: { tenantId: elif.tenantId, studentId: elif.id, type: "OLUMLU", category: "Derse Katılım", points: 5, recordedByUserId: teacherCookie ? (await prisma.user.findUnique({ where: { email: "ayse.demir@seviye360.com" } })).id : "" },
+  });
+  try {
+    const afterDiscRes = await fetch(`${BASE}/api/students/${elif.id}/report-card`, { headers: { Cookie: studentCookie } });
+    const afterDiscBody = await afterDiscRes.json();
+    check(
+      "Disiplin kaydı eklenince disciplineSummary.recordCount artıyor",
+      afterDiscBody.disciplineSummary?.recordCount === ownBody.disciplineSummary.recordCount + 1,
+      JSON.stringify(afterDiscBody.disciplineSummary),
+    );
+  } finally {
+    await prisma.disciplineRecord.delete({ where: { id: discRecord.id } });
+  }
+
   const otherRes = await fetch(`${BASE}/api/students/${elif.id}/report-card`, { headers: { Cookie: otherStudentCookie } });
   check("Yetki: başka bir STUDENT Elif'in karnesini GÖREMİYOR (403)", otherRes.status === 403, otherRes.status);
 

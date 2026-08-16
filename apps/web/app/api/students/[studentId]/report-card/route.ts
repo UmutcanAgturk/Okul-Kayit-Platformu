@@ -76,6 +76,26 @@ export async function GET(request: NextRequest, { params }: { params: { studentI
     const countByStatus = (status: AttendanceStatus) => attendanceRecords.filter((r) => r.status === status).length;
     const absentDays = countByStatus(AttendanceStatus.YOK);
 
+    // Davranış Notları — demo'daki buildKarneHtml()'in "Davranış Notları"
+    // bölümüyle aynı (bkz. app/api/students/[studentId]/discipline'daki
+    // netPoints hesabı) — karne tek bir belgede birleştiği için burada da
+    // ayrıca sorgulanır.
+    const disciplineRecords = await tx.disciplineRecord.findMany({ where: { studentId: student.id } });
+    const positiveCount = disciplineRecords.filter((r) => r.type === "OLUMLU").length;
+    const negativeCount = disciplineRecords.filter((r) => r.type === "OLUMSUZ").length;
+
+    // Özet blok — demo'daki "Genel Ortalama / En Güçlü Ders / Gelişime Açık
+    // Ders" ile aynı ilke, ancak gerçek şemada sınav başına bir "ders" alanı
+    // olmadığından (bkz. yukarıdaki subjectBreakdown notu) temel metrik
+    // subjectBreakdown'daki avgMasteryPct'tir (kazanım bazlı başarı).
+    const subjectsWithData = subjectBreakdown.filter((s) => s.achievementCount > 0);
+    const overallAvgMasteryPct =
+      subjectsWithData.length > 0
+        ? Math.round(subjectsWithData.reduce((sum, s) => sum + s.avgMasteryPct, 0) / subjectsWithData.length)
+        : null;
+    const strongestSubject = subjectsWithData.length > 0 ? subjectsWithData.reduce((a, b) => (b.avgMasteryPct > a.avgMasteryPct ? b : a)).subject : null;
+    const weakestSubject = subjectsWithData.length > 0 ? subjectsWithData.reduce((a, b) => (b.avgMasteryPct < a.avgMasteryPct ? b : a)).subject : null;
+
     return {
       kind: "ok" as const,
       studentId: student.id,
@@ -89,6 +109,17 @@ export async function GET(request: NextRequest, { params }: { params: { studentI
         excusedDays: countByStatus(AttendanceStatus.IZINLI),
         absentDays,
         absenceRatePct: total > 0 ? Math.round((absentDays / total) * 100) : 0,
+      },
+      disciplineSummary: {
+        recordCount: disciplineRecords.length,
+        positiveCount,
+        negativeCount,
+        netPoints: disciplineRecords.reduce((sum, r) => sum + r.points, 0),
+      },
+      summary: {
+        overallAvgMasteryPct,
+        strongestSubject,
+        weakestSubject,
       },
     };
   });

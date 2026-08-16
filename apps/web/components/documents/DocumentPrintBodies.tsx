@@ -1,4 +1,5 @@
 import type { Invoice, PromissoryNote, Receipt } from "@/lib/api/documents";
+import { buildReportCardNarrative, type ReportCard } from "@/lib/api/report-card";
 import { DocHeader, DocRow } from "./PrintDocumentViewer";
 import { LineChart } from "@/components/ui/charts/LineChart";
 import { HBarChart } from "@/components/ui/charts/HBarChart";
@@ -162,6 +163,86 @@ export function OlcmeReportPrintBody({
       ) : (
         <p style={{ fontSize: 12, color: "#6b7280" }}>Henüz kazanım verisi yok.</p>
       )}
+    </div>
+  );
+}
+
+/**
+ * Karne — demo/seviye360-app.html'deki buildKarneHtml()'in yazdırılabilir
+ * karşılığı (bkz. app/api/students/[studentId]/report-card). "Öğretmen/AI
+ * Değerlendirmesi" bölümü demo'da da OLDUĞU GİBİ saklanan bir yorum değil —
+ * en güçlü/zayıf ders ve devam oranından şablonla üretilen bir metin
+ * (bkz. buildKarneHtml satır ~6269-6277). Şemada böyle bir alan yok ve bu
+ * kasıtlı: gerçek bir öğretmen yorumu eklemek yeni bir model gerektirir,
+ * demo'nun kapsamında yok.
+ */
+export function KarnePrintBody({ report, studentNo, classroomLabel }: { report: ReportCard; studentNo?: string; classroomLabel?: string }) {
+  const trend = [...report.examHistory].reverse().map((e) => ({ label: e.examName, value: e.netScore }));
+  const presenceRatePct = 100 - report.attendanceSummary.absenceRatePct;
+  const { overallAvgMasteryPct, strongestSubject, weakestSubject } = report.summary;
+  const narrative = buildReportCardNarrative(report);
+
+  return (
+    <div>
+      <DocHeader title="ÖĞRENCİ KARNESİ" no={report.studentName} date={new Date().toISOString()} />
+      <DocRow label="Öğrenci" value={report.studentName} />
+      {studentNo && <DocRow label="Öğrenci No" value={studentNo} />}
+      {classroomLabel && <DocRow label="Sınıf" value={classroomLabel} />}
+      <DocRow label="Değerlendirilen Sınav Sayısı" value={report.examHistory.length} />
+
+      <h3 style={{ fontSize: 14, margin: "20px 0 10px" }}>Ders Bazlı Başarı</h3>
+      {report.subjectBreakdown.length > 0 ? (
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <thead>
+            <tr style={{ borderBottom: "1px solid #111" }}>
+              <th style={{ textAlign: "left", padding: "6px 4px" }}>Ders</th>
+              <th style={{ textAlign: "right", padding: "6px 4px" }}>Kazanım Sayısı</th>
+              <th style={{ textAlign: "right", padding: "6px 4px" }}>Ortalama Başarı</th>
+            </tr>
+          </thead>
+          <tbody>
+            {report.subjectBreakdown.map((s) => (
+              <tr key={s.subject} style={{ borderBottom: "1px solid #eee" }}>
+                <td style={{ padding: "6px 4px" }}>{s.subject}</td>
+                <td style={{ textAlign: "right", padding: "6px 4px" }}>{s.achievementCount}</td>
+                <td style={{ textAlign: "right", padding: "6px 4px" }}>%{s.avgMasteryPct}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <p style={{ fontSize: 12, color: "#6b7280" }}>Henüz sınav sonucu yok.</p>
+      )}
+
+      <h3 style={{ fontSize: 14, margin: "24px 0 10px" }}>Net İlerleyişi</h3>
+      {trend.length >= 2 ? (
+        <LineChart points={trend} color="#2f7a5c" height={140} unit=" net" />
+      ) : (
+        <p style={{ fontSize: 12, color: "#6b7280" }}>Trend için en az 2 sınavda sonuç girilmiş olmalı.</p>
+      )}
+
+      <h3 style={{ fontSize: 14, margin: "24px 0 10px" }}>Özet</h3>
+      <DocRow label="Genel Ortalama Başarı" value={overallAvgMasteryPct === null ? "Veri yok" : `%${overallAvgMasteryPct}`} />
+      <DocRow label="Devam Oranı" value={`%${presenceRatePct}`} />
+      <DocRow label="En Güçlü Ders" value={strongestSubject ?? "—"} />
+      <DocRow label="Gelişime Açık Ders" value={weakestSubject ?? "—"} />
+
+      {report.disciplineSummary.recordCount > 0 && (
+        <>
+          <h3 style={{ fontSize: 14, margin: "24px 0 10px" }}>Davranış Notları</h3>
+          <DocRow label="Toplam Kayıt" value={report.disciplineSummary.recordCount} />
+          <DocRow label="Olumlu / Olumsuz" value={`${report.disciplineSummary.positiveCount} / ${report.disciplineSummary.negativeCount}`} />
+          <DocRow label="Net Puan" value={report.disciplineSummary.netPoints} />
+        </>
+      )}
+
+      <h3 style={{ fontSize: 14, margin: "24px 0 10px" }}>Öğretmen Değerlendirmesi</h3>
+      <p style={{ fontSize: 13, color: "#374151" }}>{narrative}</p>
+
+      <div style={{ marginTop: 60, display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+        <div style={{ borderTop: "1px solid #111", paddingTop: 6, width: 180, textAlign: "center" }}>Sınıf Öğretmeni</div>
+        <div style={{ borderTop: "1px solid #111", paddingTop: 6, width: 180, textAlign: "center" }}>Veli</div>
+      </div>
     </div>
   );
 }
