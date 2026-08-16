@@ -34,7 +34,10 @@ export async function GET(request: NextRequest) {
       tx.classroom.findMany({ select: { tenantId: true } }),
       tx.staffProfile.findMany({ select: { tenantId: true } }),
       tx.teacherProfile.findMany({ select: { user: { select: { tenantId: true } } } }),
-      tx.user.findMany({ where: { role: UserRole.BRANCH_ADMIN }, select: { tenantId: true, firstName: true, lastName: true } }),
+      tx.user.findMany({
+        where: { role: UserRole.BRANCH_ADMIN },
+        select: { id: true, tenantId: true, firstName: true, lastName: true, phone: true },
+      }),
     ]);
 
     const countBy = (rows: { tenantId: string | null }[]) => {
@@ -50,7 +53,11 @@ export async function GET(request: NextRequest) {
     const classroomCounts = countBy(classrooms);
     const staffCounts = countBy(staff);
     const teacherCounts = countBy(teachers.map((t) => ({ tenantId: t.user.tenantId })));
-    const branchAdminByTenant = new Map(branchAdmins.filter((u) => u.tenantId).map((u) => [u.tenantId as string, `${u.firstName} ${u.lastName}`]));
+    const branchAdminByTenant = new Map(
+      branchAdmins
+        .filter((u) => u.tenantId)
+        .map((u) => [u.tenantId as string, { name: `${u.firstName} ${u.lastName}`, phone: u.phone }]),
+    );
 
     return tenants.map((t) => ({
       id: t.id,
@@ -64,12 +71,15 @@ export async function GET(request: NextRequest) {
       email: t.email,
       capacity: t.capacity,
       taxNo: t.taxNo,
+      kurumTuru: t.kurumTuru,
+      openingDate: t.openingDate,
       isActive: t.isActive,
       studentCount: studentCounts.get(t.id) ?? 0,
       classroomCount: classroomCounts.get(t.id) ?? 0,
       staffCount: staffCounts.get(t.id) ?? 0,
       teacherCount: teacherCounts.get(t.id) ?? 0,
-      branchAdminName: branchAdminByTenant.get(t.id) ?? null,
+      branchAdminName: branchAdminByTenant.get(t.id)?.name ?? null,
+      branchAdminPhone: branchAdminByTenant.get(t.id)?.phone ?? null,
     }));
   });
 
@@ -96,6 +106,9 @@ export async function POST(request: NextRequest) {
   const email = typeof body.email === "string" && body.email.trim() ? body.email.trim() : null;
   const capacity = typeof body.capacity === "number" && body.capacity > 0 ? Math.round(body.capacity) : null;
   const taxNo = typeof body.taxNo === "string" && body.taxNo.trim() ? body.taxNo.trim() : null;
+  const kurumTuru = typeof body.kurumTuru === "string" && body.kurumTuru.trim() ? body.kurumTuru.trim() : null;
+  const openingDate = typeof body.openingDate === "string" && body.openingDate.trim() ? new Date(body.openingDate) : null;
+  const managerPhone = typeof body.managerPhone === "string" && body.managerPhone.trim() ? body.managerPhone.trim() : null;
 
   if (!name || !city || !district || !managerFirstName || !managerLastName) {
     return NextResponse.json(
@@ -112,7 +125,7 @@ export async function POST(request: NextRequest) {
     }
 
     const tenant = await tx.tenant.create({
-      data: { name, code, type: TenantType.SUBE, city, district, address, phone, email, capacity, taxNo },
+      data: { name, code, type: TenantType.SUBE, city, district, address, phone, email, capacity, taxNo, kurumTuru, openingDate },
     });
 
     const managerFullName = `${managerFirstName} ${managerLastName}`;
@@ -133,6 +146,7 @@ export async function POST(request: NextRequest) {
         role: UserRole.BRANCH_ADMIN,
         firstName: managerFirstName,
         lastName: managerLastName,
+        phone: managerPhone,
       },
     });
 

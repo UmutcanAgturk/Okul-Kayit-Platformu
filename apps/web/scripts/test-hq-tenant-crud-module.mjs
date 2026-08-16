@@ -10,11 +10,20 @@
 //      değiştirebilir (BRANCH_ADMIN 403, oturumsuz 401).
 //   2. POST /api/hq/tenants: yeni kurum + otomatik BRANCH_ADMIN hesabı
 //      oluşturuyor, dönen kimlik bilgileriyle GERÇEKTEN giriş yapılabiliyor.
+//      kurumTuru/openingDate/managerPhone alanları da doğru kaydediliyor.
 //   3. Yeni kurumun GET /api/hq/tenants listesinde doğru alanlarla (capacity,
 //      address vb.) göründüğü.
 //   4. Devre dışı bırakma/yeniden etkinleştirme (toggle-active) doğru çalışıyor
 //      ve Genel Merkez'in devre dışı bırakılamadığı.
 //   5. Aktivite Akışı'na yansıma.
+//   6. PATCH /api/hq/tenants/[tenantId]: kurum bilgileri + şube müdürünün
+//      (BRANCH_ADMIN User) ad/soyad/telefonu güncelleniyor (bkz. task #52).
+//   7. POST /api/hq/tenants/[tenantId]/reset-credentials: yeni bir geçici
+//      şifre üretiyor, döndürdüğü şifreyle GERÇEKTEN giriş yapılabiliyor.
+//   8. DELETE /api/hq/tenants/[tenantId]: öğrenci/personel/sınıfı OLAN bir
+//      kurum 409 ile reddediliyor (Mezitli); tamamen boş bir kurum ise
+//      kalıcı olarak siliniyor (BRANCH_ADMIN hesabı ve audit log'larıyla
+//      birlikte).
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient({
@@ -73,12 +82,16 @@ async function main() {
       taxNo: "1234567890",
       managerFirstName: "Test",
       managerLastName: "Müdürü",
+      kurumTuru: "Kurs Merkezi",
+      openingDate: "2020-09-01",
+      managerPhone: "05119876543",
     }),
   });
   const createBody = await createRes.json();
   check("POST /api/hq/tenants: 201 dönüyor", createRes.status === 201, createRes.status);
   check("Yeni kurum type SUBE", createBody.tenant?.type === "SUBE", createBody.tenant?.type);
   check("Yeni kurum capacity doğru", createBody.tenant?.capacity === 250, createBody.tenant?.capacity);
+  check("Yeni kurum kurumTuru doğru", createBody.tenant?.kurumTuru === "Kurs Merkezi", createBody.tenant?.kurumTuru);
   check("credentials.username dolu", !!createBody.credentials?.username, createBody.credentials?.username);
   check("credentials.password dolu", !!createBody.credentials?.password);
   const newTenantId = createBody.tenant.id;
@@ -99,6 +112,54 @@ async function main() {
   check("Listede address doğru", listedTenant?.address === "Test Mahallesi No:1", listedTenant?.address);
   check("Listede isActive true", listedTenant?.isActive === true, listedTenant?.isActive);
   check("Listede branchAdminName doğru", listedTenant?.branchAdminName === "Test Müdürü", listedTenant?.branchAdminName);
+  check("Listede branchAdminPhone doğru", listedTenant?.branchAdminPhone === "05119876543", listedTenant?.branchAdminPhone);
+  check("Listede kurumTuru doğru", listedTenant?.kurumTuru === "Kurs Merkezi", listedTenant?.kurumTuru);
+  check("Listede openingDate dolu", !!listedTenant?.openingDate, listedTenant?.openingDate);
+
+  // ===== PATCH: kurum düzenleme (task #52) =====
+  const branchPatchRes = await fetch(`${BASE}/api/hq/tenants/${newTenantId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({ name: "x" }),
+  });
+  check("BRANCH_ADMIN kurum düzenleyemez: 403", branchPatchRes.status === 403, branchPatchRes.status);
+
+  const patchRes = await fetch(`${BASE}/api/hq/tenants/${newTenantId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: superadminCookie },
+    body: JSON.stringify({
+      name: "Özel Konak Seviye Test Kurs Merkezi (Güncel)",
+      kurumTuru: "Fen Lisesi",
+      managerFirstName: "Test",
+      managerLastName: "Müdürü İkinci",
+      managerPhone: "05229998877",
+    }),
+  });
+  const patchBody = await patchRes.json();
+  check("PATCH /api/hq/tenants/[tenantId]: 200 dönüyor", patchRes.status === 200, patchRes.status);
+  check("PATCH: kurum adı güncellendi", patchBody.tenant?.name === "Özel Konak Seviye Test Kurs Merkezi (Güncel)", patchBody.tenant?.name);
+  check("PATCH: kurumTuru güncellendi", patchBody.tenant?.kurumTuru === "Fen Lisesi", patchBody.tenant?.kurumTuru);
+  check("PATCH: branchAdminName güncellendi", patchBody.branchAdminName === "Test Müdürü İkinci", patchBody.branchAdminName);
+  check("PATCH: branchAdminPhone güncellendi", patchBody.branchAdminPhone === "05229998877", patchBody.branchAdminPhone);
+
+  // ===== Kimlik bilgisi sıfırlama (task #52) =====
+  const branchResetRes = await fetch(`${BASE}/api/hq/tenants/${newTenantId}/reset-credentials`, {
+    method: "POST",
+    headers: { Cookie: branchAdminCookie },
+  });
+  check("BRANCH_ADMIN kimlik bilgisi sıfırlayamaz: 403", branchResetRes.status === 403, branchResetRes.status);
+
+  const resetRes = await fetch(`${BASE}/api/hq/tenants/${newTenantId}/reset-credentials`, {
+    method: "POST",
+    headers: { Cookie: superadminCookie },
+  });
+  const resetBody = await resetRes.json();
+  check("POST reset-credentials: 200 dönüyor", resetRes.status === 200, resetRes.status);
+  check("reset-credentials: yeni şifre eskisinden farklı", resetBody.credentials?.password !== createBody.credentials.password);
+  const afterResetCookie = await loginAs(resetBody.credentials.username, resetBody.credentials.password);
+  check("Yeni sıfırlanan şifreyle giriş yapılabiliyor", !!afterResetCookie);
+  const oldPasswordCookie = await loginAs(createBody.credentials.username, createBody.credentials.password);
+  check("Eski şifre artık geçersiz", !oldPasswordCookie);
 
   // ===== Yetki kontrolleri (toggle-active) =====
   const branchToggleRes = await fetch(`${BASE}/api/hq/tenants/${newTenantId}/toggle-active`, { method: "POST", headers: { Cookie: branchAdminCookie } });
@@ -125,6 +186,8 @@ async function main() {
   const genelMerkez = await prisma.tenant.findFirst({ where: { code: "GENEL-MERKEZ" } });
   const gmToggleRes = await fetch(`${BASE}/api/hq/tenants/${genelMerkez.id}/toggle-active`, { method: "POST", headers: { Cookie: superadminCookie } });
   check("Genel Merkez devre dışı bırakılamaz: 400", gmToggleRes.status === 400, gmToggleRes.status);
+  const gmDeleteRes = await fetch(`${BASE}/api/hq/tenants/${genelMerkez.id}`, { method: "DELETE", headers: { Cookie: superadminCookie } });
+  check("Genel Merkez silinemez: 400", gmDeleteRes.status === 400, gmDeleteRes.status);
 
   // ===== Aktivite Akışı =====
   const activityRes = await fetch(`${BASE}/api/branch/activity-log`, { headers: { Cookie: newManagerCookie } });
@@ -134,11 +197,28 @@ async function main() {
   check("Aktivite Akışı: yeni kurum eklendi", actions.includes("Yeni kurum eklendi"));
   check("Aktivite Akışı: kurum devre dışı bırakıldı", actions.includes("Kurum devre dışı bırakıldı"));
   check("Aktivite Akışı: kurum yeniden etkinleştirildi", actions.includes("Kurum yeniden etkinleştirildi"));
+  check("Aktivite Akışı: kurum bilgileri güncellendi", actions.includes("Kurum bilgileri güncellendi"));
+  check("Aktivite Akışı: şube müdürü şifresi sıfırlandı", actions.includes("Şube müdürü şifresi sıfırlandı"));
 
-  // Temizlik
-  await prisma.auditLogEntry.deleteMany({ where: { tenantId: newTenantId } });
-  await prisma.user.deleteMany({ where: { tenantId: newTenantId } });
-  await prisma.tenant.delete({ where: { id: newTenantId } });
+  // ===== DELETE: dolu bir kurum (Mezitli) 409 ile reddedilmeli =====
+  const mezitli = await prisma.tenant.findFirst({ where: { code: { startsWith: "MEZITLI" } } });
+  const branchDeleteRes = await fetch(`${BASE}/api/hq/tenants/${mezitli.id}`, { method: "DELETE", headers: { Cookie: branchAdminCookie } });
+  check("BRANCH_ADMIN kurum silemez: 403", branchDeleteRes.status === 403, branchDeleteRes.status);
+
+  const busyDeleteRes = await fetch(`${BASE}/api/hq/tenants/${mezitli.id}`, { method: "DELETE", headers: { Cookie: superadminCookie } });
+  check("Dolu kurum (öğrencisi olan) silinemez: 409", busyDeleteRes.status === 409, busyDeleteRes.status);
+  const mezitliStillThere = await prisma.tenant.findUnique({ where: { id: mezitli.id } });
+  check("Dolu kurum DB'de hâlâ duruyor", !!mezitliStillThere);
+
+  // ===== DELETE: boş test kurumu (öğrenci/personel/sınıfı yok) kalıcı silinmeli =====
+  const emptyDeleteRes = await fetch(`${BASE}/api/hq/tenants/${newTenantId}`, { method: "DELETE", headers: { Cookie: superadminCookie } });
+  check("Boş kurum kalıcı olarak silinir: 200", emptyDeleteRes.status === 200, emptyDeleteRes.status);
+  const deletedTenant = await prisma.tenant.findUnique({ where: { id: newTenantId } });
+  check("Silinen kurum artık DB'de yok", deletedTenant === null);
+  const orphanUsers = await prisma.user.findMany({ where: { tenantId: newTenantId } });
+  check("Silinen kurumun BRANCH_ADMIN hesabı da kaldırıldı", orphanUsers.length === 0, orphanUsers.length);
+  const orphanLogs = await prisma.auditLogEntry.findMany({ where: { tenantId: newTenantId } });
+  check("Silinen kurumun audit log'ları da kaldırıldı", orphanLogs.length === 0, orphanLogs.length);
 
   console.log("\n=== ÖZET ===");
   const fails = results.filter((r) => !r.ok);

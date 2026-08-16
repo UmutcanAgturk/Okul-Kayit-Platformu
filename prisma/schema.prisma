@@ -73,6 +73,12 @@ model Tenant {
   capacity Int?
   taxNo    String?
 
+  // "Kurum Türü" (demo'daki KURUM_TURU_OPTIONS listesi — bkz. lib/api/hq.ts
+  // KURUM_TURU_OPTIONS) ve "Açılış Tarihi" — sadece bilgi amaçlı, herhangi bir
+  // iş kuralını etkilemez, bu yüzden serbest metin/tarih olarak tutulur.
+  kurumTuru   String?
+  openingDate DateTime?
+
   parentId String?
   parent   Tenant?  @relation("TenantHierarchy", fields: [parentId], references: [id])
   children Tenant[] @relation("TenantHierarchy")

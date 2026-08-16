@@ -12,13 +12,19 @@ export interface HqTenant {
   email: string | null;
   capacity: number | null;
   taxNo: string | null;
+  kurumTuru: string | null;
+  openingDate: string | null;
   isActive: boolean;
   studentCount: number;
   classroomCount: number;
   staffCount: number;
   teacherCount: number;
   branchAdminName: string | null;
+  branchAdminPhone: string | null;
 }
+
+// demo/seviye360-app.html'deki KURUM_TURU_OPTIONS listesiyle birebir aynı.
+export const KURUM_TURU_OPTIONS = ["Anaokulu", "İlkokul", "Ortaokul", "Anadolu Lisesi", "Fen Lisesi", "Kurs Merkezi", "VIP Eğitim Merkezi"];
 
 export function fetchHqTenants() {
   return apiFetch<{ tenants: HqTenant[] }>("/api/hq/tenants", { cache: "no-store" });
@@ -35,10 +41,47 @@ export function createTenant(input: {
   email?: string;
   capacity?: number;
   taxNo?: string;
+  kurumTuru?: string;
+  openingDate?: string;
+  managerPhone?: string;
 }) {
   return apiFetch<{ tenant: HqTenant; credentials: { username: string; password: string } }>("/api/hq/tenants", {
     method: "POST",
     body: JSON.stringify(input),
+  });
+}
+
+export function updateTenant(
+  tenantId: string,
+  input: Partial<{
+    name: string;
+    city: string;
+    district: string;
+    address: string | null;
+    phone: string | null;
+    email: string | null;
+    capacity: number | null;
+    taxNo: string | null;
+    kurumTuru: string | null;
+    openingDate: string | null;
+    managerFirstName: string;
+    managerLastName: string;
+    managerPhone: string | null;
+  }>,
+) {
+  return apiFetch<{ tenant: HqTenant; branchAdminName?: string; branchAdminPhone?: string | null }>(`/api/hq/tenants/${tenantId}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteTenant(tenantId: string) {
+  return apiFetch<{ ok: true }>(`/api/hq/tenants/${tenantId}`, { method: "DELETE" });
+}
+
+export function resetTenantCredentials(tenantId: string) {
+  return apiFetch<{ credentials: { username: string; password: string } }>(`/api/hq/tenants/${tenantId}/reset-credentials`, {
+    method: "POST",
   });
 }
 

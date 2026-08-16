@@ -1,0 +1,2 @@
+ALTER TABLE "Tenant" ADD COLUMN "kurumTuru" TEXT;
+ALTER TABLE "Tenant" ADD COLUMN "openingDate" TIMESTAMP(3);

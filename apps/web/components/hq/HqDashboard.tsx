@@ -8,6 +8,7 @@ import { ApiError } from "@/lib/api/client";
 import {
   createHqExam,
   createTenant,
+  deleteTenant,
   fetchHqAccountingSummary,
   fetchHqAnalytics,
   fetchHqExamBranchBreakdown,
@@ -15,7 +16,10 @@ import {
   fetchHqStudents,
   fetchHqTenants,
   hqKeys,
+  KURUM_TURU_OPTIONS,
+  resetTenantCredentials,
   toggleTenantActive,
+  updateTenant,
   type HqExam,
   type HqTenant,
 } from "@/lib/api/hq";
@@ -48,6 +52,128 @@ function formatTl(n: number) {
   return `₺${n.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+function TenantEditForm({ tenant, onDone }: { tenant: HqTenant; onDone: () => void }) {
+  const queryClient = useQueryClient();
+  const [name, setName] = useState(tenant.name);
+  const [kurumTuru, setKurumTuru] = useState(tenant.kurumTuru ?? "");
+  const [city, setCity] = useState(tenant.city ?? "");
+  const [district, setDistrict] = useState(tenant.district ?? "");
+  const [address, setAddress] = useState(tenant.address ?? "");
+  const [phone, setPhone] = useState(tenant.phone ?? "");
+  const [email, setEmail] = useState(tenant.email ?? "");
+  const [capacity, setCapacity] = useState(tenant.capacity ? String(tenant.capacity) : "");
+  const [taxNo, setTaxNo] = useState(tenant.taxNo ?? "");
+  const [openingDate, setOpeningDate] = useState(tenant.openingDate ? tenant.openingDate.slice(0, 10) : "");
+  const [managerFirstName, setManagerFirstName] = useState(tenant.branchAdminName?.split(" ")[0] ?? "");
+  const [managerLastName, setManagerLastName] = useState(tenant.branchAdminName?.split(" ").slice(1).join(" ") ?? "");
+  const [managerPhone, setManagerPhone] = useState(tenant.branchAdminPhone ?? "");
+  const [error, setError] = useState<string | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      updateTenant(tenant.id, {
+        name: name.trim(),
+        kurumTuru: kurumTuru || null,
+        city: city.trim(),
+        district: district.trim(),
+        address: address.trim() || null,
+        phone: phone.trim() || null,
+        email: email.trim() || null,
+        capacity: capacity ? Number(capacity) : null,
+        taxNo: taxNo.trim() || null,
+        openingDate: openingDate || null,
+        managerFirstName: managerFirstName.trim() || undefined,
+        managerLastName: managerLastName.trim() || undefined,
+        managerPhone: managerPhone.trim() || null,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: hqKeys.tenants() });
+      onDone();
+    },
+    onError: (e) => setError(e instanceof ApiError ? e.message : "Kurum güncellenemedi."),
+  });
+
+  return (
+    <div className="card card-pad">
+      <div className="card-head">
+        <h3>{tenant.name} — Düzenle</h3>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <div className="field">
+          <label>Kurum Adı</label>
+          <input value={name} onChange={(e) => setName(e.target.value)} />
+        </div>
+        <div className="field">
+          <label>Kurum Türü</label>
+          <select value={kurumTuru} onChange={(e) => setKurumTuru(e.target.value)}>
+            <option value="">—</option>
+            {KURUM_TURU_OPTIONS.map((k) => (
+              <option key={k} value={k}>
+                {k}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label>Şehir</label>
+          <input value={city} onChange={(e) => setCity(e.target.value)} />
+        </div>
+        <div className="field">
+          <label>İlçe</label>
+          <input value={district} onChange={(e) => setDistrict(e.target.value)} />
+        </div>
+        <div className="field" style={{ gridColumn: "span 2" }}>
+          <label>Açık Adres</label>
+          <input value={address} onChange={(e) => setAddress(e.target.value)} />
+        </div>
+        <div className="field">
+          <label>Telefon</label>
+          <input value={phone} onChange={(e) => setPhone(e.target.value)} />
+        </div>
+        <div className="field">
+          <label>E-posta</label>
+          <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" />
+        </div>
+        <div className="field">
+          <label>Açılış Tarihi</label>
+          <input value={openingDate} onChange={(e) => setOpeningDate(e.target.value)} type="date" />
+        </div>
+        <div className="field">
+          <label>Öğrenci Kapasitesi</label>
+          <input value={capacity} onChange={(e) => setCapacity(e.target.value)} type="number" min="1" />
+        </div>
+        <div className="field">
+          <label>Vergi No</label>
+          <input value={taxNo} onChange={(e) => setTaxNo(e.target.value)} />
+        </div>
+        <div className="field">
+          <label>Şube Müdürü Adı</label>
+          <input value={managerFirstName} onChange={(e) => setManagerFirstName(e.target.value)} />
+        </div>
+        <div className="field">
+          <label>Şube Müdürü Soyadı</label>
+          <input value={managerLastName} onChange={(e) => setManagerLastName(e.target.value)} />
+        </div>
+        <div className="field">
+          <label>Şube Müdürü Telefonu</label>
+          <input value={managerPhone} onChange={(e) => setManagerPhone(e.target.value)} />
+        </div>
+      </div>
+
+      {error && <p style={{ margin: "10px 0 0", fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--critical)" }}>{error}</p>}
+
+      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+        <button type="button" className="btn primary" disabled={mutation.isPending} onClick={() => mutation.mutate()}>
+          {mutation.isPending ? "Kaydediliyor…" : "Kaydet"}
+        </button>
+        <button type="button" className="btn" onClick={onDone}>
+          Vazgeç
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function TenantCard({
   tenant,
   onToggleActive,
@@ -61,6 +187,34 @@ function TenantCard({
   onActAs: (tenantId: string) => void;
   actingAs: boolean;
 }) {
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [credentials, setCredentials] = useState<{ username: string; password: string } | null>(null);
+  const [resetError, setResetError] = useState<string | null>(null);
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteTenant(tenant.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: hqKeys.tenants() });
+    },
+    onError: (e) => setDeleteError(e instanceof ApiError ? e.message : "Kurum silinemedi."),
+  });
+
+  const resetMutation = useMutation({
+    mutationFn: () => resetTenantCredentials(tenant.id),
+    onSuccess: (data) => {
+      setCredentials(data.credentials);
+      setResetError(null);
+    },
+    onError: (e) => setResetError(e instanceof ApiError ? e.message : "Kimlik bilgisi sıfırlanamadı."),
+  });
+
+  if (editing) {
+    return <TenantEditForm tenant={tenant} onDone={() => setEditing(false)} />;
+  }
+
   const occupancyPct = tenant.capacity && tenant.capacity > 0 ? Math.round((tenant.studentCount / tenant.capacity) * 100) : null;
   return (
     <div className="card card-pad">
@@ -68,7 +222,7 @@ function TenantCard({
         <div>
           <h3 style={{ margin: 0, fontSize: "var(--text-base)", fontWeight: 700 }}>{tenant.name}</h3>
           <p style={{ margin: "2px 0 0", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
-            {TENANT_TYPE_LABEL[tenant.type] ?? tenant.type} · {tenant.code}
+            {tenant.kurumTuru ?? TENANT_TYPE_LABEL[tenant.type] ?? tenant.type} · {tenant.code}
             {tenant.city && ` · ${tenant.city}${tenant.district ? "/" + tenant.district : ""}`}
           </p>
         </div>
@@ -105,18 +259,65 @@ function TenantCard({
       )}
       <p style={{ margin: "12px 0 0", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
         Şube Müdürü: <span style={{ fontWeight: 600, color: "var(--ink-muted)" }}>{tenant.branchAdminName ?? "Atanmamış"}</span>
+        {tenant.branchAdminPhone && ` · ${tenant.branchAdminPhone}`}
       </p>
-      {tenant.type !== "GENEL_MERKEZ" && (
-        <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
-          <button type="button" onClick={() => onToggleActive(tenant.id)} disabled={toggling} className="btn xs">
-            {tenant.isActive ? "Devre Dışı Bırak" : "Yeniden Etkinleştir"}
-          </button>
-          {tenant.type === "SUBE" && tenant.isActive && (
-            <button type="button" onClick={() => onActAs(tenant.id)} disabled={actingAs} className="btn xs primary">
-              {actingAs ? "Geçiliyor…" : "Bu Şube Olarak Yönet"}
-            </button>
-          )}
+
+      {credentials && (
+        <div className="card card-pad" style={{ marginTop: 10, borderColor: "var(--strong)", background: "var(--strong-bg)" }}>
+          <p style={{ margin: 0, fontSize: "var(--text-xs)", fontWeight: 700, color: "var(--strong)" }}>
+            Yeni Şifre Oluşturuldu — yalnızca burada gösterilir
+          </p>
+          <dl style={{ margin: "6px 0 0", display: "flex", flexDirection: "column", gap: 2, fontSize: "var(--text-xs)", color: "var(--strong)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <dt>Kullanıcı adı</dt>
+              <dd style={{ margin: 0, fontFamily: "monospace" }}>{credentials.username}</dd>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <dt>Şifre</dt>
+              <dd style={{ margin: 0, fontFamily: "monospace" }}>{credentials.password}</dd>
+            </div>
+          </dl>
         </div>
+      )}
+      {resetError && <p style={{ margin: "8px 0 0", fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--critical)" }}>{resetError}</p>}
+
+      {deleting ? (
+        <div style={{ marginTop: 12, border: "1px solid var(--critical)", borderRadius: 9, padding: "10px 12px", fontSize: "var(--text-xs)", color: "var(--critical)" }}>
+          <b>{tenant.name}</b> kalıcı olarak silinsin mi? Bu işlem geri alınamaz.
+          {deleteError && <p style={{ margin: "6px 0 0" }}>{deleteError}</p>}
+          <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+            <button type="button" className="btn xs danger" disabled={deleteMutation.isPending} onClick={() => deleteMutation.mutate()}>
+              Evet, Sil
+            </button>
+            <button type="button" className="btn xs" onClick={() => setDeleting(false)}>
+              Vazgeç
+            </button>
+          </div>
+        </div>
+      ) : (
+        tenant.type !== "GENEL_MERKEZ" && (
+          <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+            <button type="button" onClick={() => setEditing(true)} className="btn xs">
+              Düzenle
+            </button>
+            <button type="button" onClick={() => onToggleActive(tenant.id)} disabled={toggling} className="btn xs">
+              {tenant.isActive ? "Devre Dışı Bırak" : "Yeniden Etkinleştir"}
+            </button>
+            {tenant.branchAdminName && (
+              <button type="button" onClick={() => resetMutation.mutate()} disabled={resetMutation.isPending} className="btn xs">
+                {resetMutation.isPending ? "Sıfırlanıyor…" : "Kimlik Bilgisini Sıfırla"}
+              </button>
+            )}
+            {tenant.type === "SUBE" && tenant.isActive && (
+              <button type="button" onClick={() => onActAs(tenant.id)} disabled={actingAs} className="btn xs primary">
+                {actingAs ? "Geçiliyor…" : "Bu Şube Olarak Yönet"}
+              </button>
+            )}
+            <button type="button" onClick={() => setDeleting(true)} className="btn xs danger">
+              Sil
+            </button>
+          </div>
+        )
       )}
     </div>
   );
@@ -125,15 +326,18 @@ function TenantCard({
 function CreateTenantForm() {
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
+  const [kurumTuru, setKurumTuru] = useState("");
   const [city, setCity] = useState("");
   const [district, setDistrict] = useState("");
   const [address, setAddress] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [openingDate, setOpeningDate] = useState("");
   const [capacity, setCapacity] = useState("");
   const [taxNo, setTaxNo] = useState("");
   const [managerFirstName, setManagerFirstName] = useState("");
   const [managerLastName, setManagerLastName] = useState("");
+  const [managerPhone, setManagerPhone] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [credentials, setCredentials] = useState<{ username: string; password: string } | null>(null);
 
@@ -142,15 +346,18 @@ function CreateTenantForm() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: hqKeys.tenants() });
       setName("");
+      setKurumTuru("");
       setCity("");
       setDistrict("");
       setAddress("");
       setPhone("");
       setEmail("");
+      setOpeningDate("");
       setCapacity("");
       setTaxNo("");
       setManagerFirstName("");
       setManagerLastName("");
+      setManagerPhone("");
       setFormError(null);
       setCredentials(data.credentials);
     },
@@ -174,6 +381,9 @@ function CreateTenantForm() {
       email: email.trim() || undefined,
       capacity: capacity ? Number(capacity) : undefined,
       taxNo: taxNo.trim() || undefined,
+      kurumTuru: kurumTuru || undefined,
+      openingDate: openingDate || undefined,
+      managerPhone: managerPhone.trim() || undefined,
     });
   }
 
@@ -186,6 +396,23 @@ function CreateTenantForm() {
         <div className="field">
           <label>Kurum Adı</label>
           <input value={name} onChange={(e) => setName(e.target.value)} />
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div className="field">
+            <label>Kurum Türü (opsiyonel)</label>
+            <select value={kurumTuru} onChange={(e) => setKurumTuru(e.target.value)}>
+              <option value="">—</option>
+              {KURUM_TURU_OPTIONS.map((k) => (
+                <option key={k} value={k}>
+                  {k}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label>Açılış Tarihi (opsiyonel)</label>
+            <input value={openingDate} onChange={(e) => setOpeningDate(e.target.value)} type="date" />
+          </div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <div className="field">
@@ -230,6 +457,10 @@ function CreateTenantForm() {
             <label>Şube Müdürü Soyadı</label>
             <input value={managerLastName} onChange={(e) => setManagerLastName(e.target.value)} />
           </div>
+        </div>
+        <div className="field">
+          <label>Şube Müdürü Telefonu (opsiyonel)</label>
+          <input value={managerPhone} onChange={(e) => setManagerPhone(e.target.value)} />
         </div>
 
         {formError && <p style={{ gridColumn: "span 2", margin: 0, fontSize: "var(--text-xs)", color: "var(--critical)" }}>{formError}</p>}
@@ -643,6 +874,7 @@ function HqAnalyticsPanel() {
 export function HqDashboard() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const [tenantSearch, setTenantSearch] = useState("");
 
   const toggleActiveMutation = useMutation({
     mutationFn: toggleTenantActive,
@@ -690,6 +922,10 @@ export function HqDashboard() {
 
   const tenants = tenantsQuery.data?.tenants ?? [];
   const branches = tenants.filter((t) => t.type !== "GENEL_MERKEZ");
+  const searchQ = tenantSearch.trim().toLowerCase();
+  const filteredTenants = searchQ
+    ? tenants.filter((t) => t.name.toLowerCase().includes(searchQ) || (t.city ?? "").toLowerCase().includes(searchQ))
+    : tenants;
   const totalStudents = branches.reduce((s, t) => s + t.studentCount, 0);
   const totalStaff = branches.reduce((s, t) => s + t.staffCount + t.teacherCount, 0);
   const ledger = ledgerQuery.data;
@@ -720,9 +956,24 @@ export function HqDashboard() {
         </div>
 
         <div>
-          <h2 style={{ margin: "0 0 12px", fontSize: "var(--text-md)", fontWeight: 700 }}>Tüm Kurumlar</h2>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+            <h2 style={{ margin: 0, fontSize: "var(--text-md)", fontWeight: 700 }}>Tüm Kurumlar</h2>
+            <div className="field" style={{ minWidth: 220, margin: 0 }}>
+              <input
+                value={tenantSearch}
+                onChange={(e) => setTenantSearch(e.target.value)}
+                placeholder="Kurum adı veya şehir ile ara…"
+              />
+            </div>
+            <span className="hint">
+              {tenants.length} kurum{searchQ ? ` (${filteredTenants.length} gösteriliyor)` : ""}
+            </span>
+          </div>
           <div className="grid cols-2">
-            {tenants.map((t) => (
+            {filteredTenants.length === 0 && (
+              <p style={{ color: "var(--ink-faint)", fontSize: "var(--text-sm)" }}>Aramayla eşleşen kurum bulunamadı.</p>
+            )}
+            {filteredTenants.map((t) => (
               <TenantCard
                 key={t.id}
                 tenant={t}
