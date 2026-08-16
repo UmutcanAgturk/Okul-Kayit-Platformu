@@ -13,10 +13,13 @@ const ROLE_CHANGE_ALLOWED: UserRole[] = [UserRole.BRANCH_ADMIN];
 const STAFF_USER_ROLES: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.ACCOUNTING, UserRole.GUIDANCE_COORDINATOR];
 
 /**
- * PATCH: iki ayrı endişeyi tek route'ta ele alır (gövdede hangi alanların
+ * PATCH: üç ayrı endişeyi tek route'ta ele alır (gövdede hangi alanların
  * gönderildiğine göre ayrı yetki kontrolüyle):
  *  - `role`: personelin sistem rolünü değiştirir — yalnızca BRANCH_ADMIN
  *    (demo'daki "roller" ekranının gerçek karşılığı, daha yüksek yetki ister).
+ *  - `username`: giriş e-postasını (kullanıcı adı) değiştirir — role ile aynı
+ *    yüksek yetki (demo'daki Roller > Personel tab'ının username düzenleme
+ *    alanı), diğer profil alanlarından ayrı çünkü giriş kimliğini değiştirir.
  *  - `title`/`department`/`salary`/`startDate`/`phone`/`isActive`: personel
  *    profilini düzenler / yeniden aktifleştirir — BRANCH_ADMIN/ACCOUNTING
  *    (personel oluşturmayla aynı yetki).
@@ -35,6 +38,15 @@ export async function PATCH(request: NextRequest, { params }: { params: { staffI
   }
   if (hasRole && !ROLE_CHANGE_ALLOWED.includes(actor.role)) {
     return NextResponse.json({ message: "Bu rol personelin sistem rolünü değiştiremez" }, { status: 403 });
+  }
+
+  const hasUsername = "username" in body;
+  const username = typeof body.username === "string" ? body.username.trim() : "";
+  if (hasUsername && (!username || !username.includes("@"))) {
+    return NextResponse.json({ message: "Geçerli bir kullanıcı adı (e-posta) zorunludur" }, { status: 400 });
+  }
+  if (hasUsername && !ROLE_CHANGE_ALLOWED.includes(actor.role)) {
+    return NextResponse.json({ message: "Bu rol personelin kullanıcı adını değiştiremez" }, { status: 403 });
   }
 
   const title = typeof body.title === "string" && body.title.trim() ? body.title.trim() : undefined;
@@ -66,6 +78,17 @@ export async function PATCH(request: NextRequest, { params }: { params: { staffI
         });
       }
 
+      if (hasUsername) {
+        await tx.user.update({ where: { id: staff.userId }, data: { email: username } });
+        await logActivity(tx, {
+          tenantId: effectiveTenantId(actor),
+          actorUserId: actor.id,
+          actorLabel: actorLabel(actor),
+          action: "Personel kullanıcı adı değiştirildi",
+          detail: `${staff.user.firstName} ${staff.user.lastName} → ${username}`,
+        });
+      }
+
       if (hasProfileFields) {
         if (phone !== undefined || isActive !== undefined) {
           await tx.user.update({ where: { id: staff.userId }, data: { phone, isActive } });
@@ -78,6 +101,10 @@ export async function PATCH(request: NextRequest, { params }: { params: { staffI
     });
   } catch (e) {
     if (e && typeof e === "object" && "code" in e && e.code === "P2002") {
+      const target = "meta" in e && e.meta && typeof e.meta === "object" && "target" in e.meta ? String(e.meta.target) : "";
+      if (target.includes("email")) {
+        return NextResponse.json({ message: "Bu kullanıcı adı zaten kayıtlı" }, { status: 409 });
+      }
       return NextResponse.json({ message: "Bu telefon numarası zaten kayıtlı" }, { status: 409 });
     }
     throw e;

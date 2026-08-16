@@ -39,9 +39,16 @@ export function deactivateStaff(staffId: string) {
 }
 
 export function updateStaffRole(staffId: string, role: StaffUserRole) {
-  return apiFetch<{ staffId: string; role: StaffUserRole }>(`/api/branch/staff/${staffId}`, {
+  return apiFetch<{ staff: StaffMember }>(`/api/branch/staff/${staffId}`, {
     method: "PATCH",
     body: JSON.stringify({ role }),
+  });
+}
+
+export function updateStaffUsername(staffId: string, username: string) {
+  return apiFetch<{ staff: StaffMember }>(`/api/branch/staff/${staffId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ username }),
   });
 }
 
