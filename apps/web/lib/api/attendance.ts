@@ -58,8 +58,28 @@ export function fetchStudentAttendance(studentId: string) {
   );
 }
 
+export interface AttendanceClassroomSummaryRow {
+  classroomId: string;
+  name: string;
+  gradeLevel: string;
+  studentCount: number;
+  daysTaken: number;
+  takenToday: boolean;
+  absentRate: number;
+}
+
+export interface AttendanceBranchSummary {
+  classrooms: AttendanceClassroomSummaryRow[];
+  summary: { classroomsTotal: number; takenTodayCount: number; avgAbsentRate: number };
+}
+
+export function fetchAttendanceSummary() {
+  return apiFetch<AttendanceBranchSummary>("/api/branch/attendance-summary", { cache: "no-store" });
+}
+
 export const attendanceKeys = {
   classrooms: () => ["attendance", "classrooms"] as const,
   byClassroomDate: (classroomId: string, date: string) => ["attendance", "classroom", classroomId, date] as const,
   byStudent: (studentId: string) => ["attendance", "student", studentId] as const,
+  summary: () => ["attendance", "summary"] as const,
 };

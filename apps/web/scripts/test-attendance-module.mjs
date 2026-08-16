@@ -201,6 +201,46 @@ async function main() {
   const teacherStudentGet = await fetch(`${BASE}/api/students/${elif.id}/attendance`, { headers: { Cookie: teacherCookie } });
   check("GET student attendance: TEACHER (personel) görebiliyor (200)", teacherStudentGet.status === 200, teacherStudentGet.status);
 
+  // ===== 5) GET /api/branch/attendance-summary — şube geneli genel bakış (task #60) =====
+  const noSessionSummary = await fetch(`${BASE}/api/branch/attendance-summary`);
+  check("GET attendance-summary: oturum yoksa 401 dönüyor", noSessionSummary.status === 401, noSessionSummary.status);
+
+  const teacherSummary = await fetch(`${BASE}/api/branch/attendance-summary`, { headers: { Cookie: teacherCookie } });
+  check("Yetki: TEACHER rolü genel bakışı göremiyor (403)", teacherSummary.status === 403, teacherSummary.status);
+
+  const adminSummaryRes = await fetch(`${BASE}/api/branch/attendance-summary`, { headers: { Cookie: branchAdminCookie } });
+  const adminSummaryBody = await adminSummaryRes.json();
+  check("GET attendance-summary: BRANCH_ADMIN 200 dönüyor", adminSummaryRes.status === 200, adminSummaryRes.status);
+  check(
+    "GET attendance-summary: Elif'in sınıfı listede",
+    adminSummaryBody.classrooms?.some((c) => c.classroomId === classroomId),
+    adminSummaryBody.classrooms?.map((c) => c.classroomId),
+  );
+  const elifClassroomSummary = adminSummaryBody.classrooms?.find((c) => c.classroomId === classroomId);
+  check(
+    "GET attendance-summary: sınıf satırı studentCount/daysTaken/absentRate içeriyor",
+    typeof elifClassroomSummary?.studentCount === "number" &&
+      typeof elifClassroomSummary?.daysTaken === "number" &&
+      typeof elifClassroomSummary?.absentRate === "number" &&
+      typeof elifClassroomSummary?.takenToday === "boolean",
+    JSON.stringify(elifClassroomSummary),
+  );
+  check(
+    "GET attendance-summary: branch summary classroomsTotal/takenTodayCount/avgAbsentRate içeriyor",
+    typeof adminSummaryBody.summary?.classroomsTotal === "number" &&
+      typeof adminSummaryBody.summary?.takenTodayCount === "number" &&
+      typeof adminSummaryBody.summary?.avgAbsentRate === "number",
+    JSON.stringify(adminSummaryBody.summary),
+  );
+
+  const cankayaSummary = await fetch(`${BASE}/api/branch/attendance-summary`, { headers: { Cookie: cankayaCookie } });
+  const cankayaSummaryBody = await cankayaSummary.json();
+  check(
+    "Tenant izolasyonu: Çankaya yöneticisi Mezitli'nin sınıflarını GÖREMİYOR",
+    !cankayaSummaryBody.classrooms?.some((c) => c.classroomId === classroomId),
+    cankayaSummaryBody.classrooms?.map((c) => c.classroomId),
+  );
+
   // Temizlik
   await prisma.attendanceRecord.delete({ where: { studentId_date: { studentId: elif.id, date: new Date(`${date}T00:00:00.000Z`) } } });
 

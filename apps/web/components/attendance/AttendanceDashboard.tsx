@@ -13,8 +13,10 @@ import {
   saveAttendance,
 } from "@/lib/api/attendance";
 import { Icon } from "@/components/ui/icons";
+import { AttendanceOverviewDashboard } from "@/components/attendance/AttendanceOverviewDashboard";
 
 const ALLOWED_ROLES = ["TEACHER", "BRANCH_ADMIN", "GUIDANCE_COORDINATOR"];
+const OVERVIEW_ROLES = ["BRANCH_ADMIN"];
 
 const STATUS_LABEL: Record<AttendanceStatus, string> = { VAR: "Var", GEC: "Geç", IZINLI: "İzinli", YOK: "Yok" };
 const STATUSES: AttendanceStatus[] = ["VAR", "GEC", "IZINLI", "YOK"];
@@ -55,6 +57,9 @@ export function AttendanceDashboard() {
   const [date, setDate] = useState(todayStr());
   const [draft, setDraft] = useState<Record<string, { status: AttendanceStatus; note: string }>>({});
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [tab, setTab] = useState<"ozet" | "al">("ozet");
+
+  const canSeeOverview = !!me && (OVERVIEW_ROLES.includes(me.role) || (me.role === "SUPERADMIN" && !!me.actingTenantId));
 
   const classrooms = classroomsQuery.data?.classrooms ?? [];
   useEffect(() => {
@@ -123,6 +128,21 @@ export function AttendanceDashboard() {
         {me.firstName} {me.lastName}
       </p>
 
+      {canSeeOverview && (
+        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+          <button type="button" onClick={() => setTab("ozet")} className={tab === "ozet" ? "btn primary xs" : "btn xs"}>
+            Genel Bakış
+          </button>
+          <button type="button" onClick={() => setTab("al")} className={tab === "al" ? "btn primary xs" : "btn xs"}>
+            Yoklama Al
+          </button>
+        </div>
+      )}
+
+      {canSeeOverview && tab === "ozet" && <AttendanceOverviewDashboard />}
+
+      {(!canSeeOverview || tab === "al") && (
+        <>
       <div className="card card-pad" style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 12, marginBottom: 14 }}>
         <div className="field">
           <label>Sınıf</label>
@@ -201,6 +221,8 @@ export function AttendanceDashboard() {
             </div>
           )}
         </div>
+      )}
+        </>
       )}
     </div>
   );
