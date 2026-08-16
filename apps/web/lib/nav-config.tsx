@@ -23,6 +23,7 @@ const GUNLUK_OPS_CARD: ModuleCard = { href: "/gunluk-operasyon", title: "Günlü
 const CRM_CARD: ModuleCard = { href: "/crm", title: "CRM", description: "Ön Kayıt öncesi aday öğrencileri statü bazında takip edin.", icon: "kanban", group: "Kayıt İşlemleri" };
 const ON_KAYIT_CARD: ModuleCard = { href: "/on-kayit", title: "Öğrenci Ön Kayıt", description: "Aday öğrenci ön kaydı oluşturma ve tam kayda dönüştürme.", icon: "users", group: "Kayıt İşlemleri" };
 const OGRENCILER_CARD: ModuleCard = { href: "/ogrenciler", title: "Öğrenciler", description: "Tüm öğrenci kaydı, arama ve sınıf atama.", icon: "seat", group: "Kayıt İşlemleri" };
+const ODEME_YONTEMLERI_CARD: ModuleCard = { href: "/odeme-yontemleri", title: "Ödeme Yöntemleri", description: "Öğrenci bazında kayıtlı kart/havale/nakit ödeme aracı.", icon: "cardIcon", group: "Kayıt İşlemleri" };
 const MUHASEBE_CARD: ModuleCard = { href: "/muhasebe", title: "Muhasebe", description: "Kayıt defteri, tahsilat takibi, bordro, belgeler.", icon: "ledger", group: "Yönetim & Finans" };
 const PERSONEL_CARD: ModuleCard = { href: "/personel", title: "Personel", description: "Öğretmen dışı personel (Şube Müdürü, Ön Büro, Muhasebe, Rehber Öğretmen).", icon: "users", group: "Yönetim & Finans" };
 const DEVAMSIZLIK_CARD: ModuleCard = { href: "/devamsizlik", title: "Devamsızlık", description: "Sınıf bazlı yoklama alma ve devamsızlık geçmişi.", icon: "calendar", group: "Akademik" };
@@ -43,8 +44,8 @@ const ROADMAP_CARD: ModuleCard = { href: "/yol-haritasi", title: "Akademik Yol H
 const PROFILIM_CARD: ModuleCard = { href: "/profilim", title: "Profilim", description: "Hesap bilgileriniz ve şifre değişikliği.", icon: "users", group: "Diğer" };
 
 export const MODULES_BY_ROLE: Record<UserRole, ModuleCard[]> = {
-  BRANCH_ADMIN: [BUGUN_CARD, GUNLUK_OPS_CARD, CRM_CARD, ON_KAYIT_CARD, OGRENCILER_CARD, MUHASEBE_CARD, PERSONEL_CARD, DEVAMSIZLIK_CARD, DISIPLIN_CARD, VELI_GORUSME_CARD, KULUPLER_CARD, SERVIS_CARD, AKTIVITE_CARD, RAPORLAR_CARD, ILETISIM_CARD, MENTOR_CARD, LEADERBOARD_CARD, PROFILIM_CARD],
-  ACCOUNTING: [GUNLUK_OPS_CARD, MUHASEBE_CARD, PERSONEL_CARD, PROFILIM_CARD],
+  BRANCH_ADMIN: [BUGUN_CARD, GUNLUK_OPS_CARD, CRM_CARD, ON_KAYIT_CARD, OGRENCILER_CARD, ODEME_YONTEMLERI_CARD, MUHASEBE_CARD, PERSONEL_CARD, DEVAMSIZLIK_CARD, DISIPLIN_CARD, VELI_GORUSME_CARD, KULUPLER_CARD, SERVIS_CARD, AKTIVITE_CARD, RAPORLAR_CARD, ILETISIM_CARD, MENTOR_CARD, LEADERBOARD_CARD, PROFILIM_CARD],
+  ACCOUNTING: [GUNLUK_OPS_CARD, ODEME_YONTEMLERI_CARD, MUHASEBE_CARD, PERSONEL_CARD, PROFILIM_CARD],
   GUIDANCE_COORDINATOR: [CRM_CARD, ON_KAYIT_CARD, OGRENCILER_CARD, DEVAMSIZLIK_CARD, DISIPLIN_CARD, VELI_GORUSME_CARD, PROFILIM_CARD],
   TEACHER: [DEVAMSIZLIK_CARD, DISIPLIN_CARD, VELI_GORUSME_CARD, KULUPLER_CARD, ILETISIM_CARD, MENTOR_CARD, LEADERBOARD_CARD, PROFILIM_CARD],
   STUDENT: [KARNE_CARD, ROADMAP_CARD, KULUPLER_CARD, SERVIS_CARD, QUIZ_CARD, ILETISIM_CARD, MENTOR_CARD, BASARI_CARD, PROFILIM_CARD],
