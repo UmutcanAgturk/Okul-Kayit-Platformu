@@ -36,6 +36,13 @@ export function deactivateStaff(staffId: string) {
   return apiFetch<{ ok: true }>(`/api/branch/staff/${staffId}`, { method: "DELETE" });
 }
 
+export function updateStaffRole(staffId: string, role: StaffUserRole) {
+  return apiFetch<{ staffId: string; role: StaffUserRole }>(`/api/branch/staff/${staffId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ role }),
+  });
+}
+
 export const staffKeys = {
   list: () => ["staff", "list"] as const,
 };
