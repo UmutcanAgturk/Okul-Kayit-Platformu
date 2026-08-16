@@ -6,12 +6,18 @@ interface PageProps {
 }
 
 export default function SinifRontgeniPage({ params, searchParams }: PageProps) {
-  return (
-    <>
-    <ClassXRayHeatmap
-      examId={params.examId}
-      classroomId={searchParams.classroomId ?? "9-a"}
-    />
-    </>
-  );
+  if (!searchParams.classroomId) {
+    return (
+      <div className="screen">
+        <div className="card card-pad" style={{ textAlign: "center" }}>
+          <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
+            Sınıf belirtilmedi. Bu sayfayı Ölçme-Değerlendirme &gt; Sonuç Girişi sekmesinden bir sınav ve sınıf
+            seçtikten sonra açın.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return <ClassXRayHeatmap examId={params.examId} classroomId={searchParams.classroomId} />;
 }

@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { fetchMyClasses } from "@/lib/api/my-classes";
+import { fetchBranchExams } from "@/lib/api/exams";
 import { Icon } from "@/components/ui/icons";
 
 /**
@@ -28,6 +29,7 @@ export function MyClassesView() {
   }, [isError, error, router]);
 
   const classesQuery = useQuery({ queryKey: ["my-classes"], queryFn: fetchMyClasses, enabled: !!me });
+  const examsQuery = useQuery({ queryKey: ["branch-exams"], queryFn: fetchBranchExams, enabled: !!me });
 
   if (isLoading) {
     return <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>;
@@ -69,6 +71,7 @@ export function MyClassesView() {
                 <h3>{c.classroomName}</h3>
                 <span className="hint">{c.students.length} öğrenci</span>
               </div>
+              <ClassXRayPicker classroomId={c.classroomId} exams={examsQuery.data?.exams ?? []} />
               {c.students.length === 0 ? (
                 <div className="empty-state">
                   <Icon name="inbox" />
@@ -105,6 +108,41 @@ export function MyClassesView() {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * AI Sınıf Röntgeni'ne giriş noktası — demo denetiminde bulunan gerçek
+ * eksiklik: ekran zaten inşa edilmiştir (bkz. app/(teacher)/sinif-rontgeni)
+ * ama hiçbir menüden erişilemiyordu. Sınav seçimi öğretmenin kendi sınıfı
+ * bağlamında yapılır (bkz. app/api/teacher/exams/[examId]/class-xray — yalnızca
+ * TEACHER rolüne açık).
+ */
+function ClassXRayPicker({ classroomId, exams }: { classroomId: string; exams: { id: string; name: string }[] }) {
+  const router = useRouter();
+  const [examId, setExamId] = useState("");
+
+  if (exams.length === 0) return null;
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+      <select value={examId} onChange={(e) => setExamId(e.target.value)} style={{ maxWidth: 260 }}>
+        <option value="">Sınıf Röntgeni için sınav seçin…</option>
+        {exams.map((e) => (
+          <option key={e.id} value={e.id}>
+            {e.name}
+          </option>
+        ))}
+      </select>
+      <button
+        type="button"
+        className="btn xs"
+        disabled={!examId}
+        onClick={() => router.push(`/sinif-rontgeni/${examId}?classroomId=${classroomId}`)}
+      >
+        <Icon name="chart" /> Sınıf Röntgeni
+      </button>
     </div>
   );
 }
