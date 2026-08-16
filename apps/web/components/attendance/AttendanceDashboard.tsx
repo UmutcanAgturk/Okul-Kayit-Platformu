@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { authKeys, fetchMe, logout } from "@/lib/api/auth";
+import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import {
   AttendanceStatus,
@@ -12,18 +12,18 @@ import {
   fetchClassrooms,
   saveAttendance,
 } from "@/lib/api/attendance";
+import { Icon } from "@/components/ui/icons";
 
 const ALLOWED_ROLES = ["TEACHER", "BRANCH_ADMIN", "GUIDANCE_COORDINATOR"];
 
 const STATUS_LABEL: Record<AttendanceStatus, string> = { VAR: "Var", GEC: "Geç", IZINLI: "İzinli", YOK: "Yok" };
 const STATUSES: AttendanceStatus[] = ["VAR", "GEC", "IZINLI", "YOK"];
-const STATUS_CLASS: Record<AttendanceStatus, string> = {
-  VAR: "bg-emerald-600 text-white border-emerald-600",
-  GEC: "bg-amber-500 text-white border-amber-500",
-  IZINLI: "bg-slate-500 text-white border-slate-500",
-  YOK: "bg-red-600 text-white border-red-600",
+const STATUS_TONE: Record<AttendanceStatus, { bg: string; fg: string }> = {
+  VAR: { bg: "var(--strong)", fg: "var(--strong-ink)" },
+  GEC: { bg: "var(--weak)", fg: "var(--weak-ink)" },
+  IZINLI: { bg: "var(--ink-faint)", fg: "#fff" },
+  YOK: { bg: "var(--critical)", fg: "var(--critical-ink)" },
 };
-const INACTIVE_CLASS = "border-slate-300 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800";
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -49,12 +49,6 @@ export function AttendanceDashboard() {
       router.replace("/login");
     }
   }, [isError, error, router]);
-
-  async function handleLogout() {
-    await logout();
-    queryClient.clear();
-    router.replace("/login");
-  }
 
   const classroomsQuery = useQuery({ queryKey: attendanceKeys.classrooms(), queryFn: fetchClassrooms, enabled: !!me });
   const [classroomId, setClassroomId] = useState("");
@@ -105,15 +99,15 @@ export function AttendanceDashboard() {
   }
 
   if (isLoading) {
-    return <div className="animate-pulse text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</div>;
+    return <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>;
   }
   if (!me || (isError && error instanceof ApiError && error.status === 401)) {
     return null;
   }
   if (!ALLOWED_ROLES.includes(me.role)) {
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center dark:border-red-900 dark:bg-red-950/40">
-        <p className="text-sm font-medium text-red-700 dark:text-red-300">
+      <div className="card card-pad">
+        <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
           Bu modüle erişim yetkiniz yok. Devamsızlık yalnızca Öğretmen/Şube Yöneticisi/Rehber Öğretmen rolüne açıktır.
         </p>
       </div>
@@ -123,39 +117,16 @@ export function AttendanceDashboard() {
   const students = attendanceQuery.data?.students ?? [];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-50">Devamsızlık / Yoklama</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            {me.firstName} {me.lastName}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <a
-            href="/dashboard"
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            Ana Sayfa
-          </a>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            Çıkış Yap
-          </button>
-        </div>
-      </div>
+    <div className="screen">
+      <h1>Devamsızlık / Yoklama</h1>
+      <p className="lede">
+        {me.firstName} {me.lastName}
+      </p>
 
-      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-        <div>
-          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Sınıf</label>
-          <select
-            value={classroomId}
-            onChange={(e) => setClassroomId(e.target.value)}
-            className="mt-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-          >
+      <div className="card card-pad" style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 12, marginBottom: 14 }}>
+        <div className="field">
+          <label>Sınıf</label>
+          <select value={classroomId} onChange={(e) => setClassroomId(e.target.value)}>
             {classrooms.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name} ({c.studentCount} öğrenci)
@@ -163,49 +134,58 @@ export function AttendanceDashboard() {
             ))}
           </select>
         </div>
-        <div>
-          <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Tarih</label>
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="mt-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-          />
+        <div className="field">
+          <label>Tarih</label>
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
         </div>
       </div>
 
       {classrooms.length === 0 && !classroomsQuery.isLoading && (
-        <p className="text-sm text-slate-500 dark:text-slate-400">Bu kurumda henüz tanımlı bir sınıf yok.</p>
+        <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Bu kurumda henüz tanımlı bir sınıf yok.</p>
       )}
 
       {classroomId && (
-        <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-          {attendanceQuery.isLoading && <p className="text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</p>}
+        <div className="card card-pad">
+          {attendanceQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
           {!attendanceQuery.isLoading && students.length === 0 && (
-            <p className="text-sm text-slate-500 dark:text-slate-400">Bu sınıfta henüz öğrenci yok.</p>
+            <div className="empty-state">
+              <Icon name="users" />
+              <p>Bu sınıfta henüz öğrenci yok.</p>
+            </div>
           )}
-          <div className="space-y-2">
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             {students.map((s) => {
               const current = draft[s.studentId]?.status ?? s.status;
               return (
                 <div
                   key={s.studentId}
-                  className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 py-2 dark:border-slate-800"
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 8,
+                    borderBottom: "1px solid var(--border)",
+                    padding: "9px 0",
+                  }}
                 >
-                  <span className="text-sm font-medium text-slate-900 dark:text-slate-50">{s.name}</span>
-                  <div className="flex gap-1">
-                    {STATUSES.map((status) => (
-                      <button
-                        key={status}
-                        type="button"
-                        onClick={() => setStatus(s.studentId, status)}
-                        className={`rounded-lg border px-2.5 py-1 text-xs font-medium transition ${
-                          current === status ? STATUS_CLASS[status] : INACTIVE_CLASS
-                        }`}
-                      >
-                        {STATUS_LABEL[status]}
-                      </button>
-                    ))}
+                  <span style={{ fontSize: "var(--text-base)", fontWeight: 600 }}>{s.name}</span>
+                  <div style={{ display: "flex", gap: 4 }}>
+                    {STATUSES.map((status) => {
+                      const active = current === status;
+                      const tone = STATUS_TONE[status];
+                      return (
+                        <button
+                          key={status}
+                          type="button"
+                          onClick={() => setStatus(s.studentId, status)}
+                          className="btn xs"
+                          style={active ? { background: tone.bg, borderColor: tone.bg, color: tone.fg } : undefined}
+                        >
+                          {STATUS_LABEL[status]}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               );
@@ -213,16 +193,11 @@ export function AttendanceDashboard() {
           </div>
 
           {students.length > 0 && (
-            <div className="mt-4 flex items-center gap-3">
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={saveMutation.isPending}
-                className="rounded-lg bg-[#0071ce] px-4 py-2 text-sm font-semibold text-white hover:bg-[#00558f] disabled:opacity-60"
-              >
+            <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 12 }}>
+              <button type="button" onClick={handleSave} disabled={saveMutation.isPending} className="btn primary">
                 {saveMutation.isPending ? "Kaydediliyor…" : "Yoklamayı Kaydet"}
               </button>
-              {saveMessage && <span className="text-xs text-slate-500 dark:text-slate-400">{saveMessage}</span>}
+              {saveMessage && <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>{saveMessage}</span>}
             </div>
           )}
         </div>

@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { authKeys, fetchMe, logout } from "@/lib/api/auth";
+import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { createQuizAttempt, fetchAchievements, fetchQuizAttempts, quizKeys } from "@/lib/api/quiz";
+import { Icon } from "@/components/ui/icons";
 
 const OPTIONS = ["A", "B", "C", "D", "E"];
 const QUESTION_COUNT = 5;
@@ -42,12 +43,6 @@ export function QuizDashboard() {
       router.replace("/login");
     }
   }, [isError, error, router]);
-
-  async function handleLogout() {
-    await logout();
-    queryClient.clear();
-    router.replace("/login");
-  }
 
   const students = me?.students ?? [];
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
@@ -107,15 +102,15 @@ export function QuizDashboard() {
   }
 
   if (isLoading) {
-    return <div className="animate-pulse text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</div>;
+    return <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>;
   }
   if (!me || (isError && error instanceof ApiError && error.status === 401)) {
     return null;
   }
   if (me.role !== "STUDENT" && me.role !== "PARENT") {
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center dark:border-red-900 dark:bg-red-950/40">
-        <p className="text-sm font-medium text-red-700 dark:text-red-300">
+      <div className="card card-pad">
+        <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
           Bu modüle erişim yetkiniz yok. Pratik Quiz yalnızca Öğrenci/Veli rolüne açıktır.
         </p>
       </div>
@@ -123,8 +118,10 @@ export function QuizDashboard() {
   }
   if (students.length === 0) {
     return (
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
-        Öğrenci kaydı bulunamadı.
+      <div className="card card-pad">
+        <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--weak)" }}>
+          Öğrenci kaydı bulunamadı.
+        </p>
       </div>
     );
   }
@@ -135,44 +132,21 @@ export function QuizDashboard() {
   const isAsking = session && session.currentIndex < QUESTION_COUNT;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-50">Pratik Quiz</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            {me.firstName} {me.lastName}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <a
-            href="/dashboard"
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            Ana Sayfa
-          </a>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            Çıkış Yap
-          </button>
-        </div>
-      </div>
+    <div className="screen">
+      <h1>Pratik Quiz</h1>
+      <p className="lede">
+        {me.firstName} {me.lastName}
+      </p>
 
       {students.length > 1 && (
-        <div className="flex gap-2">
+        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
           {students.map((s) => (
             <button
               key={s.studentId}
               type="button"
               onClick={() => setSelectedStudentId(s.studentId)}
-              className={
-                "rounded-lg border px-3 py-1.5 text-sm font-medium transition " +
-                (selectedStudentId === s.studentId
-                  ? "border-[#0071ce] bg-[#0071ce] text-white"
-                  : "border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800")
-              }
+              className="btn sm"
+              style={selectedStudentId === s.studentId ? { background: "var(--brand)", borderColor: "var(--brand)", color: "#fff" } : undefined}
             >
               {s.fullName}
             </button>
@@ -181,21 +155,16 @@ export function QuizDashboard() {
       )}
 
       {isAsking && (
-        <div className="rounded-xl border border-slate-200 p-4 max-w-lg dark:border-slate-800">
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+        <div className="card card-pad" style={{ maxWidth: 480, marginBottom: 14 }}>
+          <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--ink-muted)" }}>
             {subject} · Soru {session!.currentIndex + 1}/{QUESTION_COUNT}
           </p>
-          <p className="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-50">
+          <p style={{ margin: "8px 0 0", fontSize: "var(--text-base)", fontWeight: 700 }}>
             Soru {session!.currentIndex + 1}: {achievementOptions.find((a) => a.id === achievementId)?.label ?? subject} ile ilgili bir soru.
           </p>
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div style={{ marginTop: 16, display: "flex", flexWrap: "wrap", gap: 8 }}>
             {OPTIONS.map((opt) => (
-              <button
-                key={opt}
-                type="button"
-                onClick={() => answer(opt)}
-                className="min-w-[52px] rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-              >
+              <button key={opt} type="button" onClick={() => answer(opt)} className="btn" style={{ minWidth: 52, justifyContent: "center" }}>
                 {opt}
               </button>
             ))}
@@ -204,16 +173,17 @@ export function QuizDashboard() {
       )}
 
       {isFinished && (
-        <div className="max-w-sm rounded-xl border border-slate-200 p-8 text-center dark:border-slate-800">
-          <p className="text-3xl font-extrabold text-slate-900 dark:text-slate-50">
+        <div className="card card-pad" style={{ maxWidth: 360, textAlign: "center", marginBottom: 14 }}>
+          <p style={{ margin: 0, fontSize: "var(--text-3xl)", fontWeight: 800 }}>
             {session!.correctCount}/{QUESTION_COUNT}
           </p>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Doğru cevap</p>
+          <p style={{ margin: "4px 0 0", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>Doğru cevap</p>
           <button
             type="button"
             onClick={() => saveMutation.mutate()}
             disabled={saveMutation.isPending}
-            className="mt-4 w-full rounded-lg bg-[#0071ce] px-4 py-2 text-sm font-semibold text-white hover:bg-[#00558f] disabled:opacity-60"
+            className="btn primary"
+            style={{ marginTop: 16, width: "100%", justifyContent: "center" }}
           >
             {saveMutation.isPending ? "Kaydediliyor…" : "Bitir ve Kaydet"}
           </button>
@@ -221,22 +191,21 @@ export function QuizDashboard() {
       )}
 
       {!session && (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Yeni Pratik Başlat</h2>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              Resmi sınavlar dışında hızlı pratik yapın.
-            </p>
-            <div className="mt-3 space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Ders</label>
+        <div className="grid cols-2">
+          <div className="card card-pad">
+            <div className="card-head">
+              <h3>Yeni Pratik Başlat</h3>
+              <span className="hint">Resmi sınavlar dışında hızlı pratik yapın.</span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div className="field">
+                <label>Ders</label>
                 <select
                   value={subject}
                   onChange={(e) => {
                     setSubject(e.target.value);
                     setAchievementId("");
                   }}
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
                 >
                   {subjects.map((s) => (
                     <option key={s} value={s}>
@@ -245,13 +214,9 @@ export function QuizDashboard() {
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Kazanım (opsiyonel)</label>
-                <select
-                  value={achievementId}
-                  onChange={(e) => setAchievementId(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-                >
+              <div className="field">
+                <label>Kazanım (opsiyonel)</label>
+                <select value={achievementId} onChange={(e) => setAchievementId(e.target.value)}>
                   <option value="">Genel ({subject})</option>
                   {achievementOptions.map((a) => (
                     <option key={a.id} value={a.id}>
@@ -260,34 +225,34 @@ export function QuizDashboard() {
                   ))}
                 </select>
               </div>
-              <button
-                type="button"
-                onClick={startSession}
-                disabled={!subject}
-                className="w-full rounded-lg bg-[#0071ce] px-4 py-2 text-sm font-semibold text-white hover:bg-[#00558f] disabled:opacity-60"
-              >
+              <button type="button" onClick={startSession} disabled={!subject} className="btn primary" style={{ justifyContent: "center" }}>
                 Pratiğe Başla ({QUESTION_COUNT} Soru)
               </button>
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Geçmiş Denemelerim</h2>
-            {attemptsQuery.isLoading && <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</p>}
+          <div className="card card-pad">
+            <div className="card-head">
+              <h3>Geçmiş Denemelerim</h3>
+            </div>
+            {attemptsQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
             {!attemptsQuery.isLoading && attempts.length === 0 && (
-              <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Henüz deneme yok.</p>
+              <div className="empty-state">
+                <Icon name="chart" />
+                <p>Henüz deneme yok.</p>
+              </div>
             )}
-            <div className="mt-3 max-h-96 space-y-2 overflow-y-auto">
+            <div style={{ maxHeight: 384, overflowY: "auto", display: "flex", flexDirection: "column" }}>
               {attempts.map((a) => (
-                <div key={a.id} className="flex items-center justify-between border-b border-slate-100 py-2 text-sm dark:border-slate-800">
+                <div key={a.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid var(--border)", padding: "9px 0" }}>
                   <div>
-                    <div className="font-medium text-slate-900 dark:text-slate-50">
+                    <div style={{ fontSize: "var(--text-base)", fontWeight: 600 }}>
                       {a.subject}
                       {a.achievementLabel && ` · ${a.achievementLabel}`}
                     </div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400">{formatDate(a.createdAt)}</div>
+                    <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>{formatDate(a.createdAt)}</div>
                   </div>
-                  <span className="font-semibold text-slate-900 dark:text-slate-50">
+                  <span style={{ fontWeight: 700 }}>
                     {a.correctCount}/{a.totalCount}
                   </span>
                 </div>

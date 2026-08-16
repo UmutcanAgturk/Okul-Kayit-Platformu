@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { authKeys, fetchMe, logout } from "@/lib/api/auth";
+import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { fetchTeachers, teacherKeys } from "@/lib/api/teachers";
 import {
@@ -16,34 +16,7 @@ import {
   toggleClubMember,
   toggleMyClubMembership,
 } from "@/lib/api/clubs";
-
-function TopBar({ title, firstName, lastName, onLogout }: { title: string; firstName: string; lastName: string; onLogout: () => void }) {
-  return (
-    <div className="flex items-center justify-between">
-      <div>
-        <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-50">{title}</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          {firstName} {lastName}
-        </p>
-      </div>
-      <div className="flex items-center gap-3">
-        <a
-          href="/dashboard"
-          className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-        >
-          Ana Sayfa
-        </a>
-        <button
-          type="button"
-          onClick={onLogout}
-          className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-        >
-          Çıkış Yap
-        </button>
-      </div>
-    </div>
-  );
-}
+import { Icon } from "@/components/ui/icons";
 
 function ClubRosterPanel({ clubId, onClose }: { clubId: string; onClose: () => void }) {
   const queryClient = useQueryClient();
@@ -56,28 +29,25 @@ function ClubRosterPanel({ clubId, onClose }: { clubId: string; onClose: () => v
   const roster = detailQuery.data?.roster ?? [];
 
   return (
-    <div className="mt-3 border-t border-slate-100 pt-3 dark:border-slate-800">
-      <div className="mb-2 flex items-center justify-between">
-        <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Üyeleri Yönet</span>
-        <button type="button" onClick={onClose} className="text-xs text-slate-500 hover:underline dark:text-slate-400">
+    <div style={{ marginTop: 12, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
+      <div style={{ marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <span style={{ fontSize: "var(--text-xs)", fontWeight: 700, color: "var(--ink-faint)" }}>Üyeleri Yönet</span>
+        <button type="button" onClick={onClose} className="btn xs">
           Kapat
         </button>
       </div>
-      {detailQuery.isLoading && <p className="text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</p>}
-      <div className="max-h-64 space-y-1 overflow-y-auto">
+      {detailQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
+      <div style={{ maxHeight: 256, overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}>
         {roster.map((s) => (
-          <div key={s.studentId} className="flex items-center justify-between border-b border-slate-100 py-1.5 text-sm dark:border-slate-800">
+          <div key={s.studentId} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid var(--border)", padding: "6px 0" }}>
             <div>
-              <span className="text-slate-900 dark:text-slate-50">{s.name}</span>
-              <span className="ml-2 text-xs text-slate-500 dark:text-slate-400">{s.classroom ?? "—"}</span>
+              <span style={{ fontSize: "var(--text-base)" }}>{s.name}</span>
+              <span style={{ marginLeft: 8, fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>{s.classroom ?? "—"}</span>
             </div>
             <button
               type="button"
               onClick={() => toggleMutation.mutate(s.studentId)}
-              className={
-                "rounded-lg px-2 py-1 text-xs font-semibold " +
-                (s.isMember ? "bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-950/40 dark:text-red-300" : "bg-[#0071ce] text-white hover:bg-[#00558f]")
-              }
+              className={s.isMember ? "btn danger xs" : "btn primary xs"}
             >
               {s.isMember ? "Çıkar" : "Ekle"}
             </button>
@@ -88,7 +58,7 @@ function ClubRosterPanel({ clubId, onClose }: { clubId: string; onClose: () => v
   );
 }
 
-function BranchClubsView({ me, onLogout }: { me: { firstName: string; lastName: string }; onLogout: () => void }) {
+function BranchClubsView({ me }: { me: { firstName: string; lastName: string } }) {
   const queryClient = useQueryClient();
   const clubsQuery = useQuery({ queryKey: clubKeys.branchList(), queryFn: fetchBranchClubs });
   const teachersQuery = useQuery({ queryKey: teacherKeys.list(), queryFn: fetchTeachers });
@@ -123,28 +93,24 @@ function BranchClubsView({ me, onLogout }: { me: { firstName: string; lastName: 
   const clubs = clubsQuery.data?.clubs ?? [];
 
   return (
-    <div className="space-y-6">
-      <TopBar title="Kulüpler / Sosyal Etkinlikler" firstName={me.firstName} lastName={me.lastName} onLogout={onLogout} />
+    <div className="screen">
+      <h1>Kulüpler / Sosyal Etkinlikler</h1>
+      <p className="lede">
+        {me.firstName} {me.lastName}
+      </p>
 
-      <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Yeni Kulüp</h2>
-        <form onSubmit={handleSubmit} className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Kulüp Adı</label>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Örn. Satranç Kulübü"
-              className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-            />
+      <div className="card card-pad" style={{ marginBottom: 14 }}>
+        <div className="card-head">
+          <h3>Yeni Kulüp</h3>
+        </div>
+        <form onSubmit={handleSubmit} className="grid cols-2" style={{ rowGap: 12 }}>
+          <div className="field">
+            <label>Kulüp Adı</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Örn. Satranç Kulübü" />
           </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Danışman (opsiyonel)</label>
-            <select
-              value={advisorTeacherId}
-              onChange={(e) => setAdvisorTeacherId(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-            >
+          <div className="field">
+            <label>Danışman (opsiyonel)</label>
+            <select value={advisorTeacherId} onChange={(e) => setAdvisorTeacherId(e.target.value)}>
               <option value="">Seçilmedi</option>
               {teachers.map((t) => (
                 <option key={t.id} value={t.id}>
@@ -153,42 +119,39 @@ function BranchClubsView({ me, onLogout }: { me: { firstName: string; lastName: 
               ))}
             </select>
           </div>
-          <div className="sm:col-span-2">
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Açıklama (opsiyonel)</label>
-            <input
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Kısa açıklama…"
-              className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-            />
+          <div className="field" style={{ gridColumn: "1 / -1" }}>
+            <label>Açıklama (opsiyonel)</label>
+            <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Kısa açıklama…" />
           </div>
-          {formError && <p className="text-xs text-red-600 dark:text-red-400 sm:col-span-2">{formError}</p>}
+          {formError && <p style={{ gridColumn: "1 / -1", margin: 0, fontSize: "var(--text-xs)", color: "var(--critical)" }}>{formError}</p>}
           <button
             type="submit"
             disabled={createMutation.isPending}
-            className="rounded-lg bg-[#0071ce] px-4 py-2 text-sm font-semibold text-white hover:bg-[#00558f] disabled:opacity-60 sm:col-span-2"
+            className="btn primary"
+            style={{ gridColumn: "1 / -1", justifyContent: "center" }}
           >
             {createMutation.isPending ? "Oluşturuluyor…" : "Kulübü Oluştur"}
           </button>
         </form>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {clubsQuery.isLoading && <p className="text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</p>}
-        {!clubsQuery.isLoading && clubs.length === 0 && <p className="text-sm text-slate-500 dark:text-slate-400">Henüz kulüp yok.</p>}
+      <div className="grid cols-2">
+        {clubsQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
+        {!clubsQuery.isLoading && clubs.length === 0 && (
+          <div className="empty-state">
+            <Icon name="trophy" />
+            <p>Henüz kulüp yok.</p>
+          </div>
+        )}
         {clubs.map((c) => (
-          <div key={c.id} className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-50">{c.name}</h3>
-              <span className="text-xs text-slate-500 dark:text-slate-400">{c.memberCount} üye</span>
+          <div key={c.id} className="card card-pad">
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <h3 style={{ margin: 0, fontSize: "var(--text-base)", fontWeight: 700 }}>{c.name}</h3>
+              <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>{c.memberCount} üye</span>
             </div>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{c.description ?? "Açıklama eklenmemiş."}</p>
-            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">Danışman: {c.advisorName ?? "—"}</p>
-            <button
-              type="button"
-              onClick={() => setExpandedClubId(expandedClubId === c.id ? null : c.id)}
-              className="mt-2 rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-            >
+            <p style={{ margin: "4px 0 0", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>{c.description ?? "Açıklama eklenmemiş."}</p>
+            <p style={{ margin: "4px 0 0", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>Danışman: {c.advisorName ?? "—"}</p>
+            <button type="button" onClick={() => setExpandedClubId(expandedClubId === c.id ? null : c.id)} className="btn xs" style={{ marginTop: 8 }}>
               {expandedClubId === c.id ? "Üyeleri Gizle" : "Üyeleri Yönet"}
             </button>
             {expandedClubId === c.id && <ClubRosterPanel clubId={c.id} onClose={() => setExpandedClubId(null)} />}
@@ -199,33 +162,32 @@ function BranchClubsView({ me, onLogout }: { me: { firstName: string; lastName: 
   );
 }
 
-function TeacherClubsView({ me, onLogout }: { me: { firstName: string; lastName: string }; onLogout: () => void }) {
+function TeacherClubsView({ me }: { me: { firstName: string; lastName: string } }) {
   const clubsQuery = useQuery({ queryKey: clubKeys.teacherList(), queryFn: fetchTeacherClubs });
   const [expandedClubId, setExpandedClubId] = useState<string | null>(null);
   const clubs = clubsQuery.data?.clubs ?? [];
 
   return (
-    <div className="space-y-6">
-      <TopBar title="Kulüplerim" firstName={me.firstName} lastName={me.lastName} onLogout={onLogout} />
-      <p className="text-sm text-slate-500 dark:text-slate-400">Danışmanı olduğunuz kulüpler ve üyeleri.</p>
+    <div className="screen">
+      <h1>Kulüplerim</h1>
+      <p className="lede">Danışmanı olduğunuz kulüpler ve üyeleri.</p>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {clubsQuery.isLoading && <p className="text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</p>}
+      <div className="grid cols-2">
+        {clubsQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
         {!clubsQuery.isLoading && clubs.length === 0 && (
-          <p className="text-sm text-slate-500 dark:text-slate-400">Henüz danışmanı olduğunuz bir kulüp yok.</p>
+          <div className="empty-state">
+            <Icon name="trophy" />
+            <p>Henüz danışmanı olduğunuz bir kulüp yok.</p>
+          </div>
         )}
         {clubs.map((c) => (
-          <div key={c.id} className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-50">{c.name}</h3>
-              <span className="text-xs text-slate-500 dark:text-slate-400">{c.memberCount} üye</span>
+          <div key={c.id} className="card card-pad">
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <h3 style={{ margin: 0, fontSize: "var(--text-base)", fontWeight: 700 }}>{c.name}</h3>
+              <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>{c.memberCount} üye</span>
             </div>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{c.description ?? "Açıklama eklenmemiş."}</p>
-            <button
-              type="button"
-              onClick={() => setExpandedClubId(expandedClubId === c.id ? null : c.id)}
-              className="mt-2 rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-            >
+            <p style={{ margin: "4px 0 0", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>{c.description ?? "Açıklama eklenmemiş."}</p>
+            <button type="button" onClick={() => setExpandedClubId(expandedClubId === c.id ? null : c.id)} className="btn xs" style={{ marginTop: 8 }}>
               {expandedClubId === c.id ? "Üyeleri Gizle" : "Üyeleri Yönet"}
             </button>
             {expandedClubId === c.id && <ClubRosterPanel clubId={c.id} onClose={() => setExpandedClubId(null)} />}
@@ -236,7 +198,7 @@ function TeacherClubsView({ me, onLogout }: { me: { firstName: string; lastName:
   );
 }
 
-function StudentClubsView({ me, onLogout }: { me: { firstName: string; lastName: string }; onLogout: () => void }) {
+function StudentClubsView({ me }: { me: { firstName: string; lastName: string } }) {
   const queryClient = useQueryClient();
   const clubsQuery = useQuery({ queryKey: clubKeys.studentList(), queryFn: fetchStudentClubs });
   const clubs = clubsQuery.data?.clubs ?? [];
@@ -247,31 +209,32 @@ function StudentClubsView({ me, onLogout }: { me: { firstName: string; lastName:
   });
 
   return (
-    <div className="space-y-6">
-      <TopBar title="Kulüpler" firstName={me.firstName} lastName={me.lastName} onLogout={onLogout} />
-      <p className="text-sm text-slate-500 dark:text-slate-400">Kurumunuzdaki kulüplere katılın.</p>
+    <div className="screen">
+      <h1>Kulüpler</h1>
+      <p className="lede">Kurumunuzdaki kulüplere katılın.</p>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {clubsQuery.isLoading && <p className="text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</p>}
-        {!clubsQuery.isLoading && clubs.length === 0 && <p className="text-sm text-slate-500 dark:text-slate-400">Henüz kulüp yok.</p>}
+      <div className="grid cols-2">
+        {clubsQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
+        {!clubsQuery.isLoading && clubs.length === 0 && (
+          <div className="empty-state">
+            <Icon name="trophy" />
+            <p>Henüz kulüp yok.</p>
+          </div>
+        )}
         {clubs.map((c) => (
-          <div key={c.id} className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-50">{c.name}</h3>
-              <span className="text-xs text-slate-500 dark:text-slate-400">{c.memberCount} üye</span>
+          <div key={c.id} className="card card-pad">
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <h3 style={{ margin: 0, fontSize: "var(--text-base)", fontWeight: 700 }}>{c.name}</h3>
+              <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>{c.memberCount} üye</span>
             </div>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{c.description ?? "Açıklama eklenmemiş."}</p>
-            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">Danışman: {c.advisorName ?? "—"}</p>
+            <p style={{ margin: "4px 0 0", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>{c.description ?? "Açıklama eklenmemiş."}</p>
+            <p style={{ margin: "4px 0 0", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>Danışman: {c.advisorName ?? "—"}</p>
             <button
               type="button"
               onClick={() => joinMutation.mutate(c.id)}
               disabled={joinMutation.isPending}
-              className={
-                "mt-2 rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-60 " +
-                (c.isMember
-                  ? "border border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-                  : "bg-[#0071ce] text-white hover:bg-[#00558f]")
-              }
+              className={c.isMember ? "btn xs" : "btn primary xs"}
+              style={{ marginTop: 8 }}
             >
               {c.isMember ? "Ayrıl" : "Katıl"}
             </button>
@@ -292,7 +255,6 @@ function StudentClubsView({ me, onLogout }: { me: { firstName: string; lastName:
  */
 export function ClubsDashboard() {
   const router = useRouter();
-  const queryClient = useQueryClient();
 
   const { data: me, isLoading, isError, error } = useQuery({
     queryKey: authKeys.me(),
@@ -306,26 +268,20 @@ export function ClubsDashboard() {
     }
   }, [isError, error, router]);
 
-  async function handleLogout() {
-    await logout();
-    queryClient.clear();
-    router.replace("/login");
-  }
-
   if (isLoading) {
-    return <div className="animate-pulse text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</div>;
+    return <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>;
   }
   if (!me || (isError && error instanceof ApiError && error.status === 401)) {
     return null;
   }
 
-  if (me.role === "BRANCH_ADMIN") return <BranchClubsView me={me} onLogout={handleLogout} />;
-  if (me.role === "TEACHER") return <TeacherClubsView me={me} onLogout={handleLogout} />;
-  if (me.role === "STUDENT") return <StudentClubsView me={me} onLogout={handleLogout} />;
+  if (me.role === "BRANCH_ADMIN") return <BranchClubsView me={me} />;
+  if (me.role === "TEACHER") return <TeacherClubsView me={me} />;
+  if (me.role === "STUDENT") return <StudentClubsView me={me} />;
 
   return (
-    <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center dark:border-red-900 dark:bg-red-950/40">
-      <p className="text-sm font-medium text-red-700 dark:text-red-300">
+    <div className="card card-pad">
+      <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
         Bu modüle erişim yetkiniz yok. Kulüpler/Sosyal Etkinlikler yalnızca Şube Yöneticisi/Öğretmen/Öğrenci rolüne
         açıktır.
       </p>

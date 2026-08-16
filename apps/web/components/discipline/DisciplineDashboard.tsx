@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { authKeys, fetchMe, logout } from "@/lib/api/auth";
+import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { attendanceKeys, fetchClassrooms } from "@/lib/api/attendance";
 import {
@@ -14,6 +14,7 @@ import {
   fetchClassroomStudents,
   fetchDisciplineRecords,
 } from "@/lib/api/discipline";
+import { Icon } from "@/components/ui/icons";
 
 const ALLOWED_ROLES = ["TEACHER", "BRANCH_ADMIN", "GUIDANCE_COORDINATOR"];
 
@@ -40,12 +41,6 @@ export function DisciplineDashboard() {
       router.replace("/login");
     }
   }, [isError, error, router]);
-
-  async function handleLogout() {
-    await logout();
-    queryClient.clear();
-    router.replace("/login");
-  }
 
   const classroomsQuery = useQuery({ queryKey: attendanceKeys.classrooms(), queryFn: fetchClassrooms, enabled: !!me });
   const classrooms = classroomsQuery.data?.classrooms ?? [];
@@ -99,15 +94,15 @@ export function DisciplineDashboard() {
   }
 
   if (isLoading) {
-    return <div className="animate-pulse text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</div>;
+    return <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>;
   }
   if (!me || (isError && error instanceof ApiError && error.status === 401)) {
     return null;
   }
   if (!ALLOWED_ROLES.includes(me.role)) {
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center dark:border-red-900 dark:bg-red-950/40">
-        <p className="text-sm font-medium text-red-700 dark:text-red-300">
+      <div className="card card-pad">
+        <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
           Bu modüle erişim yetkiniz yok. Disiplin/Davranış Takibi yalnızca Öğretmen/Şube Yöneticisi/Rehber Öğretmen
           rolüne açıktır.
         </p>
@@ -118,43 +113,22 @@ export function DisciplineDashboard() {
   const records = recordsQuery.data?.records ?? [];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-50">Disiplin / Davranış Takibi</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            {me.firstName} {me.lastName}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <a
-            href="/dashboard"
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            Ana Sayfa
-          </a>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            Çıkış Yap
-          </button>
-        </div>
-      </div>
+    <div className="screen">
+      <h1>Disiplin / Davranış Takibi</h1>
+      <p className="lede">
+        {me.firstName} {me.lastName}
+      </p>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-          <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Yeni Kayıt Ekle</h2>
-          <form onSubmit={handleSubmit} className="mt-3 space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Sınıf</label>
-                <select
-                  value={classroomId}
-                  onChange={(e) => setClassroomId(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-                >
+      <div className="grid cols-2">
+        <div className="card card-pad">
+          <div className="card-head">
+            <h3>Yeni Kayıt Ekle</h3>
+          </div>
+          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div className="grid cols-2">
+              <div className="field">
+                <label>Sınıf</label>
+                <select value={classroomId} onChange={(e) => setClassroomId(e.target.value)}>
                   {classrooms.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
@@ -162,13 +136,9 @@ export function DisciplineDashboard() {
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Öğrenci</label>
-                <select
-                  value={studentId}
-                  onChange={(e) => setStudentId(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-                >
+              <div className="field">
+                <label>Öğrenci</label>
+                <select value={studentId} onChange={(e) => setStudentId(e.target.value)}>
                   {students.map((s) => (
                     <option key={s.studentId} value={s.studentId}>
                       {s.name}
@@ -177,25 +147,17 @@ export function DisciplineDashboard() {
                 </select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Tür</label>
-                <select
-                  value={type}
-                  onChange={(e) => handleTypeChange(e.target.value as DisciplineType)}
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-                >
+            <div className="grid cols-2">
+              <div className="field">
+                <label>Tür</label>
+                <select value={type} onChange={(e) => handleTypeChange(e.target.value as DisciplineType)}>
                   <option value="OLUMLU">Olumlu</option>
                   <option value="OLUMSUZ">Olumsuz</option>
                 </select>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Kategori</label>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-                >
+              <div className="field">
+                <label>Kategori</label>
+                <select value={category} onChange={(e) => setCategory(e.target.value)}>
                   {DISCIPLINE_CATEGORIES[type].map((c) => (
                     <option key={c} value={c}>
                       {c}
@@ -204,51 +166,41 @@ export function DisciplineDashboard() {
                 </select>
               </div>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">Not (opsiyonel)</label>
-              <input
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="Kısa açıklama…"
-                className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800"
-              />
+            <div className="field">
+              <label>Not (opsiyonel)</label>
+              <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Kısa açıklama…" />
             </div>
 
-            {formError && <p className="text-xs text-red-600 dark:text-red-400">{formError}</p>}
+            {formError && <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--critical)" }}>{formError}</p>}
 
-            <button
-              type="submit"
-              disabled={createMutation.isPending}
-              className="w-full rounded-lg bg-[#0071ce] px-4 py-2 text-sm font-semibold text-white hover:bg-[#00558f] disabled:opacity-60"
-            >
+            <button type="submit" disabled={createMutation.isPending} className="btn primary" style={{ width: "100%", justifyContent: "center" }}>
               {createMutation.isPending ? "Ekleniyor…" : "Kaydı Ekle"}
             </button>
           </form>
         </div>
 
-        <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-800">
-          <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Son Kayıtlar</h2>
-          {recordsQuery.isLoading && <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Yükleniyor…</p>}
+        <div className="card card-pad">
+          <div className="card-head">
+            <h3>Son Kayıtlar</h3>
+          </div>
+          {recordsQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
           {!recordsQuery.isLoading && records.length === 0 && (
-            <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Henüz kayıt yok.</p>
+            <div className="empty-state">
+              <Icon name="shield" />
+              <p>Henüz kayıt yok.</p>
+            </div>
           )}
-          <div className="mt-3 max-h-[560px] space-y-2 overflow-y-auto">
+          <div style={{ maxHeight: 560, overflowY: "auto", display: "flex", flexDirection: "column" }}>
             {records.map((r) => (
-              <div key={r.id} className="border-b border-slate-100 py-2 text-sm dark:border-slate-800">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-slate-900 dark:text-slate-50">{r.studentName}</span>
-                  <span
-                    className={
-                      r.points >= 0
-                        ? "font-semibold text-emerald-600 dark:text-emerald-400"
-                        : "font-semibold text-red-600 dark:text-red-400"
-                    }
-                  >
+              <div key={r.id} style={{ borderBottom: "1px solid var(--border)", padding: "9px 0" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: "var(--text-base)", fontWeight: 600 }}>{r.studentName}</span>
+                  <span style={{ fontWeight: 700, color: r.points >= 0 ? "var(--strong)" : "var(--critical)" }}>
                     {r.points >= 0 ? "+" : ""}
                     {r.points}
                   </span>
                 </div>
-                <div className="text-xs text-slate-500 dark:text-slate-400">
+                <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
                   {formatDate(r.createdAt)} · {r.category}
                   {r.note && ` · ${r.note}`}
                 </div>
