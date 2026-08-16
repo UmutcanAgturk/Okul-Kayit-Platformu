@@ -114,6 +114,20 @@ async function main() {
   const cankayaListBody = await cankayaList.json();
   check("Tenant izolasyonu: Çankaya yöneticisi Mezitli'nin kayıtlarını GÖREMİYOR", cankayaListBody.records?.length === 0);
 
+  // ===== 4b) "Ekleyen" (recordedByName) — task #61 =====
+  const positiveRecordInList = listBody.records?.find((r) => r.id === positiveBody.record.id);
+  const negativeRecordInList = listBody.records?.find((r) => r.id === negativeBody.record.id);
+  check(
+    "GET discipline: OLUMLU kayıt için Ekleyen = Ayşe Demir (öğretmen)",
+    positiveRecordInList?.recordedByName === "Ayşe Demir",
+    positiveRecordInList?.recordedByName,
+  );
+  check(
+    "GET discipline: OLUMSUZ kayıt için Ekleyen = Merve Aslan (şube yöneticisi)",
+    negativeRecordInList?.recordedByName === "Merve Aslan",
+    negativeRecordInList?.recordedByName,
+  );
+
   // ===== 5) GET /api/students/:id/discipline =====
   const noSessionStudentGet = await fetch(`${BASE}/api/students/${elif.id}/discipline`);
   check("GET student discipline: oturum yoksa 401 dönüyor", noSessionStudentGet.status === 401, noSessionStudentGet.status);

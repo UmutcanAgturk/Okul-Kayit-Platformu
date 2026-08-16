@@ -25,14 +25,22 @@ export async function GET(request: NextRequest) {
 
   const studentId = request.nextUrl.searchParams.get("studentId");
 
-  const records = await withBranchTenantContext(actor, (tx) =>
-    tx.disciplineRecord.findMany({
+  const { records, recorders } = await withBranchTenantContext(actor, async (tx) => {
+    const records = await tx.disciplineRecord.findMany({
       where: studentId ? { studentId } : undefined,
       include: { student: { include: { user: true } } },
       orderBy: { createdAt: "desc" },
-      take: 50,
-    }),
-  );
+    });
+    // `recordedByUserId` DisciplineRecord'ta düz bir skalar (Attendance'daki
+    // recordedByUserId ile aynı desen, bkz. modül notu) — Prisma ilişkisi
+    // yok, bu yüzden "Ekleyen" adı ayrı bir toplu sorguyla çözülür.
+    const recorderIds = [...new Set(records.map((r) => r.recordedByUserId))];
+    const recorders = recorderIds.length
+      ? await tx.user.findMany({ where: { id: { in: recorderIds } }, select: { id: true, firstName: true, lastName: true } })
+      : [];
+    return { records, recorders };
+  });
+  const recorderName = new Map(recorders.map((u) => [u.id, `${u.firstName} ${u.lastName}`]));
 
   return NextResponse.json({
     records: records.map((r) => ({
@@ -44,6 +52,7 @@ export async function GET(request: NextRequest) {
       note: r.note,
       points: r.points,
       createdAt: r.createdAt,
+      recordedByName: recorderName.get(r.recordedByUserId) ?? "—",
     })),
   });
 }

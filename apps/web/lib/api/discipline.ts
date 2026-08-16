@@ -27,6 +27,7 @@ export interface DisciplineRecord {
   note: string | null;
   points: number;
   createdAt: string;
+  recordedByName: string;
 }
 
 export function fetchDisciplineRecords(studentId?: string) {
