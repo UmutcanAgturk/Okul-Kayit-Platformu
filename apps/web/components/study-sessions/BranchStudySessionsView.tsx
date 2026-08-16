@@ -167,7 +167,7 @@ export function BranchStudySessionsView() {
                   <tr key={s.id}>
                     <td style={{ fontWeight: 600 }}>{s.studentName}</td>
                     <td>{s.teacherName}</td>
-                    <td>{s.achievement.label}</td>
+                    <td>{s.achievement?.label ?? "—"}</td>
                     <td>{new Date(s.scheduledStart).toLocaleString("tr-TR", { dateStyle: "medium", timeStyle: "short" })}</td>
                     <td>
                       <span className={`chip ${STATUS_CHIP[s.status]}`}>{STUDY_SESSION_STATUS_LABEL[s.status]}</span>

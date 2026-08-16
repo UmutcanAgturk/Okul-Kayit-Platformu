@@ -14,6 +14,9 @@ import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
  * Randevularım formunda öğrencinin kendi etüt talebi için öğretmen
  * seçebilmesi için kullanılır (bkz. app/api/students/[studentId]/study-sessions).
  */
+// Opsiyonel ?subject= — demo'daki "ders bazlı öğretmen havuzu"nun karşılığı
+// (bkz. task #57): Etüt talebi formunda önce bir ders seçilir, yalnızca o
+// dersi veren (TeacherProfile.branch eşleşen) öğretmenler listelenir.
 const ROLES_ALLOWED: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.ACCOUNTING, UserRole.PARENT, UserRole.STUDENT];
 
 export async function GET(request: NextRequest) {
@@ -28,9 +31,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ teachers: [] });
   }
 
+  const subject = request.nextUrl.searchParams.get("subject");
+
   const teachers = await withBranchTenantContext(actor, (tx) =>
     tx.teacherProfile.findMany({
-      where: { user: { tenantId: effectiveTenantId(actor), role: UserRole.TEACHER, isActive: true } },
+      where: {
+        user: { tenantId: effectiveTenantId(actor), role: UserRole.TEACHER, isActive: true },
+        ...(subject ? { branch: subject } : {}),
+      },
       include: { user: true },
       orderBy: { user: { firstName: "asc" } },
     }),

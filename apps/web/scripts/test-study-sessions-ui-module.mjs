@@ -9,6 +9,11 @@
 // tarafında yeni oluşturulan (tek kullanımlık, sonda silinen) bir seansın
 // onay/red akışının uçtan uca çalıştığı ve zaten yanıtlanmış bir seansın
 // tekrar yanıtlanamadığı (409).
+// task #57: POST ile oluşturulan bir talepte `note` serbest metninin
+// kaydedildiği, `achievementId`in artık OPSİYONEL olduğu (kazanım
+// belirtilmeden de talep oluşturulabildiği), ve /api/branch/teachers?subject=
+// filtresinin ("ders bazlı öğretmen havuzu") yalnızca o dersi veren
+// öğretmenleri döndürdüğü.
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient({
@@ -52,7 +57,7 @@ async function main() {
   const elifBody = await elifRes.json();
   check(
     "GET: Elif kendi seed fixture'ını (MAT.9.1.2.3) görebiliyor",
-    elifRes.status === 200 && elifBody.sessions?.some((s) => s.achievement.code === "MAT.9.1.2.3"),
+    elifRes.status === 200 && elifBody.sessions?.some((s) => s.achievement?.code === "MAT.9.1.2.3"),
     elifBody,
   );
 
@@ -64,6 +69,48 @@ async function main() {
 
   const parentForbiddenRes = await fetch(`${BASE}/api/students/${ahmet.id}/study-sessions`, { headers: { Cookie: parentCookie } });
   check("Yetki: velisi olmadığı Ahmet'in seanslarını GÖREMİYOR (403)", parentForbiddenRes.status === 403, parentForbiddenRes.status);
+
+  // ===== task #57: not + opsiyonel kazanım ile öğrenci self-servis talebi =====
+  const noteRequestRes = await fetch(`${BASE}/api/students/${elif.id}/study-sessions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: elifCookie },
+    body: JSON.stringify({
+      teacherId: teacherProfile.id,
+      note: "Test: denklem kurmada zorlanıyorum",
+      scheduledStart: "2026-09-05T15:00:00",
+      scheduledEnd: "2026-09-05T15:40:00",
+    }),
+  });
+  const noteRequestBody = await noteRequestRes.json();
+  check("POST: kazanım olmadan (opsiyonel) talep oluşturulabiliyor: 201", noteRequestRes.status === 201, noteRequestRes.status);
+  check("POST: not alanı kaydedildi", noteRequestBody.session?.note === "Test: denklem kurmada zorlanıyorum", noteRequestBody.session?.note);
+  check("POST: achievement null döndü", noteRequestBody.session?.achievement === null, noteRequestBody.session?.achievement);
+  if (noteRequestBody.session?.id) {
+    await prisma.studySession.delete({ where: { id: noteRequestBody.session.id } });
+  }
+
+  // ===== task #57: ders bazlı öğretmen havuzu (/api/branch/teachers?subject=) =====
+  const allTeachersRes = await fetch(`${BASE}/api/branch/teachers`, { headers: { Cookie: elifCookie } });
+  const allTeachersBody = await allTeachersRes.json();
+  const subjectTeachersRes = await fetch(`${BASE}/api/branch/teachers?subject=${encodeURIComponent(teacherProfile.branch)}`, {
+    headers: { Cookie: elifCookie },
+  });
+  const subjectTeachersBody = await subjectTeachersRes.json();
+  check(
+    `Ders filtresi (${teacherProfile.branch}): yalnızca o dersi verenler dönüyor`,
+    subjectTeachersRes.status === 200 && subjectTeachersBody.teachers?.every((t) => t.branch === teacherProfile.branch),
+    subjectTeachersBody.teachers,
+  );
+  check(
+    "Ders filtresi olmadan (tüm dersler) daha fazla/eşit öğretmen dönüyor",
+    allTeachersBody.teachers?.length >= subjectTeachersBody.teachers?.length,
+    { all: allTeachersBody.teachers?.length, filtered: subjectTeachersBody.teachers?.length },
+  );
+  const noMatchRes = await fetch(`${BASE}/api/branch/teachers?subject=${encodeURIComponent("Olmayan Ders XYZ")}`, {
+    headers: { Cookie: elifCookie },
+  });
+  const noMatchBody = await noMatchRes.json();
+  check("Eşleşmeyen ders için boş liste dönüyor", noMatchBody.teachers?.length === 0, noMatchBody.teachers?.length);
 
   // ===== Öğretmen onay/red akışı — tek kullanımlık seans =====
   const throwaway = await prisma.studySession.create({

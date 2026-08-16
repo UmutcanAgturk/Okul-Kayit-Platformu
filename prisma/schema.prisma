@@ -892,12 +892,17 @@ model StudySession {
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id])
 
-  studentId     String
-  student       StudentProfile @relation(fields: [studentId], references: [id])
-  teacherId     String
-  teacher       TeacherProfile @relation(fields: [teacherId], references: [id])
-  achievementId String
-  achievement   CurriculumNode @relation(fields: [achievementId], references: [id])
+  studentId String
+  student   StudentProfile @relation(fields: [studentId], references: [id])
+  teacherId String
+  teacher   TeacherProfile @relation(fields: [teacherId], references: [id])
+  // Opsiyonel — demo'daki "Eksik Kazanım (opsiyonel)" alanının karşılığı
+  // (bkz. task #57). Öğrenci hangi kazanımda zorlandığını bilmeyebilir; bu
+  // durumda serbest metin `note` alanı yeterli olur.
+  achievementId String?
+  achievement   CurriculumNode? @relation(fields: [achievementId], references: [id])
+  // Demo'daki "Not" alanının karşılığı (örn. "Denklem kurmada zorlanıyorum").
+  note String?
 
   status StudySessionStatus @default(AI_SUGGESTED)
   source StudySessionSource @default(AI_AUTO_ASSIGNED)

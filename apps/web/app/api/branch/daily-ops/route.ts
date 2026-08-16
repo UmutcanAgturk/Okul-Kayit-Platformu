@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
     const slotGroups = new Map<string, { subject: string; time: string; count: number }>();
     for (const s of todaySessions) {
       const time = s.scheduledStart.toISOString().slice(11, 16);
-      const subject = subjectFromCode(s.achievement.code);
+      const subject = s.achievement ? subjectFromCode(s.achievement.code) : "Diğer";
       const key = `${subject}__${time}`;
       const existing = slotGroups.get(key);
       if (existing) existing.count += 1;

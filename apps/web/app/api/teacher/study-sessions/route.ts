@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
         user: { firstName: s.student.user.firstName, lastName: s.student.user.lastName },
       },
       achievement: s.achievement ? { code: s.achievement.code, label: s.achievement.label } : null,
+      note: s.note,
     })),
   });
 }

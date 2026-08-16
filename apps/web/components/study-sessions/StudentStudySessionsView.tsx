@@ -11,7 +11,7 @@ import {
   STUDY_SESSION_STATUS_LABEL,
   type StudySessionStatus,
 } from "@/lib/api/study-sessions";
-import { fetchTeachers } from "@/lib/api/teachers";
+import { fetchTeachers, fetchTeachersBySubject } from "@/lib/api/teachers";
 import { fetchCurriculumAchievements } from "@/lib/api/exams";
 import { Icon } from "@/components/ui/icons";
 
@@ -25,23 +25,45 @@ const STATUS_CHIP: Record<StudySessionStatus, string> = {
   CANCELLED: "neutral",
 };
 
+/**
+ * Yeni Etüt Talebi formu — demo/seviye360-app.html'deki renderStudySessionRequestForm'un
+ * karşılığı. "Ders bazlı öğretmen havuzu" (task #57): önce bir ders seçilir,
+ * ardından yalnızca o dersi veren öğretmenler (bkz. /api/branch/teachers?subject=)
+ * ve o derse ait kazanımlar listelenir. Kazanım seçimi demodaki gibi
+ * OPSİYONELDİR — öğrenci hangi kazanımda zorlandığını bilmeyebilir, bu
+ * durumda serbest metin "Not" alanı yeterlidir.
+ */
 function NewRequestForm({ studentId, onCreated }: { studentId: string; onCreated: () => void }) {
-  const teachersQuery = useQuery({ queryKey: ["teachers", "list"], queryFn: fetchTeachers });
   const achievementsQuery = useQuery({ queryKey: ["curriculum-achievements"], queryFn: fetchCurriculumAchievements });
 
+  const [subject, setSubject] = useState("");
   const [teacherId, setTeacherId] = useState("");
   const [achievementId, setAchievementId] = useState("");
+  const [note, setNote] = useState("");
   const [date, setDate] = useState("");
   const [startTime, setStartTime] = useState("15:00");
   const [endTime, setEndTime] = useState("15:40");
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
 
+  const teachersQuery = useQuery({
+    queryKey: ["teachers", "list", subject],
+    queryFn: () => (subject ? fetchTeachersBySubject(subject) : fetchTeachers()),
+  });
+
+  const subjectOptions = Array.from(new Set((achievementsQuery.data?.achievements ?? []).map((a) => a.subject))).sort((a, b) =>
+    a.localeCompare(b, "tr-TR"),
+  );
+  const achievementOptions = subject
+    ? (achievementsQuery.data?.achievements ?? []).filter((a) => a.subject === subject)
+    : (achievementsQuery.data?.achievements ?? []);
+
   const createMutation = useMutation({
     mutationFn: () =>
       createStudySession(studentId, {
         teacherId,
-        achievementId,
+        achievementId: achievementId || undefined,
+        note: note.trim() || undefined,
         scheduledStart: `${date}T${startTime}:00`,
         scheduledEnd: `${date}T${endTime}:00`,
       }),
@@ -50,6 +72,7 @@ function NewRequestForm({ studentId, onCreated }: { studentId: string; onCreated
       setError(null);
       setTeacherId("");
       setAchievementId("");
+      setNote("");
       setDate("");
       onCreated();
     },
@@ -59,8 +82,8 @@ function NewRequestForm({ studentId, onCreated }: { studentId: string; onCreated
   function handleSubmit() {
     setError(null);
     setStatus(null);
-    if (!teacherId || !achievementId || !date) {
-      setError("Öğretmen, kazanım ve tarih zorunludur.");
+    if (!teacherId || !date) {
+      setError("Öğretmen ve tarih zorunludur.");
       return;
     }
     createMutation.mutate();
@@ -73,6 +96,24 @@ function NewRequestForm({ studentId, onCreated }: { studentId: string; onCreated
       </div>
       <div className="grid cols-2">
         <div className="field">
+          <label>Ders</label>
+          <select
+            value={subject}
+            onChange={(e) => {
+              setSubject(e.target.value);
+              setTeacherId("");
+              setAchievementId("");
+            }}
+          >
+            <option value="">— Tüm Dersler —</option>
+            {subjectOptions.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
           <label>Öğretmen</label>
           <select value={teacherId} onChange={(e) => setTeacherId(e.target.value)}>
             <option value="">— Seçin —</option>
@@ -83,16 +124,22 @@ function NewRequestForm({ studentId, onCreated }: { studentId: string; onCreated
             ))}
           </select>
         </div>
+      </div>
+      <div className="grid cols-2" style={{ marginTop: 12 }}>
         <div className="field">
-          <label>Kazanım</label>
+          <label>Eksik Kazanım (opsiyonel)</label>
           <select value={achievementId} onChange={(e) => setAchievementId(e.target.value)}>
-            <option value="">— Seçin —</option>
-            {achievementsQuery.data?.achievements.map((a) => (
+            <option value="">— Belirtmek istemiyorum —</option>
+            {achievementOptions.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.code} — {a.label}
               </option>
             ))}
           </select>
+        </div>
+        <div className="field">
+          <label>Not (opsiyonel)</label>
+          <input type="text" placeholder="Örn. Denklem kurmada zorlanıyorum" value={note} onChange={(e) => setNote(e.target.value)} />
         </div>
       </div>
       <div className="grid cols-3" style={{ marginTop: 12 }}>
@@ -209,7 +256,7 @@ export function StudentStudySessionsView() {
             <table className="data">
               <thead>
                 <tr>
-                  <th>Kazanım</th>
+                  <th>Kazanım / Not</th>
                   <th>Öğretmen</th>
                   <th>Tarih</th>
                   <th>Durum</th>
@@ -219,8 +266,15 @@ export function StudentStudySessionsView() {
                 {sessions.map((s) => (
                   <tr key={s.id}>
                     <td>
-                      {s.achievement.label}
-                      <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>{s.achievement.code}</div>
+                      {s.achievement ? (
+                        <>
+                          {s.achievement.label}
+                          <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>{s.achievement.code}</div>
+                        </>
+                      ) : (
+                        <span style={{ color: "var(--ink-faint)" }}>—</span>
+                      )}
+                      {s.note && <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginTop: 2 }}>"{s.note}"</div>}
                     </td>
                     <td>{s.teacherName}</td>
                     <td>

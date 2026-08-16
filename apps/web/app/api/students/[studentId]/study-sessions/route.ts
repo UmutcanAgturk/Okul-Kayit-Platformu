@@ -52,7 +52,8 @@ export async function GET(request: NextRequest, { params }: { params: { studentI
         scheduledStart: s.scheduledStart,
         scheduledEnd: s.scheduledEnd,
         teacherName: `${s.teacher.user.firstName} ${s.teacher.user.lastName}`,
-        achievement: { code: s.achievement.code, label: s.achievement.label },
+        achievement: s.achievement ? { code: s.achievement.code, label: s.achievement.label } : null,
+        note: s.note,
       })),
     };
   });
@@ -73,6 +74,10 @@ export async function GET(request: NextRequest, { params }: { params: { studentI
  * kullanır, bkz. respond route). Yeni bir durum eklenmez — mevcut
  * AI_SUGGESTED ("Onay Bekliyor") durumu kaynak-bağımsızdır, `source: MANUAL`
  * talebi öğretmenin önerdiği/AI'nın önerdiğinden ayırt eder.
+ *
+ * task #57: `achievementId` artık OPSİYONELDİR (öğrenci hangi kazanımda
+ * zorlandığını bilmeyebilir) ve serbest metin `note` alanı eklendi — ikisi de
+ * demo'daki "Eksik Kazanım (opsiyonel)" / "Not" alanlarının karşılığı.
  */
 export async function POST(request: NextRequest, { params }: { params: { studentId: string } }) {
   const actor = await getSessionActor(request);
@@ -86,11 +91,12 @@ export async function POST(request: NextRequest, { params }: { params: { student
   const body = await request.json().catch(() => ({}));
   const teacherId = typeof body.teacherId === "string" && body.teacherId ? body.teacherId : null;
   const achievementId = typeof body.achievementId === "string" && body.achievementId ? body.achievementId : null;
+  const note = typeof body.note === "string" && body.note.trim() ? body.note.trim().slice(0, 500) : null;
   const scheduledStart = typeof body.scheduledStart === "string" ? new Date(body.scheduledStart) : null;
   const scheduledEnd = typeof body.scheduledEnd === "string" ? new Date(body.scheduledEnd) : null;
 
-  if (!teacherId || !achievementId || !scheduledStart || !scheduledEnd || isNaN(scheduledStart.getTime()) || isNaN(scheduledEnd.getTime())) {
-    return NextResponse.json({ message: "teacherId, achievementId, scheduledStart, scheduledEnd zorunludur" }, { status: 400 });
+  if (!teacherId || !scheduledStart || !scheduledEnd || isNaN(scheduledStart.getTime()) || isNaN(scheduledEnd.getTime())) {
+    return NextResponse.json({ message: "teacherId, scheduledStart, scheduledEnd zorunludur" }, { status: 400 });
   }
   if (scheduledEnd <= scheduledStart) {
     return NextResponse.json({ message: "Bitiş saati başlangıçtan sonra olmalıdır" }, { status: 400 });
@@ -115,15 +121,16 @@ export async function POST(request: NextRequest, { params }: { params: { student
 
     const teacher = await tx.teacherProfile.findFirst({ where: { id: teacherId, user: { tenantId: effectiveTenantId(actor) } } });
     if (!teacher) return { kind: "invalid_teacher" as const };
-    const achievement = await tx.curriculumNode.findUnique({ where: { id: achievementId } });
-    if (!achievement) return { kind: "invalid_achievement" as const };
+    const achievement = achievementId ? await tx.curriculumNode.findUnique({ where: { id: achievementId } }) : null;
+    if (achievementId && !achievement) return { kind: "invalid_achievement" as const };
 
     const session = await tx.studySession.create({
       data: {
         tenantId: effectiveTenantId(actor),
         studentId: student.id,
         teacherId: teacher.id,
-        achievementId: achievement.id,
+        achievementId: achievement?.id ?? null,
+        note,
         scheduledStart,
         scheduledEnd,
         status: StudySessionStatus.AI_SUGGESTED,
@@ -155,7 +162,8 @@ export async function POST(request: NextRequest, { params }: { params: { student
         scheduledStart: outcome.session.scheduledStart,
         scheduledEnd: outcome.session.scheduledEnd,
         teacherName: `${outcome.session.teacher.user.firstName} ${outcome.session.teacher.user.lastName}`,
-        achievement: { code: outcome.session.achievement.code, label: outcome.session.achievement.label },
+        achievement: outcome.session.achievement ? { code: outcome.session.achievement.code, label: outcome.session.achievement.label } : null,
+        note: outcome.session.note,
       },
     },
     { status: 201 },

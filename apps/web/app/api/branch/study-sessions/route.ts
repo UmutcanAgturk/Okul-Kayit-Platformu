@@ -37,7 +37,8 @@ export async function GET(request: NextRequest) {
       scheduledEnd: s.scheduledEnd,
       teacherName: `${s.teacher.user.firstName} ${s.teacher.user.lastName}`,
       studentName: `${s.student.user.firstName} ${s.student.user.lastName}`,
-      achievement: { code: s.achievement.code, label: s.achievement.label },
+      achievement: s.achievement ? { code: s.achievement.code, label: s.achievement.label } : null,
+      note: s.note,
     })),
   });
 }

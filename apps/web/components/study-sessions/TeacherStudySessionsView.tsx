@@ -102,6 +102,7 @@ export function TeacherStudySessionsView() {
                   <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
                     {s.achievement?.label ?? "—"} · {new Date(s.scheduledStart).toLocaleString("tr-TR", { dateStyle: "medium", timeStyle: "short" })}
                   </div>
+                  {s.note && <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginTop: 2 }}>"{s.note}"</div>}
                 </div>
                 <div style={{ display: "flex", gap: 6 }}>
                   <button
@@ -151,6 +152,7 @@ export function TeacherStudySessionsView() {
                   <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
                     {s.achievement?.label ?? "—"} · {new Date(s.scheduledStart).toLocaleString("tr-TR", { dateStyle: "medium", timeStyle: "short" })}
                   </div>
+                  {s.note && <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", marginTop: 2 }}>"{s.note}"</div>}
                 </div>
                 <button
                   type="button"

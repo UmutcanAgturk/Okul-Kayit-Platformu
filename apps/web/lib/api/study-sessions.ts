@@ -16,7 +16,8 @@ export interface StudentStudySessionRow {
   scheduledStart: string;
   scheduledEnd: string;
   teacherName: string;
-  achievement: { code: string; label: string };
+  achievement: { code: string; label: string } | null;
+  note: string | null;
 }
 
 export function fetchStudentStudySessions(studentId: string) {
@@ -25,7 +26,7 @@ export function fetchStudentStudySessions(studentId: string) {
 
 export function createStudySession(
   studentId: string,
-  input: { teacherId: string; achievementId: string; scheduledStart: string; scheduledEnd: string },
+  input: { teacherId: string; achievementId?: string; note?: string; scheduledStart: string; scheduledEnd: string },
 ) {
   return apiFetch<{ session: StudentStudySessionRow }>(`/api/students/${studentId}/study-sessions`, {
     method: "POST",
@@ -40,6 +41,7 @@ export interface TeacherStudySessionRow {
   scheduledEnd: string;
   student: { id: string; user: { firstName: string; lastName: string } };
   achievement: { code: string; label: string } | null;
+  note: string | null;
 }
 
 export function fetchTeacherStudySessions() {
@@ -63,7 +65,8 @@ export interface BranchStudySessionRow {
   scheduledEnd: string;
   teacherName: string;
   studentName: string;
-  achievement: { code: string; label: string };
+  achievement: { code: string; label: string } | null;
+  note: string | null;
 }
 
 export function fetchBranchStudySessions() {
