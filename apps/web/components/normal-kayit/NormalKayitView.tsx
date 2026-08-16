@@ -7,6 +7,7 @@ import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { completeEnrollment, enrollmentKeys, fetchEnrollments, type CompleteEnrollmentResult } from "@/lib/api/enrollments";
 import { Icon } from "@/components/ui/icons";
+import { BulkImportPanel } from "./BulkImportPanel";
 
 const ALLOWED_ROLES = ["BRANCH_ADMIN", "GUIDANCE_COORDINATOR"];
 const LOCKED_STAGES = ["KAYIT_TAMAMLANDI", "IPTAL_EDILDI"];
@@ -24,6 +25,7 @@ const LOCKED_STAGES = ["KAYIT_TAMAMLANDI", "IPTAL_EDILDI"];
 export function NormalKayitView() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const [mode, setMode] = useState<"tekli" | "toplu">("tekli");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [installmentCount, setInstallmentCount] = useState("1");
   const [installmentAmount, setInstallmentAmount] = useState("");
@@ -95,8 +97,24 @@ export function NormalKayitView() {
   return (
     <div className="screen">
       <h1>Normal Kayıt</h1>
-      <p className="lede">Ön kaydı olan bir adayı sözleşme ve ödeme planıyla tam kayda dönüştürün.</p>
+      <p className="lede">
+        {mode === "tekli"
+          ? "Ön kaydı olan bir adayı sözleşme ve ödeme planıyla tam kayda dönüştürün."
+          : "CSV'den birden çok öğrenciyi tek seferde içe aktarın — ön kayıt gerektirmez, doğrudan tam kayıt oluşturur."}
+      </p>
 
+      <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+        <button type="button" className={`btn sm ${mode === "tekli" ? "primary" : ""}`} onClick={() => setMode("tekli")}>
+          Tekli Dönüştürme
+        </button>
+        <button type="button" className={`btn sm ${mode === "toplu" ? "primary" : ""}`} onClick={() => setMode("toplu")}>
+          Toplu Yükleme
+        </button>
+      </div>
+
+      {mode === "toplu" ? (
+        <BulkImportPanel />
+      ) : (
       <div className="grid cols-2">
         <div className="card card-pad">
           <div className="card-head">
@@ -205,6 +223,7 @@ export function NormalKayitView() {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }
