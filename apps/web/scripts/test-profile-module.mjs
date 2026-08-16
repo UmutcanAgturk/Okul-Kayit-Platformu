@@ -9,6 +9,9 @@
 // gerçekten yeni şifreyle giriş yapılabildiği) uçtan uca çalıştığı — test
 // TEK KULLANIMLIK bir kullanıcı oluşturup sonunda siler, hiçbir seed
 // hesabının şifresine dokunmaz.
+// Ayrıca (task #56): STUDENT için veli adı/telefonu/hedef, PARENT için
+// children[] (çocuk listesi: ad/öğrenci no/sınıf/şube/yakınlık) alanlarının
+// doğru döndüğü.
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
@@ -53,6 +56,30 @@ async function main() {
     studentRes.status === 200 && studentBody.studentNo === "201001" && !!studentBody.classroomName,
     studentBody,
   );
+  check("GET profile: STUDENT için veli adı dolu (Hakan Yılmaz)", studentBody.guardianName === "Hakan Yılmaz", studentBody.guardianName);
+  check("GET profile: STUDENT için veli yakınlığı dolu (Baba)", studentBody.guardianRelation === "Baba", studentBody.guardianRelation);
+  // Not: seed'deki Hakan Yılmaz (veli) kaydında User.phone boş — bu yüzden
+  // burada yalnızca alanın YANITTA var olduğunu (undefined değil, null/string)
+  // doğruluyoruz; dolu bir değer için ayrı bir seed hesabı gerekirdi.
+  check("GET profile: STUDENT yanıtında guardianPhone alanı tanımlı", "guardianPhone" in studentBody, studentBody.guardianPhone);
+
+  // ===== Hedef (targetGoal) — geçici olarak set edilip test sonunda geri alınır =====
+  const elif = await prisma.studentProfile.findFirst({ where: { studentNo: "201001" } });
+  await prisma.studentProfile.update({ where: { id: elif.id }, data: { targetGoal: "Tıp Fakültesi" } });
+  try {
+    const studentWithGoalRes = await fetch(`${BASE}/api/me/profile`, { headers: { Cookie: studentCookie } });
+    const studentWithGoalBody = await studentWithGoalRes.json();
+    check("GET profile: STUDENT için hedef (targetGoal) dolu", studentWithGoalBody.targetGoal === "Tıp Fakültesi", studentWithGoalBody.targetGoal);
+  } finally {
+    await prisma.studentProfile.update({ where: { id: elif.id }, data: { targetGoal: null } });
+  }
+
+  const parentCookie = await loginAs("hakan.yilmaz@veli.seviye360.com", SEED_DEV_PASSWORD);
+  const parentRes = await fetch(`${BASE}/api/me/profile`, { headers: { Cookie: parentCookie } });
+  const parentBody = await parentRes.json();
+  check("GET profile: PARENT için children[] dolu", parentRes.status === 200 && Array.isArray(parentBody.children) && parentBody.children.length > 0, parentBody.children);
+  const child = parentBody.children?.find((c) => c.studentNo === "201001");
+  check("GET profile: PARENT'ın çocuğu Elif Yılmaz doğru bilgilerle listede", child?.fullName === "Elif Yılmaz" && child?.classroomName && child?.relation === "Baba", child);
 
   // ===== Şifre değiştirme — tek kullanımlık test kullanıcısı =====
   const throwawayEmail = `test-profile-${Date.now()}@seviye360.com`;

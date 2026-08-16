@@ -35,13 +35,41 @@ export async function GET(request: NextRequest) {
 
   if (actor.role === UserRole.STUDENT) {
     const studentProfile = await withTenantContext(actor, (tx) =>
-      tx.studentProfile.findUnique({ where: { userId: actor.id }, include: { classroom: true } }),
+      tx.studentProfile.findUnique({
+        where: { userId: actor.id },
+        include: { classroom: true, guardians: { include: { parent: { include: { user: true } } } } },
+      }),
     );
+    const guardianRow = studentProfile?.guardians.find((g) => g.isBillingResponsible) ?? studentProfile?.guardians[0];
     return NextResponse.json({
       ...base,
       studentNo: studentProfile?.studentNo ?? null,
       gradeLevel: studentProfile?.gradeLevel ?? null,
       classroomName: studentProfile?.classroom?.name ?? null,
+      targetGoal: studentProfile?.targetGoal ?? null,
+      guardianName: guardianRow ? `${guardianRow.parent.user.firstName} ${guardianRow.parent.user.lastName}` : null,
+      guardianPhone: guardianRow?.parent.user.phone ?? null,
+      guardianRelation: guardianRow?.relation ?? null,
+    });
+  }
+
+  if (actor.role === UserRole.PARENT) {
+    const guardianRows = await withTenantContext(actor, (tx) =>
+      tx.studentGuardian.findMany({
+        where: { parent: { userId: actor.id } },
+        include: { student: { include: { user: true, classroom: true } } },
+      }),
+    );
+    return NextResponse.json({
+      ...base,
+      children: guardianRows.map((row) => ({
+        studentId: row.studentId,
+        fullName: `${row.student.user.firstName} ${row.student.user.lastName}`,
+        studentNo: row.student.studentNo,
+        gradeLevel: row.student.gradeLevel,
+        classroomName: row.student.classroom?.name ?? null,
+        relation: row.relation,
+      })),
     });
   }
 

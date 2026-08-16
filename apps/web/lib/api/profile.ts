@@ -1,5 +1,14 @@
 import { apiFetch } from "./client";
 
+export interface ProfileChildRow {
+  studentId: string;
+  fullName: string;
+  studentNo: string;
+  gradeLevel: string;
+  classroomName: string | null;
+  relation: string;
+}
+
 export interface ProfileDetail {
   firstName: string;
   lastName: string;
@@ -13,6 +22,11 @@ export interface ProfileDetail {
   studentNo?: string | null;
   gradeLevel?: string | null;
   classroomName?: string | null;
+  targetGoal?: string | null;
+  guardianName?: string | null;
+  guardianPhone?: string | null;
+  guardianRelation?: string | null;
+  children?: ProfileChildRow[];
 }
 
 export function fetchMyProfile() {

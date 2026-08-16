@@ -107,9 +107,37 @@ export function ProfileView() {
               {p?.studentNo && <Row label="Öğrenci No" value={p.studentNo} />}
               {p?.gradeLevel && <Row label="Sınıf Seviyesi" value={GRADE_LEVEL_LABEL[p.gradeLevel] ?? p.gradeLevel} />}
               {p?.classroomName && <Row label="Şube" value={p.classroomName} />}
+              {p?.guardianName && <Row label="Veli" value={`${p.guardianName}${p.guardianRelation ? ` (${p.guardianRelation})` : ""}`} />}
+              {p?.guardianPhone && <Row label="Veli Telefonu" value={p.guardianPhone} />}
+              {p?.targetGoal && <Row label="Hedef" value={p.targetGoal} />}
             </div>
           )}
         </div>
+
+        {me.role === "PARENT" && (
+          <div className="card card-pad">
+            <div className="card-head">
+              <h3>Çocuklarım</h3>
+            </div>
+            {profileQuery.isLoading ? (
+              <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>
+            ) : !p?.children || p.children.length === 0 ? (
+              <p style={{ margin: 0, color: "var(--ink-faint)", fontSize: "var(--text-sm)" }}>Kayıtlı bir öğrenciniz bulunamadı.</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {p.children.map((c) => (
+                  <div key={c.studentId} style={{ borderBottom: "1px solid var(--border)", paddingBottom: 8 }}>
+                    <div style={{ fontWeight: 600, fontSize: "var(--text-base)" }}>{c.fullName}</div>
+                    <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
+                      {c.relation} · Öğrenci No {c.studentNo} · {GRADE_LEVEL_LABEL[c.gradeLevel] ?? c.gradeLevel}
+                      {c.classroomName ? ` · ${c.classroomName}` : ""}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="card card-pad">
           <div className="card-head">
