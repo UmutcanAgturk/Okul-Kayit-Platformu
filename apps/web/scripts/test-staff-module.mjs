@@ -11,6 +11,12 @@
 //      dışlayan iki yol), personName/personRole doğruluğu, duplicate 409.
 //   5. Veritabanı seviyesindeki PayrollRecord_teacher_or_staff_check CHECK
 //      constraint'inin (ikisi birden dolu bir satırı) gerçekten reddettiği.
+//   6. PATCH status (ACTIVE/ON_LEAVE/RESIGNED) — İzinli hâlâ giriş
+//      yapabiliyor (isActive=true), Ayrıldı girişi engelliyor (isActive=false).
+//   7. POST staff: opsiyonel email (özel kullanıcı adı) alanı + duplicate 409.
+//   8. DELETE ?permanent=true — bordro geçmişi OLAN personel 409 ile
+//      reddediliyor (asla kalıcı silinmiyor), OLMAYAN personel gerçekten
+//      kalıcı siliniyor.
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient({
@@ -260,6 +266,80 @@ async function main() {
 
   const dbUserAfterReactivate = await prisma.user.findUnique({ where: { id: dbStaff.userId } });
   check("DB: personel gerçekten yeniden aktif", dbUserAfterReactivate?.isActive === true);
+
+  // ===== 9) PATCH status — üç durumlu (Aktif/İzinli/Ayrıldı) =====
+  const onLeaveRes = await fetch(`${BASE}/api/branch/staff/${staffId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({ status: "ON_LEAVE" }),
+  });
+  const onLeaveBody = await onLeaveRes.json();
+  check(
+    "PATCH status=ON_LEAVE: 200 ve İzinli personel HÂLÂ isActive=true (girişi engellenmiyor)",
+    onLeaveRes.status === 200 && onLeaveBody.staff?.status === "ON_LEAVE" && onLeaveBody.staff?.isActive === true,
+    onLeaveBody.staff,
+  );
+
+  const resignedRes = await fetch(`${BASE}/api/branch/staff/${staffId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({ status: "RESIGNED" }),
+  });
+  const resignedBody = await resignedRes.json();
+  check(
+    "PATCH status=RESIGNED: 200 ve isActive=false (giriş engellendi)",
+    resignedRes.status === 200 && resignedBody.staff?.status === "RESIGNED" && resignedBody.staff?.isActive === false,
+    resignedBody.staff,
+  );
+
+  const badStatusRes = await fetch(`${BASE}/api/branch/staff/${staffId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({ status: "GECERSIZ" }),
+  });
+  check("PATCH status: geçersiz değer 400 dönüyor", badStatusRes.status === 400, badStatusRes.status);
+
+  // status'ü ACTIVE'e geri döndür (aşağıdaki testler ve temizlik için)
+  await fetch(`${BASE}/api/branch/staff/${staffId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({ status: "ACTIVE" }),
+  });
+
+  // ===== 10) POST /api/branch/staff — özel e-posta (kullanıcı adı) alanı =====
+  const customEmail = `test-personel-email-${Date.now()}@seviye360.com`;
+  const emailStaffRes = await fetch(`${BASE}/api/branch/staff`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({ fullName: "Test Özel Eposta", role: "ACCOUNTING", title: "Muhasebe Görevlisi", startDate: "2026-01-01", salary: 35000, email: customEmail }),
+  });
+  const emailStaffBody = await emailStaffRes.json();
+  check("POST staff: özel e-posta ile 201 ve doğru e-posta döndü", emailStaffRes.status === 201 && emailStaffBody.staff?.email === customEmail, emailStaffBody.staff);
+  const emailStaffId = emailStaffBody.staff?.id;
+
+  const dupEmailRes = await fetch(`${BASE}/api/branch/staff`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({ fullName: "Çakışan Eposta", role: "ACCOUNTING", title: "x", startDate: "2026-01-01", salary: 1000, email: customEmail }),
+  });
+  check("POST staff: zaten kayıtlı e-posta 409 dönüyor", dupEmailRes.status === 409, dupEmailRes.status);
+
+  // ===== 11) DELETE ?permanent=true — kalıcı silme =====
+  const permanentBlockedRes = await fetch(`${BASE}/api/branch/staff/${staffId}?permanent=true`, {
+    method: "DELETE",
+    headers: { Cookie: branchAdminCookie },
+  });
+  check("DELETE ?permanent=true: bordro geçmişi olan personel 409 ile reddediliyor", permanentBlockedRes.status === 409, permanentBlockedRes.status);
+  const dbStaffStillExists = await prisma.staffProfile.findUnique({ where: { id: staffId } });
+  check("DB: bordrolu personel kalıcı silinmedi, hâlâ mevcut", !!dbStaffStillExists, dbStaffStillExists?.id);
+
+  const permanentOkRes = await fetch(`${BASE}/api/branch/staff/${emailStaffId}?permanent=true`, {
+    method: "DELETE",
+    headers: { Cookie: branchAdminCookie },
+  });
+  check("DELETE ?permanent=true: bordro geçmişi OLMAYAN personel 200 ile siliniyor", permanentOkRes.status === 200, permanentOkRes.status);
+  const dbEmailStaffGone = await prisma.staffProfile.findUnique({ where: { id: emailStaffId } });
+  check("DB: bordrosuz personel gerçekten kalıcı silindi", dbEmailStaffGone === null);
 
   // Temizlik
   const staffIdsToClean = [staffId, secondStaffId].filter(Boolean);

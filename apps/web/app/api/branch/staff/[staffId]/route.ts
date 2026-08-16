@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { UserRole } from "@prisma/client";
+import { StaffStatus, UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
 import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { actorLabel, logActivity } from "@/lib/audit-log";
+
+const STAFF_STATUSES: StaffStatus[] = [StaffStatus.ACTIVE, StaffStatus.ON_LEAVE, StaffStatus.RESIGNED];
 
 const ROLES_ALLOWED: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.ACCOUNTING];
 // Roller ekranı yalnızca BRANCH_ADMIN'e açık — kimin BRANCH_ADMIN/ACCOUNTING
@@ -20,9 +22,13 @@ const STAFF_USER_ROLES: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.ACCOUNTING
  *  - `username`: giriş e-postasını (kullanıcı adı) değiştirir — role ile aynı
  *    yüksek yetki (demo'daki Roller > Personel tab'ının username düzenleme
  *    alanı), diğer profil alanlarından ayrı çünkü giriş kimliğini değiştirir.
- *  - `title`/`department`/`salary`/`startDate`/`phone`/`isActive`: personel
- *    profilini düzenler / yeniden aktifleştirir — BRANCH_ADMIN/ACCOUNTING
- *    (personel oluşturmayla aynı yetki).
+ *  - `firstName`/`lastName`/`title`/`department`/`salary`/`startDate`/
+ *    `phone`/`status`/`isActive`: personel profilini düzenler / yeniden
+ *    aktifleştirir — BRANCH_ADMIN/ACCOUNTING (personel oluşturmayla aynı
+ *    yetki). `status: RESIGNED` demo'nun üç durumlu (Aktif/İzinli/Ayrıldı)
+ *    modelini yansıtır ve User.isActive'i false yapar (giriş engellenir,
+ *    "Devre Dışı Bırak" ile aynı sonuç); ACTIVE/ON_LEAVE isActive'i true
+ *    yapar — İzinli personel hâlâ giriş yapabilir.
  */
 export async function PATCH(request: NextRequest, { params }: { params: { staffId: string } }) {
   const actor = await getSessionActor(request);
@@ -49,14 +55,29 @@ export async function PATCH(request: NextRequest, { params }: { params: { staffI
     return NextResponse.json({ message: "Bu rol personelin kullanıcı adını değiştiremez" }, { status: 403 });
   }
 
+  const firstName = typeof body.firstName === "string" && body.firstName.trim() ? body.firstName.trim() : undefined;
+  const lastName = typeof body.lastName === "string" && body.lastName.trim() ? body.lastName.trim() : undefined;
   const title = typeof body.title === "string" && body.title.trim() ? body.title.trim() : undefined;
   const department = typeof body.department === "string" ? body.department.trim() || null : undefined;
   const startDate = typeof body.startDate === "string" && !isNaN(Date.parse(body.startDate)) ? new Date(body.startDate) : undefined;
   const salary = typeof body.salary === "number" && body.salary > 0 ? body.salary : undefined;
   const phone = typeof body.phone === "string" ? body.phone.trim() || null : undefined;
   const isActive = typeof body.isActive === "boolean" ? body.isActive : undefined;
+  const hasStatus = "status" in body;
+  const status = typeof body.status === "string" && STAFF_STATUSES.includes(body.status as StaffStatus) ? (body.status as StaffStatus) : null;
+  if (hasStatus && !status) {
+    return NextResponse.json({ message: `status şunlardan biri olmalı: ${STAFF_STATUSES.join(", ")}` }, { status: 400 });
+  }
   const hasProfileFields =
-    title !== undefined || department !== undefined || startDate !== undefined || salary !== undefined || phone !== undefined || isActive !== undefined;
+    firstName !== undefined ||
+    lastName !== undefined ||
+    title !== undefined ||
+    department !== undefined ||
+    startDate !== undefined ||
+    salary !== undefined ||
+    phone !== undefined ||
+    isActive !== undefined ||
+    hasStatus;
   if (hasProfileFields && !ROLES_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
     return NextResponse.json({ message: "Bu rol personel profilini düzenleyemez" }, { status: 403 });
   }
@@ -90,10 +111,18 @@ export async function PATCH(request: NextRequest, { params }: { params: { staffI
       }
 
       if (hasProfileFields) {
-        if (phone !== undefined || isActive !== undefined) {
-          await tx.user.update({ where: { id: staff.userId }, data: { phone, isActive } });
+        // status → isActive senkronizasyonu: RESIGNED giriş erişimini keser
+        // (Devre Dışı Bırak ile aynı sonuç), ACTIVE/ON_LEAVE geri açar —
+        // ayrıca gövdede açıkça gönderilen isActive her zaman öncelikli.
+        const statusDerivedIsActive = hasStatus ? status !== StaffStatus.RESIGNED : undefined;
+        const resolvedIsActive = isActive !== undefined ? isActive : statusDerivedIsActive;
+        if (phone !== undefined || resolvedIsActive !== undefined) {
+          await tx.user.update({ where: { id: staff.userId }, data: { phone, isActive: resolvedIsActive } });
         }
-        await tx.staffProfile.update({ where: { id: staff.id }, data: { title, department, startDate, salary } });
+        if (firstName !== undefined || lastName !== undefined) {
+          await tx.user.update({ where: { id: staff.userId }, data: { firstName, lastName } });
+        }
+        await tx.staffProfile.update({ where: { id: staff.id }, data: { title, department, startDate, salary, status: hasStatus ? status! : undefined } });
       }
 
       const updated = await tx.staffProfile.findUniqueOrThrow({ where: { id: staff.id }, include: { user: true } });
@@ -121,6 +150,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { staffI
       phone: outcome.staff.user.phone,
       role: outcome.staff.user.role,
       isActive: outcome.staff.user.isActive,
+      status: outcome.staff.status,
       title: outcome.staff.title,
       department: outcome.staff.department,
       startDate: outcome.staff.startDate,
@@ -130,10 +160,18 @@ export async function PATCH(request: NextRequest, { params }: { params: { staffI
 }
 
 /**
- * Personeli SİLMEZ, User.isActive'i false yapar (deaktive eder) — bordro/
- * defter geçmişiyle FK ilişkisi olan bir kaydı gerçekten silmek (bkz.
- * accounting-ledger/[entryId]'deki P2003 notu) veri bütünlüğünü bozar.
- * GET /api/branch/teachers'daki isActive:true filtresiyle aynı yaklaşım.
+ * Varsayılan: personeli SİLMEZ, User.isActive'i false + status'ü RESIGNED
+ * yapar (deaktive eder) — bordro/defter geçmişiyle FK ilişkisi olan bir
+ * kaydı gerçekten silmek veri bütünlüğünü bozar. GET /api/branch/teachers'daki
+ * isActive:true filtresiyle aynı yaklaşım.
+ *
+ * `?permanent=true`: demo'nun "kalıcı sil" eylemi — yalnızca hiç
+ * PayrollRecord'u OLMAYAN personel için izin verilir. PayrollRecord.
+ * staffProfileId FK'si `ON DELETE SET NULL` olduğundan (bkz. migration
+ * 20260728064932_add_staff_profile) bordrolu bir personeli silmeye çalışmak
+ * Prisma P2003 DEĞİL, ham bir Postgres CHECK constraint ihlali
+ * (PayrollRecord_teacher_or_staff_check, hem teacherId hem staffProfileId
+ * null kalır) üretir — bu yüzden silmeden ÖNCE açıkça sayım yapılır.
  */
 export async function DELETE(request: NextRequest, { params }: { params: { staffId: string } }) {
   const actor = await getSessionActor(request);
@@ -144,6 +182,8 @@ export async function DELETE(request: NextRequest, { params }: { params: { staff
     return NextResponse.json({ message: "Bu rol personeli devre dışı bırakamaz" }, { status: 403 });
   }
 
+  const permanent = request.nextUrl.searchParams.get("permanent") === "true";
+
   const outcome = await withBranchTenantContext(actor, async (tx) => {
     // StaffProfile RLS ile tenant'a scope edilmiştir — başka bir tenant'a ait
     // bir id burada zaten görünmez (null döner).
@@ -151,12 +191,28 @@ export async function DELETE(request: NextRequest, { params }: { params: { staff
     if (!staff) {
       return { kind: "not_found" as const };
     }
+    if (permanent) {
+      const payrollCount = await tx.payrollRecord.count({ where: { staffProfileId: staff.id } });
+      if (payrollCount > 0) {
+        return { kind: "has_payroll" as const };
+      }
+      await tx.staffProfile.delete({ where: { id: staff.id } });
+      await tx.user.delete({ where: { id: staff.userId } });
+      return { kind: "deleted" as const };
+    }
     await tx.user.update({ where: { id: staff.userId }, data: { isActive: false } });
+    await tx.staffProfile.update({ where: { id: staff.id }, data: { status: StaffStatus.RESIGNED } });
     return { kind: "deactivated" as const };
   });
 
   if (outcome.kind === "not_found") {
     return NextResponse.json({ message: "Personel bulunamadı" }, { status: 404 });
+  }
+  if (outcome.kind === "has_payroll") {
+    return NextResponse.json(
+      { message: "Bu personelin bordro geçmişi olduğu için kalıcı olarak silinemez — yalnızca devre dışı bırakılabilir." },
+      { status: 409 },
+    );
   }
   return NextResponse.json({ ok: true });
 }

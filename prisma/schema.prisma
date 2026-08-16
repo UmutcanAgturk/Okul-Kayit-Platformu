@@ -211,6 +211,15 @@ model TeacherProfile {
 // tutulur ve PayrollRecord/AccountingLedgerEntry ile AYNI rol-kısıtlı RLS
 // politikasını taşır — maaş içerdiği için yalnızca SUPERADMIN/BRANCH_ADMIN/
 // ACCOUNTING görebilir (bkz. prisma/rls/README.md).
+// Aktif/İzinli hâlâ giriş yapabilir (User.isActive=true); Ayrıldı, Devre
+// Dışı Bırak (soft-delete) ile aynı anda User.isActive=false yapar — bkz.
+// app/api/branch/staff/[staffId] PATCH'teki status<->isActive senkronizasyonu.
+enum StaffStatus {
+  ACTIVE
+  ON_LEAVE
+  RESIGNED
+}
+
 model StaffProfile {
   id       String @id @default(cuid())
   tenantId String
@@ -222,7 +231,8 @@ model StaffProfile {
   title      String // örn. "Şube Müdürü", "Ön Büro Görevlisi", "Muhasebe Görevlisi", "Rehber Öğretmen"
   department String? // örn. "Rehberlik", "İdari İşler"
   startDate  DateTime
-  salary     Decimal  @db.Decimal(10, 2)
+  salary     Decimal     @db.Decimal(10, 2)
+  status     StaffStatus @default(ACTIVE)
 
   payrollRecords PayrollRecord[]
 

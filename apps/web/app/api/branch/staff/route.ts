@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
       phone: s.user.phone,
       role: s.user.role,
       isActive: s.user.isActive,
+      status: s.status,
       title: s.title,
       department: s.department,
       startDate: s.startDate,
@@ -68,6 +69,10 @@ export async function POST(request: NextRequest) {
   const startDate = typeof body.startDate === "string" && !isNaN(Date.parse(body.startDate)) ? new Date(body.startDate) : null;
   const salary = typeof body.salary === "number" && body.salary > 0 ? body.salary : null;
   const phone = typeof body.phone === "string" && body.phone.trim() ? body.phone.trim() : null;
+  const customEmail = typeof body.email === "string" && body.email.trim() ? body.email.trim() : null;
+  if (customEmail && !customEmail.includes("@")) {
+    return NextResponse.json({ message: "Geçerli bir e-posta girin" }, { status: 400 });
+  }
 
   if (!fullName || !role || !title || !startDate || !salary) {
     return NextResponse.json(
@@ -84,11 +89,14 @@ export async function POST(request: NextRequest) {
     outcome = await withBranchTenantContext(actor, async (tx) => {
       const tenant = await tx.tenant.findUniqueOrThrow({ where: { id: effectiveTenantId(actor) } });
 
-      let email = generateStaffEmail(fullName, tenant.code);
-      for (let attempt = 2; await tx.user.findUnique({ where: { email } }); attempt++) {
-        const [local, domain] = email.split("@");
-        email = `${local.replace(/\d+$/, "")}${attempt}@${domain}`;
-        if (attempt > 20) throw new Error("Benzersiz e-posta üretilemedi");
+      let email = customEmail;
+      if (!email) {
+        email = generateStaffEmail(fullName, tenant.code);
+        for (let attempt = 2; await tx.user.findUnique({ where: { email } }); attempt++) {
+          const [local, domain] = email.split("@");
+          email = `${local.replace(/\d+$/, "")}${attempt}@${domain}`;
+          if (attempt > 20) throw new Error("Benzersiz e-posta üretilemedi");
+        }
       }
 
       const tempPassword = generateTempPassword();
@@ -109,6 +117,10 @@ export async function POST(request: NextRequest) {
     });
   } catch (e) {
     if (e && typeof e === "object" && "code" in e && e.code === "P2002") {
+      const target = "meta" in e && e.meta && typeof e.meta === "object" && "target" in e.meta ? String(e.meta.target) : "";
+      if (target.includes("email")) {
+        return NextResponse.json({ message: "Bu e-posta zaten kayıtlı" }, { status: 409 });
+      }
       return NextResponse.json({ message: "Bu telefon numarası zaten kayıtlı" }, { status: 409 });
     }
     throw e;
@@ -123,6 +135,7 @@ export async function POST(request: NextRequest) {
         phone: outcome.staff.user.phone,
         role: outcome.staff.user.role,
         isActive: outcome.staff.user.isActive,
+        status: outcome.staff.status,
         title: outcome.staff.title,
         department: outcome.staff.department,
         startDate: outcome.staff.startDate,

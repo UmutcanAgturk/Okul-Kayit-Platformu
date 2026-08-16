@@ -5,7 +5,17 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
-import { createStaff, deactivateStaff, fetchStaff, staffKeys, StaffMember, StaffUserRole, updateStaffProfile } from "@/lib/api/staff";
+import {
+  createStaff,
+  deactivateStaff,
+  fetchStaff,
+  permanentlyDeleteStaff,
+  staffKeys,
+  StaffMember,
+  StaffStatus,
+  StaffUserRole,
+  updateStaffProfile,
+} from "@/lib/api/staff";
 import { fetchTeachers, teacherKeys } from "@/lib/api/teachers";
 import { Icon } from "@/components/ui/icons";
 
@@ -17,25 +27,41 @@ const ROLE_LABEL: Record<StaffUserRole, string> = {
   GUIDANCE_COORDINATOR: "Rehber Öğretmen",
 };
 
+const STATUS_LABEL: Record<StaffStatus, string> = {
+  ACTIVE: "Aktif",
+  ON_LEAVE: "İzinli",
+  RESIGNED: "Ayrıldı",
+};
+
 function tl(n: number) {
   return "₺" + Math.round(n).toLocaleString("tr-TR");
 }
 
 function StaffDetailPanel({ staff, onClose }: { staff: StaffMember; onClose: () => void }) {
   const queryClient = useQueryClient();
+  const [nameParts, ...restParts] = staff.name.split(" ");
+  const [firstName, setFirstName] = useState(nameParts);
+  const [lastName, setLastName] = useState(restParts.join(" "));
   const [title, setTitle] = useState(staff.title);
   const [department, setDepartment] = useState(staff.department ?? "");
   const [salary, setSalary] = useState(String(Number(staff.salary)));
   const [phone, setPhone] = useState(staff.phone ?? "");
+  const [startDate, setStartDate] = useState(staff.startDate.slice(0, 10));
+  const [status, setStatus] = useState<StaffStatus>(staff.status);
   const [error, setError] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const updateMutation = useMutation({
     mutationFn: () =>
       updateStaffProfile(staff.id, {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
         title: title.trim(),
         department: department.trim(),
         salary: Number(salary),
         phone: phone.trim(),
+        startDate,
+        status,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: staffKeys.list() });
@@ -45,8 +71,17 @@ function StaffDetailPanel({ staff, onClose }: { staff: StaffMember; onClose: () 
   });
 
   const reactivateMutation = useMutation({
-    mutationFn: () => updateStaffProfile(staff.id, { isActive: true }),
+    mutationFn: () => updateStaffProfile(staff.id, { status: "ACTIVE" }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: staffKeys.list() }),
+  });
+
+  const permanentDeleteMutation = useMutation({
+    mutationFn: () => permanentlyDeleteStaff(staff.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: staffKeys.list() });
+      onClose();
+    },
+    onError: (e) => setError(e instanceof ApiError ? e.message : "Kalıcı olarak silinemedi."),
   });
 
   return (
@@ -58,10 +93,17 @@ function StaffDetailPanel({ staff, onClose }: { staff: StaffMember; onClose: () 
         </button>
       </div>
       <p style={{ margin: "0 0 12px", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
-        {staff.email} · {ROLE_LABEL[staff.role]}
-        {!staff.isActive && " · Devre Dışı"}
+        {staff.email} · {ROLE_LABEL[staff.role]} · {STATUS_LABEL[staff.status]}
       </p>
       <div className="grid cols-2">
+        <div className="field">
+          <label>Ad</label>
+          <input value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+        </div>
+        <div className="field">
+          <label>Soyad</label>
+          <input value={lastName} onChange={(e) => setLastName(e.target.value)} />
+        </div>
         <div className="field">
           <label>Unvan</label>
           <input value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -78,9 +120,23 @@ function StaffDetailPanel({ staff, onClose }: { staff: StaffMember; onClose: () 
           <label>Telefon</label>
           <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="05XX XXX XX XX" />
         </div>
+        <div className="field">
+          <label>İşe Başlama Tarihi</label>
+          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+        </div>
+        <div className="field">
+          <label>Durum</label>
+          <select value={status} onChange={(e) => setStatus(e.target.value as StaffStatus)}>
+            {Object.entries(STATUS_LABEL).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
       {error && <p style={{ margin: "8px 0 0", fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--critical)" }}>{error}</p>}
-      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+      <div style={{ display: "flex", gap: 8, marginTop: 12, alignItems: "center", flexWrap: "wrap" }}>
         <button type="button" className="btn primary" disabled={updateMutation.isPending} onClick={() => updateMutation.mutate()}>
           {updateMutation.isPending ? "Kaydediliyor…" : "Kaydet"}
         </button>
@@ -88,6 +144,21 @@ function StaffDetailPanel({ staff, onClose }: { staff: StaffMember; onClose: () 
           <button type="button" className="btn" disabled={reactivateMutation.isPending} onClick={() => reactivateMutation.mutate()}>
             Yeniden Aktifleştir
           </button>
+        )}
+        {!confirmingDelete ? (
+          <button type="button" className="btn danger" style={{ marginLeft: "auto" }} onClick={() => setConfirmingDelete(true)}>
+            Kalıcı Olarak Sil
+          </button>
+        ) : (
+          <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, fontSize: "var(--text-xs)" }}>
+            Emin misiniz? Bordro geçmişi varsa silinemez.
+            <button type="button" className="btn danger xs" disabled={permanentDeleteMutation.isPending} onClick={() => permanentDeleteMutation.mutate()}>
+              Evet, Sil
+            </button>
+            <button type="button" className="btn xs" onClick={() => setConfirmingDelete(false)}>
+              Vazgeç
+            </button>
+          </span>
         )}
       </div>
     </div>
@@ -127,6 +198,7 @@ export function PersonelDashboard() {
   const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [salary, setSalary] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [credentials, setCredentials] = useState<{ username: string; password: string } | null>(null);
   const [search, setSearch] = useState("");
@@ -142,6 +214,7 @@ export function PersonelDashboard() {
       setDepartment("");
       setSalary("");
       setPhone("");
+      setEmail("");
       setFormError(null);
       setCredentials(data.credentials);
     },
@@ -168,6 +241,7 @@ export function PersonelDashboard() {
       startDate,
       salary: salaryNum,
       phone: phone.trim() || undefined,
+      email: email.trim() || undefined,
     });
   }
 
@@ -283,6 +357,10 @@ export function PersonelDashboard() {
                   <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="05XX XXX XX XX" />
                 </div>
               </div>
+              <div className="field">
+                <label>E-posta (opsiyonel — boş bırakılırsa otomatik oluşturulur)</label>
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="ad.soyad@sube.seviye360.com" />
+              </div>
 
               {formError && <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--critical)" }}>{formError}</p>}
 
@@ -362,7 +440,7 @@ export function PersonelDashboard() {
                 <div>
                   <div style={{ fontSize: "var(--text-base)", fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
                     {s.name}
-                    {!s.isActive && <span className="chip neutral">Devre Dışı</span>}
+                    {s.status !== "ACTIVE" && <span className="chip neutral">{STATUS_LABEL[s.status]}</span>}
                   </div>
                   <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
                     {s.title} · {ROLE_LABEL[s.role]}
