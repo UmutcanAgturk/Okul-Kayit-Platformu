@@ -173,6 +173,64 @@ async function main() {
   });
   check("POST results: olmayan sınav için 404", notFoundRes.status === 404, notFoundRes.status);
 
+  // ===== Durum/Kazanım sekmeleri — task #64 =====
+  const activeStudentCount = await prisma.studentProfile.count({ where: { user: { isActive: true, tenantId: elif.tenantId } } });
+  const expectedParticipationPct = activeStudentCount > 0 ? Math.round((1 / activeStudentCount) * 100) : null;
+  check(
+    "GET exams: yeni sınavın participationPct'i (1 sonuç / aktif öğrenci sayısı) ile eşleşiyor",
+    listedExam2?.participationPct === expectedParticipationPct,
+    { got: listedExam2?.participationPct, expected: expectedParticipationPct, activeStudentCount },
+  );
+  check(
+    "GET exams: correctCount/wrongCount/emptyCount/correctRatePct alanları mevcut (0 doğru, 2 yanlış → %0 doğru oranı)",
+    listedExam2?.correctCount === 0 && listedExam2?.wrongCount === 2 && listedExam2?.correctRatePct === 0,
+    listedExam2,
+  );
+
+  const summaryRes2 = await fetch(`${BASE}/api/branch/exams/achievement-summary`, { headers: { Cookie: branchCookie } });
+  const summaryBody2 = await summaryRes2.json();
+  check(
+    "GET achievement-summary: distribution (critical/weak/strong) alanları mevcut",
+    typeof summaryBody2.distribution?.critical === "number" &&
+      typeof summaryBody2.distribution?.weak === "number" &&
+      typeof summaryBody2.distribution?.strong === "number",
+    summaryBody2.distribution,
+  );
+  check(
+    "GET achievement-summary: bySubject dizisi mevcut ve her satır avgMasteryPct/achievementCount/distribution içeriyor",
+    Array.isArray(summaryBody2.bySubject) &&
+      summaryBody2.bySubject.length > 0 &&
+      typeof summaryBody2.bySubject[0].avgMasteryPct === "number" &&
+      typeof summaryBody2.bySubject[0].achievementCount === "number" &&
+      typeof summaryBody2.bySubject[0].distribution?.critical === "number",
+    summaryBody2.bySubject?.[0],
+  );
+  // resubmitRes her iki kazanımı da correctRatio=0 (CRITICAL) yaptı — genel dağılımda en az 2 kritik olmalı.
+  check("GET achievement-summary: distribution.critical en az 2 (testin ürettiği 2 kritik kayıt)", summaryBody2.distribution?.critical >= 2, summaryBody2.distribution);
+
+  const atRiskAllRes = await fetch(`${BASE}/api/branch/exams/at-risk-students`, { headers: { Cookie: branchCookie } });
+  const atRiskAllBody = await atRiskAllRes.json();
+  const elifAtRisk = atRiskAllBody.students?.find((s) => s.studentId === elif.id);
+  check(
+    "GET at-risk-students (filtresiz): Elif kritik kazanımlarıyla (ach1, ach2) listede",
+    elifAtRisk?.criticalAchievements?.some((a) => a.achievementId === ach1.id) && elifAtRisk?.criticalAchievements?.some((a) => a.achievementId === ach2.id),
+    elifAtRisk,
+  );
+
+  const atRiskFilteredRes = await fetch(`${BASE}/api/branch/exams/at-risk-students?achievementId=${ach1.id}`, { headers: { Cookie: branchCookie } });
+  const atRiskFilteredBody = await atRiskFilteredRes.json();
+  const elifAtRiskFiltered = atRiskFilteredBody.students?.find((s) => s.studentId === elif.id);
+  check(
+    "GET at-risk-students?achievementId=ach1: Elif listede, yalnızca ach1 kritik kazanımı gösteriliyor",
+    elifAtRiskFiltered?.criticalAchievements?.length === 1 && elifAtRiskFiltered?.criticalAchievements?.[0]?.achievementId === ach1.id,
+    elifAtRiskFiltered,
+  );
+
+  const noSessionAtRisk = await fetch(`${BASE}/api/branch/exams/at-risk-students`);
+  check("GET at-risk-students: oturumsuz 401", noSessionAtRisk.status === 401, noSessionAtRisk.status);
+  const teacherAtRisk = await fetch(`${BASE}/api/branch/exams/at-risk-students`, { headers: { Cookie: teacherCookie } });
+  check("Yetki: TEACHER at-risk-students'ı görüntüleyebilir (200)", teacherAtRisk.status === 200, teacherAtRisk.status);
+
   // ===== Temizlik =====
   await prisma.studentAchievementResult.deleteMany({ where: { examResultId: dbResult2.id } });
   await prisma.examResult.delete({ where: { id: dbResult2.id } });

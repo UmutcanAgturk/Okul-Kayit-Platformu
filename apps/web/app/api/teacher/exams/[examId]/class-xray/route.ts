@@ -2,11 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
 import { withTenantContext } from "@/lib/db-context";
-import { subjectFromCode } from "@/lib/curriculum";
+import { ratioToMastery, subjectFromCode } from "@/lib/curriculum";
 import type {
   AchievementColumn,
   ClassXRayResponse,
-  MasteryLevel,
   StudentRow,
 } from "@/types/xray";
 
@@ -19,12 +18,6 @@ import type {
  * mikroservisinin (IRT motoru) önünde ince bir proxy/agregasyon katmanı
  * olurdu; burada doğrudan Prisma ile hesaplanıyor.
  */
-
-function ratioToMastery(ratio: number): MasteryLevel {
-  if (ratio < 0.4) return "CRITICAL";
-  if (ratio < 0.7) return "WEAK";
-  return "STRONG";
-}
 
 export async function GET(
   request: NextRequest,

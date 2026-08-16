@@ -8,6 +8,11 @@ export interface BranchExam {
   questionCount: number;
   resultCount: number;
   avgNet: number | null;
+  participationPct: number | null;
+  correctCount: number;
+  wrongCount: number;
+  emptyCount: number;
+  correctRatePct: number | null;
 }
 
 export function fetchBranchExams() {
@@ -65,8 +70,36 @@ export interface AchievementSummaryRow {
   count: number;
 }
 
+export interface MasteryDistribution {
+  critical: number;
+  weak: number;
+  strong: number;
+}
+
+export interface SubjectMasterySummary {
+  subject: string;
+  avgMasteryPct: number;
+  achievementCount: number;
+  distribution: MasteryDistribution;
+}
+
 export function fetchAchievementSummary() {
-  return apiFetch<{ achievements: AchievementSummaryRow[] }>("/api/branch/exams/achievement-summary", { cache: "no-store" });
+  return apiFetch<{ achievements: AchievementSummaryRow[]; distribution: MasteryDistribution; bySubject: SubjectMasterySummary[] }>(
+    "/api/branch/exams/achievement-summary",
+    { cache: "no-store" },
+  );
+}
+
+export interface AtRiskStudentRow {
+  studentId: string;
+  name: string;
+  classroomName: string | null;
+  criticalAchievements: { achievementId: string; code: string; label: string }[];
+}
+
+export function fetchAtRiskStudents(achievementId?: string) {
+  const qs = achievementId ? `?achievementId=${encodeURIComponent(achievementId)}` : "";
+  return apiFetch<{ students: AtRiskStudentRow[] }>(`/api/branch/exams/at-risk-students${qs}`, { cache: "no-store" });
 }
 
 export interface CurriculumAchievement {
@@ -119,4 +152,5 @@ export const examKeys = {
   roster: (examId: string, classroomId: string) => ["branch-exams", "roster", examId, classroomId] as const,
   achievementSummary: () => ["branch-exams", "achievement-summary"] as const,
   curriculum: () => ["curriculum", "achievements"] as const,
+  atRiskStudents: (achievementId?: string) => ["branch-exams", "at-risk-students", achievementId ?? "ALL"] as const,
 };

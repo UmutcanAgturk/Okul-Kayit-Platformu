@@ -2,7 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { ExamScope, UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
 import { withBranchTenantContext } from "@/lib/db-context";
-import { subjectFromCode } from "@/lib/curriculum";
+import { ratioToMastery, subjectFromCode } from "@/lib/curriculum";
+
+function emptyTierCounts() {
+  return { critical: 0, weak: 0, strong: 0 };
+}
+function addTier(counts: { critical: number; weak: number; strong: number }, ratio: number) {
+  const tier = ratioToMastery(ratio);
+  if (tier === "CRITICAL") counts.critical += 1;
+  else if (tier === "WEAK") counts.weak += 1;
+  else counts.strong += 1;
+}
 
 /**
  * Ölçme-Değerlendirme — Kazanım Analizi. demo'daki renderKazanimTab'ın
@@ -28,13 +38,28 @@ export async function GET(request: NextRequest) {
     });
 
     const byAchievement = new Map<string, { code: string; label: string; ratios: number[] }>();
+    const overallDistribution = emptyTierCounts();
+    const bySubjectRatios = new Map<string, number[]>();
+    const bySubjectDistribution = new Map<string, ReturnType<typeof emptyTierCounts>>();
+    const bySubjectAchievementIds = new Map<string, Set<string>>();
+
     for (const r of results) {
       const bucket = byAchievement.get(r.achievementId) ?? { code: r.achievement.code, label: r.achievement.label, ratios: [] };
       bucket.ratios.push(r.correctRatio);
       byAchievement.set(r.achievementId, bucket);
+
+      addTier(overallDistribution, r.correctRatio);
+
+      const subject = subjectFromCode(r.achievement.code);
+      if (!bySubjectRatios.has(subject)) bySubjectRatios.set(subject, []);
+      bySubjectRatios.get(subject)!.push(r.correctRatio);
+      if (!bySubjectDistribution.has(subject)) bySubjectDistribution.set(subject, emptyTierCounts());
+      addTier(bySubjectDistribution.get(subject)!, r.correctRatio);
+      if (!bySubjectAchievementIds.has(subject)) bySubjectAchievementIds.set(subject, new Set());
+      bySubjectAchievementIds.get(subject)!.add(r.achievementId);
     }
 
-    return [...byAchievement.entries()]
+    const achievements = [...byAchievement.entries()]
       .map(([achievementId, v]) => ({
         achievementId,
         code: v.code,
@@ -44,7 +69,18 @@ export async function GET(request: NextRequest) {
         count: v.ratios.length,
       }))
       .sort((a, b) => a.avgMasteryPct - b.avgMasteryPct);
+
+    const bySubject = [...bySubjectRatios.entries()]
+      .map(([subject, ratios]) => ({
+        subject,
+        avgMasteryPct: Math.round((ratios.reduce((a, b) => a + b, 0) / ratios.length) * 100),
+        achievementCount: bySubjectAchievementIds.get(subject)!.size,
+        distribution: bySubjectDistribution.get(subject)!,
+      }))
+      .sort((a, b) => a.avgMasteryPct - b.avgMasteryPct);
+
+    return { achievements, distribution: overallDistribution, bySubject };
   });
 
-  return NextResponse.json({ achievements: summary });
+  return NextResponse.json(summary);
 }

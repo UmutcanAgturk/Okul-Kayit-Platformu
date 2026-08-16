@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { authKeys, fetchMe } from "@/lib/api/auth";
@@ -11,6 +11,7 @@ import {
   createBranchExam,
   examKeys,
   fetchAchievementSummary,
+  fetchAtRiskStudents,
   fetchBranchExamDetail,
   fetchBranchExams,
   fetchCurriculumAchievements,
@@ -20,6 +21,7 @@ import {
 import { Icon } from "@/components/ui/icons";
 import { LineChart } from "@/components/ui/charts/LineChart";
 import { HBarChart } from "@/components/ui/charts/HBarChart";
+import { CompositionBar } from "@/components/ui/charts/CompositionBar";
 import { KazanimYuklemeTab } from "./KazanimYuklemeTab";
 
 const VIEW_ROLES = ["BRANCH_ADMIN", "GUIDANCE_COORDINATOR", "TEACHER"];
@@ -120,30 +122,105 @@ export function OlcmeDegerlendirmeView() {
 
 function DurumTab() {
   const examsQuery = useQuery({ queryKey: examKeys.list(), queryFn: fetchBranchExams });
+  const achievementQuery = useQuery({ queryKey: examKeys.achievementSummary(), queryFn: fetchAchievementSummary });
   const exams = examsQuery.data?.exams ?? [];
+  const bySubject = achievementQuery.data?.bySubject ?? [];
   const withResults = exams.filter((e) => e.avgNet !== null);
   const trendPoints = [...withResults].reverse().map((e) => ({ label: e.name, value: e.avgNet! }));
+  const withParticipation = exams.filter((e) => e.participationPct !== null);
+  const participationTrendPoints = [...withParticipation].reverse().map((e) => ({ label: e.name, value: e.participationPct! }));
+
+  const lastExam = exams[0];
+  const kapsamOrtalamaNet =
+    withResults.length > 0 ? Number((withResults.reduce((s, e) => s + (e.avgNet ?? 0), 0) / withResults.length).toFixed(1)) : null;
+  const last5Participation = withParticipation.slice(0, 5);
+  const ortalamaKatilim =
+    last5Participation.length > 0
+      ? Math.round(last5Participation.reduce((s, e) => s + (e.participationPct ?? 0), 0) / last5Participation.length)
+      : null;
+
+  const totalCorrect = exams.reduce((s, e) => s + e.correctCount, 0);
+  const totalWrong = exams.reduce((s, e) => s + e.wrongCount, 0);
+  const totalEmpty = exams.reduce((s, e) => s + e.emptyCount, 0);
 
   if (examsQuery.isLoading) return <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <div className="card card-pad">
-        <div className="card-head">
-          <h3>Net Ortalama Trendi</h3>
+      <div className="grid cols-4">
+        <div className="card card-pad" style={{ textAlign: "center" }}>
+          <div style={{ fontSize: "var(--text-2xs)", color: "var(--ink-faint)" }}>Son Sınav Katılımı</div>
+          <div style={{ fontSize: "var(--text-lg)", fontWeight: 700 }}>{lastExam?.participationPct === null || lastExam?.participationPct === undefined ? "—" : `%${lastExam.participationPct}`}</div>
         </div>
-        {trendPoints.length >= 2 ? (
-          <LineChart points={trendPoints} color="var(--strong)" height={150} unit=" net" />
-        ) : (
-          <p style={{ color: "var(--ink-faint)", fontSize: "var(--text-sm)" }}>
-            Trend çizilebilmesi için en az 2 sınavda sonuç girilmiş olmalı — Sınav Uygulaması oluşturup Sonuç Girişi&apos;nden veri girin.
-          </p>
-        )}
+        <div className="card card-pad" style={{ textAlign: "center" }}>
+          <div style={{ fontSize: "var(--text-2xs)", color: "var(--ink-faint)" }}>Kapsam Ortalama Net</div>
+          <div style={{ fontSize: "var(--text-lg)", fontWeight: 700 }}>{kapsamOrtalamaNet ?? "—"}</div>
+        </div>
+        <div className="card card-pad" style={{ textAlign: "center" }}>
+          <div style={{ fontSize: "var(--text-2xs)", color: "var(--ink-faint)" }}>Ortalama Katılım (Son 5 Sınav)</div>
+          <div style={{ fontSize: "var(--text-lg)", fontWeight: 700 }}>{ortalamaKatilim === null ? "—" : `%${ortalamaKatilim}`}</div>
+        </div>
+        <div className="card card-pad" style={{ textAlign: "center" }}>
+          <div style={{ fontSize: "var(--text-2xs)", color: "var(--ink-faint)" }}>Sınava Giren Öğrenci</div>
+          <div style={{ fontSize: "var(--text-lg)", fontWeight: 700 }}>{lastExam?.resultCount ?? 0}</div>
+        </div>
+      </div>
+
+      <div className="grid cols-2">
+        <div className="card card-pad">
+          <div className="card-head">
+            <h3>Net Ortalama Trendi</h3>
+          </div>
+          {trendPoints.length >= 2 ? (
+            <LineChart points={trendPoints} color="var(--strong)" height={150} unit=" net" />
+          ) : (
+            <p style={{ color: "var(--ink-faint)", fontSize: "var(--text-sm)" }}>
+              Trend çizilebilmesi için en az 2 sınavda sonuç girilmiş olmalı — Sınav Uygulaması oluşturup Sonuç Girişi&apos;nden veri girin.
+            </p>
+          )}
+        </div>
+        <div className="card card-pad">
+          <div className="card-head">
+            <h3>Katılım Trendi</h3>
+          </div>
+          {participationTrendPoints.length >= 2 ? (
+            <LineChart points={participationTrendPoints} color="var(--accent)" height={150} unit="%" />
+          ) : (
+            <p style={{ color: "var(--ink-faint)", fontSize: "var(--text-sm)" }}>Trend çizilebilmesi için en az 2 sınavda sonuç girilmiş olmalı.</p>
+          )}
+        </div>
+      </div>
+
+      <div className="grid cols-2">
+        <div className="card card-pad">
+          <div className="card-head">
+            <h3>Kazanım Başarı Dağılımı</h3>
+          </div>
+          <CompositionBar
+            segments={[
+              { label: "Kazanılmış", value: achievementQuery.data?.distribution.strong ?? 0, color: "var(--strong)" },
+              { label: "Geliştirilmeli", value: achievementQuery.data?.distribution.weak ?? 0, color: "var(--weak)" },
+              { label: "Kritik Eksik", value: achievementQuery.data?.distribution.critical ?? 0, color: "var(--critical)" },
+            ]}
+          />
+        </div>
+        <div className="card card-pad">
+          <div className="card-head">
+            <h3>Doğru / Yanlış / Boş Dağılımı</h3>
+          </div>
+          <CompositionBar
+            segments={[
+              { label: "Doğru", value: totalCorrect, color: "var(--strong)" },
+              { label: "Yanlış", value: totalWrong, color: "var(--critical)" },
+              { label: "Boş", value: totalEmpty, color: "var(--ink-faint)" },
+            ]}
+          />
+        </div>
       </div>
 
       <div className="card card-pad">
         <div className="card-head">
-          <h3>Tanımlı Sınavlar ({exams.length})</h3>
+          <h3>Sınav Genel Durumları ({exams.length})</h3>
         </div>
         {exams.length === 0 ? (
           <div className="empty-state">
@@ -157,9 +234,9 @@ function DurumTab() {
                 <tr>
                   <th>Sınav</th>
                   <th>Tarih</th>
-                  <th>Soru</th>
-                  <th>Sonuç Girilen</th>
-                  <th>Net Ortalama</th>
+                  <th>Katılım</th>
+                  <th>Ort. Net</th>
+                  <th>Doğru Oranı</th>
                 </tr>
               </thead>
               <tbody>
@@ -167,9 +244,17 @@ function DurumTab() {
                   <tr key={e.id}>
                     <td style={{ fontWeight: 600 }}>{e.name}</td>
                     <td>{new Date(e.examDate).toLocaleDateString("tr-TR")}</td>
-                    <td>{e.questionCount}</td>
-                    <td>{e.resultCount}</td>
+                    <td>
+                      {e.participationPct === null ? (
+                        "—"
+                      ) : (
+                        <span className={`chip ${e.participationPct >= 80 ? "strong" : e.participationPct >= 50 ? "weak" : "critical"}`}>
+                          %{e.participationPct}
+                        </span>
+                      )}
+                    </td>
                     <td>{e.avgNet ?? "—"}</td>
+                    <td>{e.correctRatePct === null ? "—" : `%${e.correctRatePct}`}</td>
                   </tr>
                 ))}
               </tbody>
@@ -177,35 +262,203 @@ function DurumTab() {
           </div>
         )}
       </div>
+
+      <div className="card card-pad">
+        <div className="card-head">
+          <h3>Ders Bazlı Ortalama Başarı</h3>
+        </div>
+        {bySubject.length === 0 ? (
+          <p style={{ color: "var(--ink-faint)", fontSize: "var(--text-sm)" }}>Henüz kazanım verisi yok.</p>
+        ) : (
+          <HBarChart
+            max={100}
+            unit="%"
+            rows={bySubject.map((s) => ({
+              label: s.subject,
+              sub: `${s.achievementCount} kazanım`,
+              value: s.avgMasteryPct,
+              tone: s.avgMasteryPct >= 70 ? "strong" : s.avgMasteryPct >= 40 ? "weak" : "critical",
+            }))}
+          />
+        )}
+      </div>
     </div>
   );
 }
 
 function KazanimTab() {
-  const query = useQuery({ queryKey: examKeys.achievementSummary(), queryFn: fetchAchievementSummary });
-  const rows = query.data?.achievements ?? [];
+  const achievementQuery = useQuery({ queryKey: examKeys.achievementSummary(), queryFn: fetchAchievementSummary });
+  const curriculumQuery = useQuery({ queryKey: examKeys.curriculum(), queryFn: fetchCurriculumAchievements });
+  const [riskFilter, setRiskFilter] = useState("");
+  const atRiskQuery = useQuery({
+    queryKey: examKeys.atRiskStudents(riskFilter || undefined),
+    queryFn: () => fetchAtRiskStudents(riskFilter || undefined),
+  });
 
-  if (query.isLoading) return <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>;
+  const rows = achievementQuery.data?.achievements ?? [];
+  const bySubject = achievementQuery.data?.bySubject ?? [];
+  const curriculum = curriculumQuery.data?.achievements ?? [];
+  const atRiskStudents = atRiskQuery.data?.students ?? [];
+  const weakest14 = rows.slice(0, 14);
+
+  const coverage = useMemo(() => {
+    const totalBySubject = new Map<string, number>();
+    for (const a of curriculum) totalBySubject.set(a.subject, (totalBySubject.get(a.subject) ?? 0) + 1);
+    const testedBySubject = new Map<string, number>();
+    for (const r of rows) testedBySubject.set(r.subject, (testedBySubject.get(r.subject) ?? 0) + 1);
+    return [...totalBySubject.entries()]
+      .map(([subject, total]) => {
+        const tested = testedBySubject.get(subject) ?? 0;
+        return { subject, total, tested, coveragePct: total > 0 ? Math.round((tested / total) * 100) : 0 };
+      })
+      .sort((a, b) => a.coveragePct - b.coveragePct);
+  }, [curriculum, rows]);
+
+  if (achievementQuery.isLoading) return <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>;
 
   return (
-    <div className="card card-pad">
-      <div className="card-head">
-        <h3>Kazanım Bazlı Ortalama Başarı</h3>
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div className="grid cols-2">
+        <div className="card card-pad">
+          <div className="card-head">
+            <h3>Kazanım Bazlı Ortalama Başarı</h3>
+            <span className="hint">En zayıf 14 kazanım</span>
+          </div>
+          {weakest14.length === 0 ? (
+            <p style={{ color: "var(--ink-faint)", fontSize: "var(--text-sm)" }}>
+              Henüz kazanım verisi yok — Sonuç Girişi&apos;nden ilk sonucu girdiğinizde burada görünecek.
+            </p>
+          ) : (
+            <HBarChart
+              max={100}
+              unit="%"
+              rows={weakest14.map((r) => ({
+                label: `${r.code} — ${r.label}`,
+                sub: `${r.subject} · ${r.count} sonuç`,
+                value: r.avgMasteryPct,
+                tone: r.avgMasteryPct >= 70 ? "strong" : r.avgMasteryPct >= 40 ? "weak" : "critical",
+              }))}
+            />
+          )}
+        </div>
+        <div className="card card-pad">
+          <div className="card-head">
+            <h3>Ders Bazlı Ortalama Başarı</h3>
+          </div>
+          {bySubject.length === 0 ? (
+            <p style={{ color: "var(--ink-faint)", fontSize: "var(--text-sm)" }}>Henüz kazanım verisi yok.</p>
+          ) : (
+            <HBarChart
+              max={100}
+              unit="%"
+              rows={bySubject.map((s) => ({
+                label: s.subject,
+                value: s.avgMasteryPct,
+                tone: s.avgMasteryPct >= 70 ? "strong" : s.avgMasteryPct >= 40 ? "weak" : "critical",
+              }))}
+            />
+          )}
+        </div>
       </div>
-      {rows.length === 0 ? (
-        <p style={{ color: "var(--ink-faint)", fontSize: "var(--text-sm)" }}>Henüz kazanım verisi yok — Sonuç Girişi&apos;nden ilk sonucu girdiğinizde burada görünecek.</p>
-      ) : (
-        <HBarChart
-          max={100}
-          unit="%"
-          rows={rows.map((r) => ({
-            label: `${r.code} — ${r.label}`,
-            sub: `${r.subject} · ${r.count} sonuç`,
-            value: r.avgMasteryPct,
-            tone: r.avgMasteryPct >= 70 ? "strong" : r.avgMasteryPct >= 40 ? "weak" : "critical",
-          }))}
-        />
-      )}
+
+      <div className="card card-pad">
+        <div className="card-head">
+          <h3>Ders Bazlı Kazanım Ustalık Dağılımı</h3>
+        </div>
+        {bySubject.length === 0 ? (
+          <p style={{ color: "var(--ink-faint)", fontSize: "var(--text-sm)" }}>Henüz kazanım verisi yok.</p>
+        ) : (
+          <div className="grid cols-2" style={{ rowGap: 16 }}>
+            {bySubject.map((s) => (
+              <div key={s.subject}>
+                <div style={{ fontSize: "var(--text-xs)", fontWeight: 600, marginBottom: 6 }}>{s.subject}</div>
+                <CompositionBar
+                  segments={[
+                    { label: "Kazanılmış", value: s.distribution.strong, color: "var(--strong)" },
+                    { label: "Geliştirilmeli", value: s.distribution.weak, color: "var(--weak)" },
+                    { label: "Kritik Eksik", value: s.distribution.critical, color: "var(--critical)" },
+                  ]}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="card card-pad">
+        <div className="card-head">
+          <h3>Müfredat Kapsama Oranı</h3>
+          <span className="hint">Test edilmiş / tanımlı kazanım</span>
+        </div>
+        {coverage.length === 0 ? (
+          <p style={{ color: "var(--ink-faint)", fontSize: "var(--text-sm)" }}>Henüz müfredat kazanımı tanımlı değil.</p>
+        ) : (
+          <HBarChart
+            max={100}
+            unit="%"
+            rows={coverage.map((c) => ({
+              label: c.subject,
+              sub: `${c.tested}/${c.total} kazanım test edildi`,
+              value: c.coveragePct,
+              tone: c.coveragePct >= 70 ? "strong" : c.coveragePct >= 40 ? "weak" : "critical",
+            }))}
+          />
+        )}
+      </div>
+
+      <div className="card card-pad">
+        <div className="card-head">
+          <h3>Desteğe İhtiyaç Duyan Öğrenciler</h3>
+        </div>
+        <div className="field" style={{ maxWidth: 340, marginBottom: 12 }}>
+          <label>Kazanıma Göre Filtrele</label>
+          <select value={riskFilter} onChange={(e) => setRiskFilter(e.target.value)}>
+            <option value="">— Tüm kritik kazanımlar —</option>
+            {rows.map((r) => (
+              <option key={r.achievementId} value={r.achievementId}>
+                {r.code} — {r.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        {atRiskQuery.isLoading ? (
+          <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>
+        ) : atRiskStudents.length === 0 ? (
+          <div className="empty-state">
+            <Icon name="check" />
+            <p>Kritik seviyede kazanımı olan öğrenci yok.</p>
+          </div>
+        ) : (
+          <div className="table-wrap">
+            <table className="data">
+              <thead>
+                <tr>
+                  <th>Öğrenci</th>
+                  <th>Sınıf</th>
+                  <th>Kritik Kazanımlar</th>
+                </tr>
+              </thead>
+              <tbody>
+                {atRiskStudents.map((s) => (
+                  <tr key={s.studentId}>
+                    <td style={{ fontWeight: 600 }}>{s.name}</td>
+                    <td>{s.classroomName ?? "—"}</td>
+                    <td>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                        {s.criticalAchievements.map((a) => (
+                          <span key={a.achievementId} className="chip critical" title={a.label}>
+                            {a.code}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

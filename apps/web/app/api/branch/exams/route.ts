@@ -28,20 +28,40 @@ export async function GET(request: NextRequest) {
   }
 
   const exams = await withBranchTenantContext(actor, async (tx) => {
+    // Katılım oranı (%) — demo'daki gibi "beklenen" payda şubedeki TÜM
+    // aktif öğrenci sayısıdır (Exam.scope=BRANCH sınavlarında sınıf/şube
+    // kısıtı yok — yalnızca NETWORK kapsamlı sınavlarda eligibleGradeLevels
+    // kullanılıyor, bkz. schema.prisma Exam modelindeki not).
+    const activeStudentCount = await tx.studentProfile.count({ where: { user: { isActive: true } } });
+
     const rows = await tx.exam.findMany({
       where: { scope: ExamScope.BRANCH },
       orderBy: { examDate: "desc" },
-      include: { _count: { select: { questions: true, results: true } }, results: { select: { netScore: true } } },
+      include: {
+        _count: { select: { questions: true, results: true } },
+        results: { select: { netScore: true, correctCount: true, wrongCount: true, emptyCount: true } },
+      },
     });
-    return rows.map((e) => ({
-      id: e.id,
-      name: e.name,
-      type: e.type,
-      examDate: e.examDate.toISOString().slice(0, 10),
-      questionCount: e._count.questions,
-      resultCount: e._count.results,
-      avgNet: e.results.length > 0 ? Number((e.results.reduce((s, r) => s + r.netScore, 0) / e.results.length).toFixed(1)) : null,
-    }));
+    return rows.map((e) => {
+      const totalCorrect = e.results.reduce((s, r) => s + r.correctCount, 0);
+      const totalWrong = e.results.reduce((s, r) => s + r.wrongCount, 0);
+      const totalEmpty = e.results.reduce((s, r) => s + r.emptyCount, 0);
+      const totalAnswers = totalCorrect + totalWrong + totalEmpty;
+      return {
+        id: e.id,
+        name: e.name,
+        type: e.type,
+        examDate: e.examDate.toISOString().slice(0, 10),
+        questionCount: e._count.questions,
+        resultCount: e._count.results,
+        avgNet: e.results.length > 0 ? Number((e.results.reduce((s, r) => s + r.netScore, 0) / e.results.length).toFixed(1)) : null,
+        participationPct: activeStudentCount > 0 ? Math.round((e._count.results / activeStudentCount) * 100) : null,
+        correctCount: totalCorrect,
+        wrongCount: totalWrong,
+        emptyCount: totalEmpty,
+        correctRatePct: totalAnswers > 0 ? Math.round((totalCorrect / totalAnswers) * 100) : null,
+      };
+    });
   });
 
   return NextResponse.json({ exams });
