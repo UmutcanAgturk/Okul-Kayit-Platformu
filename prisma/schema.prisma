@@ -274,6 +274,13 @@ model StudentProfile {
   targetGoal String? // örn. "Tıp Fakültesi"
   studentNo  String  @unique
 
+  // Normal Kayıt tamamlama formu (demo'daki nk-tc/nk-dogum/nk-cinsiyet
+  // alanları, bkz. app/api/branch/enrollments/[enrollmentId]/complete) —
+  // hepsi opsiyonel, kayıt tamamlanırken girilmezse boş kalır.
+  nationalId String?   @unique // T.C. Kimlik No, 11 hane
+  birthDate  DateTime?
+  gender     String? // demo ile birebir: "Kadın" | "Erkek"
+
   guardians          StudentGuardian[]
   examResults        ExamResult[]
   achievementRows    StudentAchievementResult[]

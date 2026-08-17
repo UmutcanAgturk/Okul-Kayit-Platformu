@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { UserRole } from "@prisma/client";
+import { PaymentMethodType, UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
 import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { hashPassword } from "@/lib/auth";
 import { generateStudentEmail, generateStudentNo, generateTempPassword } from "@/lib/enrollment";
 import { actorLabel, logActivity } from "@/lib/audit-log";
+import { formatDocumentNo } from "@/lib/documents";
+
+const GENDER_OPTIONS = ["Kadın", "Erkek"];
+const PAYMENT_METHOD_OPTIONS = [...Object.values(PaymentMethodType), "SENET"] as const;
 
 /**
  * Bir kayıt adayını (ON_KAYIT ile ön kaydı alınmış ya da doğrudan NORMAL_KAYIT
@@ -25,6 +29,18 @@ import { actorLabel, logActivity } from "@/lib/audit-log";
  * Şifre yalnızca bu yanıtta düz metin olarak döner — hiçbir yerde saklanmaz,
  * yalnızca bcrypt hash'i User.passwordHash'e yazılır. Bu yüzden çağıran
  * taraf (şube yöneticisi/rehberlik) bunu HEMEN veliye iletmelidir.
+ *
+ * Demo'daki nk-* form alanlarının geri kalanı (bkz. seviye360-app.html
+ * "Normal Kayıt" formu) — hepsi OPSİYONEL (geriye dönük uyumluluk için;
+ * mevcut çağıranlar bunları göndermeden çalışmaya devam eder):
+ *   - nationalId/birthDate/gender: StudentProfile'a doğrudan yazılır.
+ *   - busRouteId: StudentProfile.busRouteId (Servis/Ulaşım Takibi).
+ *   - contractAccepted: true ise Enrollment.contractSignedAt = şimdi.
+ *   - paymentMethodType: KREDI_KARTI/BANKA_HAVALESI/NAKIT ise tek bir
+ *     PaymentMethod satırı (isDefault:true) oluşturulur; SENET ise demo'daki
+ *     generateSenetsForStudent() ile birebir aynı şekilde HER taksit için bir
+ *     PromissoryNote üretilir (bkz. app/api/branch/promissory-notes'daki
+ *     numaralandırma deseni).
  */
 const ROLES_ALLOWED: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.GUIDANCE_COORDINATOR];
 
@@ -49,6 +65,19 @@ export async function POST(request: NextRequest, { params }: { params: { enrollm
     );
   }
 
+  const nationalId = typeof body.nationalId === "string" && body.nationalId.trim() ? body.nationalId.trim() : null;
+  if (nationalId && !/^\d{11}$/.test(nationalId)) {
+    return NextResponse.json({ message: "nationalId 11 haneli olmalıdır" }, { status: 400 });
+  }
+  const birthDate = typeof body.birthDate === "string" && body.birthDate.trim() && !isNaN(Date.parse(body.birthDate)) ? new Date(body.birthDate) : null;
+  const gender = typeof body.gender === "string" && GENDER_OPTIONS.includes(body.gender) ? body.gender : null;
+  const busRouteId = typeof body.busRouteId === "string" && body.busRouteId ? body.busRouteId : null;
+  const contractAccepted = body.contractAccepted === true;
+  const paymentMethodType =
+    typeof body.paymentMethodType === "string" && (PAYMENT_METHOD_OPTIONS as readonly string[]).includes(body.paymentMethodType)
+      ? (body.paymentMethodType as (typeof PAYMENT_METHOD_OPTIONS)[number])
+      : null;
+
   const outcome = await withBranchTenantContext(actor, async (tx) => {
     const enrollment = await tx.enrollment.findUnique({ where: { id: params.enrollmentId } });
     if (!enrollment || enrollment.tenantId !== effectiveTenantId(actor)) {
@@ -56,6 +85,16 @@ export async function POST(request: NextRequest, { params }: { params: { enrollm
     }
     if (enrollment.stage === "KAYIT_TAMAMLANDI" || enrollment.stage === "IPTAL_EDILDI") {
       return { kind: "already_final" as const, stage: enrollment.stage };
+    }
+
+    if (nationalId && (await tx.studentProfile.findUnique({ where: { nationalId } }))) {
+      return { kind: "national_id_taken" as const };
+    }
+    if (busRouteId) {
+      const route = await tx.busRoute.findUnique({ where: { id: busRouteId } });
+      if (!route || route.tenantId !== effectiveTenantId(actor)) {
+        return { kind: "bad_bus_route" as const };
+      }
     }
 
     const tenant = await tx.tenant.findUniqueOrThrow({ where: { id: effectiveTenantId(actor) } });
@@ -90,6 +129,10 @@ export async function POST(request: NextRequest, { params }: { params: { enrollm
         gradeLevel: enrollment.candidateGradeLevel,
         classroomId: enrollment.targetClassroomId,
         studentNo,
+        nationalId,
+        birthDate,
+        gender,
+        busRouteId,
       },
     });
 
@@ -112,8 +155,48 @@ export async function POST(request: NextRequest, { params }: { params: { enrollm
 
     const updatedEnrollment = await tx.enrollment.update({
       where: { id: enrollment.id },
-      data: { stage: "KAYIT_TAMAMLANDI", studentId: student.id },
+      data: { stage: "KAYIT_TAMAMLANDI", studentId: student.id, contractSignedAt: contractAccepted ? new Date() : null },
     });
+
+    // Ödeme yöntemi: SENET seçilirse demo'daki generateSenetsForStudent() ile
+    // birebir aynı şekilde HER taksit için bir PromissoryNote üretilir; diğer
+    // üç yöntemde (KREDI_KARTI/BANKA_HAVALESI/NAKIT) öğrencinin varsayılan
+    // kayıtlı ödeme yöntemi olarak tek bir PaymentMethod satırı oluşturulur.
+    const promissoryNotes = [];
+    let paymentMethod = null;
+    if (paymentMethodType === "SENET") {
+      const year = new Date().getFullYear();
+      let seq = await tx.promissoryNote.count({ where: { tenantId: effectiveTenantId(actor) } });
+      for (const installment of installments) {
+        seq += 1;
+        let no = formatDocumentNo("SNT", year, seq);
+        for (let attempt = 1; attempt < 20; attempt++) {
+          const existing = await tx.promissoryNote.findUnique({ where: { tenantId_no: { tenantId: effectiveTenantId(actor), no } } });
+          if (!existing) break;
+          seq += 1;
+          no = formatDocumentNo("SNT", year, seq);
+        }
+        promissoryNotes.push(
+          await tx.promissoryNote.create({
+            data: {
+              tenantId: effectiveTenantId(actor),
+              no,
+              issueDate: new Date(),
+              dueDate: installment.dueDate,
+              debtorName: enrollment.guardianFullName,
+              amount: installment.amount,
+              note: `${enrollment.candidateFullName} — Taksit #${installment.installmentNo} karşılığı`,
+              studentId: student.id,
+              createdByUserId: actor.id,
+            },
+          }),
+        );
+      }
+    } else if (paymentMethodType) {
+      paymentMethod = await tx.paymentMethod.create({
+        data: { tenantId: effectiveTenantId(actor), studentId: student.id, type: paymentMethodType as PaymentMethodType, isDefault: true },
+      });
+    }
 
     await logActivity(tx, {
       tenantId: effectiveTenantId(actor),
@@ -123,7 +206,7 @@ export async function POST(request: NextRequest, { params }: { params: { enrollm
       detail: `${enrollment.candidateFullName} — Öğrenci No: ${studentNo}`,
     });
 
-    return { kind: "completed" as const, enrollment: updatedEnrollment, student, installments, email, tempPassword };
+    return { kind: "completed" as const, enrollment: updatedEnrollment, student, installments, email, tempPassword, promissoryNotes, paymentMethod };
   });
 
   if (outcome.kind === "not_found") {
@@ -132,12 +215,20 @@ export async function POST(request: NextRequest, { params }: { params: { enrollm
   if (outcome.kind === "already_final") {
     return NextResponse.json({ message: `Bu kayıt zaten "${outcome.stage}" durumunda` }, { status: 409 });
   }
+  if (outcome.kind === "national_id_taken") {
+    return NextResponse.json({ message: "Bu T.C. Kimlik Numarası zaten kayıtlı" }, { status: 409 });
+  }
+  if (outcome.kind === "bad_bus_route") {
+    return NextResponse.json({ message: "Geçersiz servis güzergahı" }, { status: 400 });
+  }
 
   return NextResponse.json(
     {
       enrollment: outcome.enrollment,
       student: outcome.student,
       installments: outcome.installments,
+      promissoryNotes: outcome.promissoryNotes,
+      paymentMethod: outcome.paymentMethod,
       credentials: { username: outcome.email, password: outcome.tempPassword },
     },
     { status: 201 },

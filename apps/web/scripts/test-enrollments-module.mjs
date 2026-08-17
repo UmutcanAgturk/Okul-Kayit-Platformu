@@ -116,17 +116,37 @@ async function main() {
   check("PATCH: 200 + telefon güncellendi", patchRes.status === 200 && patchBody.enrollment?.guardianPhone === "05559998877", patchBody.enrollment?.guardianPhone);
 
   // ===== Kayıt Tamamlama (ON_KAYIT tipi — önceki kısıtlama kaldırıldı) =====
+  // Genişletilmiş form alanları: T.C. Kimlik No, doğum tarihi, cinsiyet,
+  // sözleşme onayı, ödeme yöntemi (SENET → otomatik senet üretimi).
   const firstDueDate = new Date().toISOString().slice(0, 10);
+  const testNationalId = "12345678901";
   const completeRes = await fetch(`${BASE}/api/branch/enrollments/${enrollmentId}/complete`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
-    body: JSON.stringify({ installmentCount: 3, installmentAmount: 2000, firstDueDate }),
+    body: JSON.stringify({
+      installmentCount: 3,
+      installmentAmount: 2000,
+      firstDueDate,
+      nationalId: testNationalId,
+      birthDate: "2011-05-15",
+      gender: "Kadın",
+      contractAccepted: true,
+      paymentMethodType: "SENET",
+    }),
   });
   const completeBody = await completeRes.json();
   check("POST complete (ON_KAYIT tipi): 201", completeRes.status === 201, completeRes.status);
   check("complete: 3 taksit oluştu", completeBody.installments?.length === 3, completeBody.installments?.length);
   check("complete: enrollment KAYIT_TAMAMLANDI", completeBody.enrollment?.stage === "KAYIT_TAMAMLANDI", completeBody.enrollment?.stage);
   check("complete: credentials döndü", !!completeBody.credentials?.username && !!completeBody.credentials?.password);
+  check("complete: enrollment.contractSignedAt set edildi", !!completeBody.enrollment?.contractSignedAt, completeBody.enrollment?.contractSignedAt);
+  check("complete: student.nationalId/gender kaydedildi", completeBody.student?.nationalId === testNationalId && completeBody.student?.gender === "Kadın", completeBody.student);
+  check(
+    "complete: SENET seçilince taksit sayısı kadar promissoryNotes üretildi",
+    completeBody.promissoryNotes?.length === 3 && completeBody.promissoryNotes.every((n) => n.no?.startsWith("SNT-")),
+    completeBody.promissoryNotes,
+  );
+  check("complete: SENET seçilince paymentMethod OLUŞMADI (yalnızca senet)", completeBody.paymentMethod === null, completeBody.paymentMethod);
 
   const studentId = completeBody.student?.id;
 
@@ -141,6 +161,8 @@ async function main() {
   if (studentId) {
     const dbStudent = await prisma.studentProfile.findUnique({ where: { id: studentId } });
     check("Oluşturulan StudentProfile doğru sınıf düzeyinde", dbStudent?.gradeLevel === "SINIF_9", dbStudent?.gradeLevel);
+    const dbNotes = await prisma.promissoryNote.findMany({ where: { studentId } });
+    check("DB: 3 PromissoryNote gerçekten oluşmuş", dbNotes.length === 3, dbNotes.length);
   }
 
   // ===== Kilitli durum: tekrar tamamlama / düzenleme / iptal =====
@@ -188,6 +210,58 @@ async function main() {
   });
   check("İptal edilmiş adayı düzenleme: 409", patchCancelledRes.status === 409, patchCancelledRes.status);
 
+  // ===== Üçüncü aday: busRouteId + duplicate nationalId + non-SENET paymentMethod =====
+  const mezitliTenant = await prisma.tenant.findFirst({ where: { name: { contains: "Mezitli" } } });
+  const busRoute = await prisma.busRoute.create({
+    data: { tenantId: mezitliTenant.id, name: `Test Güzergahı ${Date.now()}`, capacity: 20 },
+  });
+
+  const thirdName = `Test Servis ${Date.now()}`;
+  const createThirdRes = await fetch(`${BASE}/api/branch/enrollments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({ type: "ON_KAYIT", candidateFullName: thirdName, candidateGradeLevel: "SINIF_9", guardianFullName: "Veli Üç", guardianPhone: "05553334455" }),
+  });
+  const createThirdBody = await createThirdRes.json();
+  const thirdId = createThirdBody.enrollment?.id;
+
+  const badNationalIdRes = await fetch(`${BASE}/api/branch/enrollments/${thirdId}/complete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({ installmentCount: 1, installmentAmount: 1000, firstDueDate, nationalId: "123" }),
+  });
+  check("complete: 11 haneli olmayan nationalId 400 ile reddediliyor", badNationalIdRes.status === 400, badNationalIdRes.status);
+
+  const dupeNationalIdRes = await fetch(`${BASE}/api/branch/enrollments/${thirdId}/complete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({ installmentCount: 1, installmentAmount: 1000, firstDueDate, nationalId: testNationalId }),
+  });
+  check("complete: zaten kullanılan nationalId 409 ile reddediliyor", dupeNationalIdRes.status === 409, dupeNationalIdRes.status);
+
+  const badBusRouteRes = await fetch(`${BASE}/api/branch/enrollments/${thirdId}/complete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({ installmentCount: 1, installmentAmount: 1000, firstDueDate, busRouteId: "olmayan-id" }),
+  });
+  check("complete: geçersiz busRouteId 400 ile reddediliyor", badBusRouteRes.status === 400, badBusRouteRes.status);
+
+  const thirdCompleteRes = await fetch(`${BASE}/api/branch/enrollments/${thirdId}/complete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({ installmentCount: 1, installmentAmount: 1000, firstDueDate, busRouteId: busRoute.id, paymentMethodType: "NAKIT" }),
+  });
+  const thirdCompleteBody = await thirdCompleteRes.json();
+  check("complete: servis güzergahıyla 201", thirdCompleteRes.status === 201, thirdCompleteRes.status);
+  check("complete: student.busRouteId kaydedildi", thirdCompleteBody.student?.busRouteId === busRoute.id, thirdCompleteBody.student?.busRouteId);
+  check(
+    "complete: NAKIT seçilince tek bir PaymentMethod oluştu (senet değil)",
+    thirdCompleteBody.paymentMethod?.type === "NAKIT" && (thirdCompleteBody.promissoryNotes?.length ?? 0) === 0,
+    thirdCompleteBody.paymentMethod,
+  );
+
+  const thirdStudentId = thirdCompleteBody.student?.id;
+
   // ===== Aktivite Akışı =====
   const activityRes = await fetch(`${BASE}/api/branch/activity-log`, { headers: { Cookie: branchAdminCookie } });
   const activityBody = await activityRes.json();
@@ -199,13 +273,23 @@ async function main() {
 
   // ===== Temizlik (yalnızca bu testin oluşturduğu veriler; seed'deki Kerem Şahin dokunulmadı) =====
   if (studentId) {
+    await prisma.promissoryNote.deleteMany({ where: { studentId } });
     await prisma.paymentInstallment.deleteMany({ where: { studentId } });
     await prisma.studentProfile.delete({ where: { id: studentId } }).catch(() => {});
     if (completeBody.credentials?.username) {
       await prisma.user.deleteMany({ where: { email: completeBody.credentials.username } });
     }
   }
-  await prisma.enrollment.deleteMany({ where: { id: { in: [enrollmentId, secondId].filter(Boolean) } } });
+  if (thirdStudentId) {
+    await prisma.paymentMethod.deleteMany({ where: { studentId: thirdStudentId } });
+    await prisma.paymentInstallment.deleteMany({ where: { studentId: thirdStudentId } });
+    await prisma.studentProfile.delete({ where: { id: thirdStudentId } }).catch(() => {});
+    if (thirdCompleteBody.credentials?.username) {
+      await prisma.user.deleteMany({ where: { email: thirdCompleteBody.credentials.username } });
+    }
+  }
+  await prisma.busRoute.delete({ where: { id: busRoute.id } }).catch(() => {});
+  await prisma.enrollment.deleteMany({ where: { id: { in: [enrollmentId, secondId, thirdId].filter(Boolean) } } });
   await prisma.auditLogEntry.deleteMany({
     where: { action: { in: ["Kayıt adayı eklendi", "Kayıt adayı düzenlendi", "Kayıt tamamlandı", "Kayıt adayı iptal edildi"] } },
   });

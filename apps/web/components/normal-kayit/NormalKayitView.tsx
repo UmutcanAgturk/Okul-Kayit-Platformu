@@ -5,7 +5,17 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
-import { completeEnrollment, enrollmentKeys, fetchEnrollments, GRADE_LEVEL_LABEL, type CompleteEnrollmentResult } from "@/lib/api/enrollments";
+import {
+  completeEnrollment,
+  enrollmentKeys,
+  fetchEnrollments,
+  GENDER_OPTIONS,
+  GRADE_LEVEL_LABEL,
+  PAYMENT_METHOD_LABEL,
+  type CompleteEnrollmentResult,
+  type PaymentMethodChoice,
+} from "@/lib/api/enrollments";
+import { fetchBusRoutes } from "@/lib/api/bus-routes";
 import { Icon } from "@/components/ui/icons";
 import { BulkImportPanel } from "./BulkImportPanel";
 import { PrintDocumentViewer } from "@/components/documents/PrintDocumentViewer";
@@ -32,6 +42,12 @@ export function NormalKayitView() {
   const [installmentCount, setInstallmentCount] = useState("1");
   const [installmentAmount, setInstallmentAmount] = useState("");
   const [firstDueDate, setFirstDueDate] = useState("");
+  const [nationalId, setNationalId] = useState("");
+  const [birthDate, setBirthDate] = useState("");
+  const [gender, setGender] = useState("");
+  const [busRouteId, setBusRouteId] = useState("");
+  const [paymentMethodType, setPaymentMethodType] = useState<PaymentMethodChoice>("KREDI_KARTI");
+  const [contractAccepted, setContractAccepted] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [credentials, setCredentials] = useState<CompleteEnrollmentResult["credentials"] | null>(null);
   const [lastCompleted, setLastCompleted] = useState<CompleteEnrollmentResult | null>(null);
@@ -50,6 +66,7 @@ export function NormalKayitView() {
   }, [isError, error, router]);
 
   const enrollmentsQuery = useQuery({ queryKey: enrollmentKeys.list(), queryFn: () => fetchEnrollments(), enabled: !!me });
+  const busRoutesQuery = useQuery({ queryKey: ["bus-routes"], queryFn: fetchBusRoutes, enabled: !!me });
 
   const completeMutation = useMutation({
     mutationFn: (vars: { id: string; input: Parameters<typeof completeEnrollment>[1] }) => completeEnrollment(vars.id, vars.input),
@@ -57,6 +74,11 @@ export function NormalKayitView() {
       setCredentials(result.credentials);
       setLastCompleted(result);
       setFormError(null);
+      setNationalId("");
+      setBirthDate("");
+      setGender("");
+      setBusRouteId("");
+      setContractAccepted(false);
       queryClient.invalidateQueries({ queryKey: enrollmentKeys.list() });
     },
     onError: (err) => setFormError(err instanceof ApiError ? err.message : "Kayıt tamamlanamadı."),
@@ -95,8 +117,29 @@ export function NormalKayitView() {
       setFormError("Taksit sayısı, tutarı ve ilk vade tarihi zorunludur.");
       return;
     }
+    if (!/^\d{11}$/.test(nationalId)) {
+      setFormError("T.C. Kimlik Numarası 11 haneli olmalıdır.");
+      return;
+    }
+    if (!contractAccepted) {
+      setFormError("Devam etmek için veli, kayıt sözleşmesini onaylamalıdır.");
+      return;
+    }
     setFormError(null);
-    completeMutation.mutate({ id: selected.id, input: { installmentCount: count, installmentAmount: amount, firstDueDate } });
+    completeMutation.mutate({
+      id: selected.id,
+      input: {
+        installmentCount: count,
+        installmentAmount: amount,
+        firstDueDate,
+        nationalId,
+        birthDate: birthDate || undefined,
+        gender: gender || undefined,
+        busRouteId: busRouteId || undefined,
+        contractAccepted,
+        paymentMethodType,
+      },
+    });
   }
 
   return (
@@ -176,6 +219,42 @@ export function NormalKayitView() {
                   </div>
                 ) : (
                   <>
+                    <div className="grid cols-2">
+                      <div className="field">
+                        <label>
+                          T.C. Kimlik Numarası <span style={{ color: "var(--critical)" }}>*</span>
+                        </label>
+                        <input value={nationalId} onChange={(e) => setNationalId(e.target.value.replace(/\D/g, ""))} maxLength={11} placeholder="11 haneli" inputMode="numeric" />
+                      </div>
+                      <div className="field">
+                        <label>Doğum Tarihi</label>
+                        <input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} />
+                      </div>
+                    </div>
+                    <div className="grid cols-2">
+                      <div className="field">
+                        <label>Cinsiyet</label>
+                        <select value={gender} onChange={(e) => setGender(e.target.value)}>
+                          <option value="">Seçiniz</option>
+                          {GENDER_OPTIONS.map((g) => (
+                            <option key={g} value={g}>
+                              {g}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="field">
+                        <label>Servis/Ulaşım (opsiyonel)</label>
+                        <select value={busRouteId} onChange={(e) => setBusRouteId(e.target.value)}>
+                          <option value="">Servis yok</option>
+                          {(busRoutesQuery.data?.routes ?? []).map((r) => (
+                            <option key={r.id} value={r.id}>
+                              {r.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
                     <div className="grid cols-3">
                       <div className="field">
                         <label>Taksit Sayısı</label>
@@ -190,6 +269,20 @@ export function NormalKayitView() {
                         <input type="date" value={firstDueDate} onChange={(e) => setFirstDueDate(e.target.value)} />
                       </div>
                     </div>
+                    <div className="field">
+                      <label>Ödeme Yöntemi</label>
+                      <select value={paymentMethodType} onChange={(e) => setPaymentMethodType(e.target.value as PaymentMethodChoice)}>
+                        {(Object.keys(PAYMENT_METHOD_LABEL) as PaymentMethodChoice[]).map((k) => (
+                          <option key={k} value={k}>
+                            {PAYMENT_METHOD_LABEL[k]}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
+                      <input type="checkbox" checked={contractAccepted} onChange={(e) => setContractAccepted(e.target.checked)} />
+                      Veli, kayıt sözleşmesini onayladı
+                    </label>
                     {formError && <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--critical)" }}>{formError}</p>}
                     <button
                       type="button"
@@ -221,6 +314,11 @@ export function NormalKayitView() {
                         <dd style={{ margin: 0, fontFamily: "monospace" }}>{credentials.password}</dd>
                       </div>
                     </dl>
+                    {lastCompleted && lastCompleted.promissoryNotes.length > 0 && (
+                      <p style={{ margin: "8px 0 0", fontSize: "var(--text-xs)", color: "var(--strong)" }}>
+                        Senet ödeme yöntemi seçildi — {lastCompleted.promissoryNotes.length} senet oluşturuldu (bkz. Muhasebe &gt; Belgeler &gt; Senetler).
+                      </p>
+                    )}
                     <button type="button" className="btn xs" style={{ marginTop: 10 }} onClick={() => setShowContract(true)}>
                       Kayıt Sözleşmesini Yazdır
                     </button>
@@ -240,7 +338,7 @@ export function NormalKayitView() {
               candidateGradeLevel: lastCompleted.enrollment.candidateGradeLevel,
               guardianFullName: lastCompleted.enrollment.guardianFullName,
               guardianPhone: lastCompleted.enrollment.guardianPhone,
-              contractSignedAt: null,
+              contractSignedAt: lastCompleted.enrollment.contractSignedAt,
               installments: lastCompleted.installments.map((i) => ({ installmentNo: i.installmentNo, amount: String(i.amount), dueDate: i.dueDate })),
             }}
             gradeLabel={GRADE_LEVEL_LABEL[lastCompleted.enrollment.candidateGradeLevel] ?? lastCompleted.enrollment.candidateGradeLevel}

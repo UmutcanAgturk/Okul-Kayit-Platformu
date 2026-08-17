@@ -40,6 +40,7 @@ export interface EnrollmentRow {
   guardianPhone: string;
   targetClassroomId: string | null;
   depositAmount: number | null;
+  contractSignedAt: string | null;
   studentId: string | null;
   createdAt: string;
   updatedAt: string;
@@ -87,16 +88,34 @@ export function cancelEnrollment(enrollmentId: string) {
   return apiFetch<{ enrollment: EnrollmentRow }>(`/api/branch/enrollments/${enrollmentId}`, { method: "DELETE" });
 }
 
+export type PaymentMethodChoice = "KREDI_KARTI" | "BANKA_HAVALESI" | "NAKIT" | "SENET";
+
+export const GENDER_OPTIONS = ["Kadın", "Erkek"];
+export const PAYMENT_METHOD_LABEL: Record<PaymentMethodChoice, string> = {
+  KREDI_KARTI: "Kredi Kartı (ParamPOS)",
+  BANKA_HAVALESI: "Banka Havalesi",
+  NAKIT: "Nakit",
+  SENET: "Senet",
+};
+
 export interface CompleteEnrollmentInput {
   installmentCount: number;
   installmentAmount: number;
   firstDueDate: string;
+  nationalId?: string;
+  birthDate?: string;
+  gender?: string;
+  busRouteId?: string;
+  contractAccepted?: boolean;
+  paymentMethodType?: PaymentMethodChoice;
 }
 
 export interface CompleteEnrollmentResult {
   enrollment: EnrollmentRow;
-  student: { id: string; studentNo: string };
+  student: { id: string; studentNo: string; nationalId: string | null; birthDate: string | null; gender: string | null; busRouteId: string | null };
   installments: { id: string; installmentNo: number; amount: number; dueDate: string }[];
+  promissoryNotes: { id: string; no: string; amount: number; dueDate: string }[];
+  paymentMethod: { id: string; type: string } | null;
   credentials: { username: string; password: string };
 }
 
