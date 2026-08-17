@@ -268,6 +268,43 @@ function TenantCard({
         {tenant.branchAdminPhone && ` · ${tenant.branchAdminPhone}`}
       </p>
 
+      {/* Salt-okunur kurum detayı (task #99) — demo'daki "Kurum Detayı" panelinin
+          (adres/telefon/e-posta/vergi no/açılış tarihi) karşılığı. Öncesinde bu
+          alanları görmenin tek yolu "Düzenle" formunu açmaktı (yanlışlıkla bir
+          alanı değiştirip kaydetme riski) — burada TenantEditForm'un AYNI
+          verisi, hiçbir input olmadan salt metin olarak gösterilir. */}
+      <details style={{ marginTop: 10 }}>
+        <summary style={{ cursor: "pointer", fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--ink-muted)" }}>Detaylı Bilgi</summary>
+        <dl style={{ margin: "8px 0 0", display: "flex", flexDirection: "column", gap: 4, fontSize: "var(--text-xs)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+            <dt style={{ color: "var(--ink-faint)" }}>Açık Adres</dt>
+            <dd style={{ margin: 0, textAlign: "right", color: "var(--ink-muted)" }}>{tenant.address || "—"}</dd>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+            <dt style={{ color: "var(--ink-faint)" }}>Telefon</dt>
+            <dd style={{ margin: 0, color: "var(--ink-muted)" }}>{tenant.phone || "—"}</dd>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+            <dt style={{ color: "var(--ink-faint)" }}>E-posta</dt>
+            <dd style={{ margin: 0, color: "var(--ink-muted)" }}>{tenant.email || "—"}</dd>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+            <dt style={{ color: "var(--ink-faint)" }}>Açılış Tarihi</dt>
+            <dd style={{ margin: 0, color: "var(--ink-muted)" }}>
+              {tenant.openingDate ? new Date(tenant.openingDate).toLocaleDateString("tr-TR") : "—"}
+            </dd>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+            <dt style={{ color: "var(--ink-faint)" }}>Vergi No</dt>
+            <dd style={{ margin: 0, color: "var(--ink-muted)" }}>{tenant.taxNo || "—"}</dd>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+            <dt style={{ color: "var(--ink-faint)" }}>Kurum Kodu</dt>
+            <dd style={{ margin: 0, fontFamily: "monospace", color: "var(--ink-muted)" }}>{tenant.code}</dd>
+          </div>
+        </dl>
+      </details>
+
       {credentials && (
         <div className="card card-pad" style={{ marginTop: 10, borderColor: "var(--strong)", background: "var(--strong-bg)" }}>
           <p style={{ margin: 0, fontSize: "var(--text-xs)", fontWeight: 700, color: "var(--strong)" }}>
