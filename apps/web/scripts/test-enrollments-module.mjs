@@ -89,6 +89,32 @@ async function main() {
   check("POST enrollments: 201", createRes.status === 201, createRes.status);
   const enrollmentId = createBody.enrollment?.id;
   check("Oluşturulan stage=ON_KAYIT_ALINDI", createBody.enrollment?.stage === "ON_KAYIT_ALINDI", createBody.enrollment?.stage);
+  check("programType belirtilmezse varsayılan 'Normal Kayıt'", createBody.enrollment?.programType === "Normal Kayıt", createBody.enrollment?.programType);
+
+  // ===== programType: oluşturma sırasında açıkça belirtme =====
+  const programTypeName = `Test Yaz Kursu ${Date.now()}`;
+  const createProgramTypeRes = await fetch(`${BASE}/api/branch/enrollments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({
+      type: "ON_KAYIT",
+      programType: "Yaz Kursu",
+      candidateFullName: programTypeName,
+      candidateGradeLevel: "SINIF_9",
+      guardianFullName: "Test Veli Yaz",
+      guardianPhone: "05551119900",
+    }),
+  });
+  const createProgramTypeBody = await createProgramTypeRes.json();
+  const programTypeEnrollmentId = createProgramTypeBody.enrollment?.id;
+  check("POST enrollments: açık programType='Yaz Kursu' kaydedildi", createProgramTypeBody.enrollment?.programType === "Yaz Kursu", createProgramTypeBody.enrollment?.programType);
+
+  const getProgramTypeRes = await fetch(`${BASE}/api/branch/enrollments`, { headers: { Cookie: branchAdminCookie } });
+  const getProgramTypeBody = await getProgramTypeRes.json();
+  check(
+    "GET listesinde programType='Yaz Kursu' doğru dönüyor",
+    getProgramTypeBody.enrollments?.find((e) => e.id === programTypeEnrollmentId)?.programType === "Yaz Kursu",
+  );
 
   // ===== stage filtresi =====
   const filteredRes = await fetch(`${BASE}/api/branch/enrollments?stage=ON_KAYIT_ALINDI`, { headers: { Cookie: branchAdminCookie } });
@@ -114,6 +140,21 @@ async function main() {
   });
   const patchBody = await patchRes.json();
   check("PATCH: 200 + telefon güncellendi", patchRes.status === 200 && patchBody.enrollment?.guardianPhone === "05559998877", patchBody.enrollment?.guardianPhone);
+
+  // ===== programType: PATCH ile güncelleme =====
+  const patchProgramTypeRes = await fetch(`${BASE}/api/branch/enrollments/${enrollmentId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({ programType: "Deneme Kulübü" }),
+  });
+  const patchProgramTypeBody = await patchProgramTypeRes.json();
+  check(
+    "PATCH: programType='Deneme Kulübü' olarak güncellendi",
+    patchProgramTypeRes.status === 200 && patchProgramTypeBody.enrollment?.programType === "Deneme Kulübü",
+    patchProgramTypeBody.enrollment?.programType,
+  );
+  const dbProgramType = await prisma.enrollment.findUnique({ where: { id: enrollmentId } });
+  check("DB: programType kalıcı olarak güncellendi", dbProgramType?.programType === "Deneme Kulübü", dbProgramType?.programType);
 
   // ===== Kayıt Tamamlama (ON_KAYIT tipi — önceki kısıtlama kaldırıldı) =====
   // Genişletilmiş form alanları: T.C. Kimlik No, doğum tarihi, cinsiyet,
@@ -289,7 +330,7 @@ async function main() {
     }
   }
   await prisma.busRoute.delete({ where: { id: busRoute.id } }).catch(() => {});
-  await prisma.enrollment.deleteMany({ where: { id: { in: [enrollmentId, secondId, thirdId].filter(Boolean) } } });
+  await prisma.enrollment.deleteMany({ where: { id: { in: [enrollmentId, secondId, thirdId, programTypeEnrollmentId].filter(Boolean) } } });
   await prisma.auditLogEntry.deleteMany({
     where: { action: { in: ["Kayıt adayı eklendi", "Kayıt adayı düzenlendi", "Kayıt tamamlandı", "Kayıt adayı iptal edildi"] } },
   });

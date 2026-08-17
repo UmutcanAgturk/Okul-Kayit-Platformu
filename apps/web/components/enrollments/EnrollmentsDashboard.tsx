@@ -13,6 +13,7 @@ import {
   enrollmentKeys,
   fetchEnrollments,
   GRADE_LEVEL_LABEL,
+  PROGRAM_TYPE_OPTIONS,
   STAGE_LABEL,
   updateEnrollment,
 } from "@/lib/api/enrollments";
@@ -58,16 +59,18 @@ export function EnrollmentsDashboard() {
 
   const [candidateFullName, setCandidateFullName] = useState("");
   const [candidateGradeLevel, setCandidateGradeLevel] = useState("SINIF_9");
+  const [programType, setProgramType] = useState(PROGRAM_TYPE_OPTIONS[0]);
   const [guardianFullName, setGuardianFullName] = useState("");
   const [guardianPhone, setGuardianPhone] = useState("");
   const [depositAmount, setDepositAmount] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
 
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editDraft, setEditDraft] = useState<{ candidateFullName: string; guardianFullName: string; guardianPhone: string }>({
+  const [editDraft, setEditDraft] = useState<{ candidateFullName: string; guardianFullName: string; guardianPhone: string; programType: string }>({
     candidateFullName: "",
     guardianFullName: "",
     guardianPhone: "",
+    programType: PROGRAM_TYPE_OPTIONS[0],
   });
 
   const [cancelingId, setCancelingId] = useState<string | null>(null);
@@ -84,6 +87,7 @@ export function EnrollmentsDashboard() {
       setGuardianFullName("");
       setGuardianPhone("");
       setDepositAmount("");
+      setProgramType(PROGRAM_TYPE_OPTIONS[0]);
       setFormError(null);
     },
     onError: (err) => setFormError(err instanceof ApiError ? err.message : "Ön kayıt oluşturulamadı."),
@@ -126,6 +130,7 @@ export function EnrollmentsDashboard() {
       type: "ON_KAYIT",
       candidateFullName: candidateFullName.trim(),
       candidateGradeLevel,
+      programType,
       guardianFullName: guardianFullName.trim(),
       guardianPhone: guardianPhone.trim(),
       depositAmount: depositAmount ? Number(depositAmount) : undefined,
@@ -136,7 +141,7 @@ export function EnrollmentsDashboard() {
     setEditingId(row.id);
     setCancelingId(null);
     setCompletingId(null);
-    setEditDraft({ candidateFullName: row.candidateFullName, guardianFullName: row.guardianFullName, guardianPhone: row.guardianPhone });
+    setEditDraft({ candidateFullName: row.candidateFullName, guardianFullName: row.guardianFullName, guardianPhone: row.guardianPhone, programType: row.programType });
   }
 
   function saveEdit(id: string) {
@@ -208,6 +213,16 @@ export function EnrollmentsDashboard() {
                   {GRADE_OPTIONS.map((g) => (
                     <option key={g} value={g}>
                       {GRADE_LEVEL_LABEL[g]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label>Kayıt Türü</label>
+                <select value={programType} onChange={(e) => setProgramType(e.target.value)}>
+                  {PROGRAM_TYPE_OPTIONS.map((k) => (
+                    <option key={k} value={k}>
+                      {k}
                     </option>
                   ))}
                 </select>
@@ -306,6 +321,13 @@ export function EnrollmentsDashboard() {
                       onChange={(e) => setEditDraft((d) => ({ ...d, guardianPhone: e.target.value }))}
                       placeholder="Veli telefonu"
                     />
+                    <select value={editDraft.programType} onChange={(e) => setEditDraft((d) => ({ ...d, programType: e.target.value }))}>
+                      {PROGRAM_TYPE_OPTIONS.map((k) => (
+                        <option key={k} value={k}>
+                          {k}
+                        </option>
+                      ))}
+                    </select>
                     <div style={{ display: "flex", gap: 8 }}>
                       <button type="button" onClick={() => saveEdit(row.id)} disabled={updateMutation.isPending} className="btn primary xs">
                         Kaydet
@@ -369,7 +391,10 @@ export function EnrollmentsDashboard() {
                         {GRADE_LEVEL_LABEL[row.candidateGradeLevel] ?? row.candidateGradeLevel} · Veli: {row.guardianFullName} ({row.guardianPhone})
                       </div>
                     </div>
-                    <span className={`chip ${STAGE_CHIP[row.stage] ?? "neutral"}`}>{STAGE_LABEL[row.stage]}</span>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                      <span className={`chip ${STAGE_CHIP[row.stage] ?? "neutral"}`}>{STAGE_LABEL[row.stage]}</span>
+                      <span className="chip neutral">{row.programType}</span>
+                    </div>
                   </div>
                   {!locked && (
                     <div style={{ marginTop: 8, display: "flex", gap: 12, fontSize: "var(--text-xs)" }}>

@@ -517,6 +517,12 @@ model Enrollment {
   type  EnrollmentType  @default(ON_KAYIT)
   stage EnrollmentStage @default(ON_KAYIT_ALINDI)
 
+  // Demo'daki KAYIT_TURU_OPTIONS ("Normal Kayıt"/"Deneme Kulübü"/"Yaz Kursu"/
+  // "Kış Kursu") ile birebir aynı — yukarıdaki `type` (ON_KAYIT/NORMAL_KAYIT)
+  // ile KARIŞTIRILMAMALI: `type` kayıt İŞ AKIŞINI (kapora ile mi doğrudan mı)
+  // belirtirken, bu alan hangi PROGRAMA kayıt olunduğunu belirtir.
+  programType String @default("Normal Kayıt")
+
   candidateFullName   String
   candidateGradeLevel GradeLevel
   guardianFullName    String

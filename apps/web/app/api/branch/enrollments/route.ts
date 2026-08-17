@@ -19,6 +19,7 @@ import { actorLabel, logActivity } from "@/lib/audit-log";
  */
 const ROLES_ALLOWED: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.GUIDANCE_COORDINATOR];
 const VALID_STAGES = ["ON_KAYIT_ALINDI", "SOZLESME_BEKLENIYOR", "ODEME_PLANI_OLUSTURULDU", "KAYIT_TAMAMLANDI", "IPTAL_EDILDI"];
+const PROGRAM_TYPE_OPTIONS = ["Normal Kayıt", "Deneme Kulübü", "Yaz Kursu", "Kış Kursu"];
 
 export async function GET(request: NextRequest) {
   const actor = await getSessionActor(request);
@@ -61,6 +62,7 @@ export async function POST(request: NextRequest) {
   const guardianPhone = typeof body.guardianPhone === "string" && body.guardianPhone.trim() ? body.guardianPhone.trim() : null;
   const targetClassroomId = typeof body.targetClassroomId === "string" && body.targetClassroomId ? body.targetClassroomId : null;
   const depositAmount = typeof body.depositAmount === "number" && body.depositAmount > 0 ? body.depositAmount : null;
+  const programType = typeof body.programType === "string" && PROGRAM_TYPE_OPTIONS.includes(body.programType) ? body.programType : PROGRAM_TYPE_OPTIONS[0];
 
   if (!type || !candidateFullName || !candidateGradeLevel || !guardianFullName || !guardianPhone) {
     return NextResponse.json(
@@ -78,6 +80,7 @@ export async function POST(request: NextRequest) {
       data: {
         tenantId: effectiveTenantId(actor),
         type,
+        programType,
         candidateFullName,
         candidateGradeLevel,
         guardianFullName,

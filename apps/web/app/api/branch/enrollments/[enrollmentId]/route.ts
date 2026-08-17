@@ -19,6 +19,7 @@ import { actorLabel, logActivity } from "@/lib/audit-log";
  */
 const ROLES_ALLOWED: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.GUIDANCE_COORDINATOR];
 const LOCKED_STAGES = ["KAYIT_TAMAMLANDI", "IPTAL_EDILDI"];
+const PROGRAM_TYPE_OPTIONS = ["Normal Kayıt", "Deneme Kulübü", "Yaz Kursu", "Kış Kursu"];
 
 export async function PATCH(request: NextRequest, { params }: { params: { enrollmentId: string } }) {
   const actor = await getSessionActor(request);
@@ -36,6 +37,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { enroll
   const guardianPhone = typeof body.guardianPhone === "string" && body.guardianPhone.trim() ? body.guardianPhone.trim() : undefined;
   const targetClassroomId = body.targetClassroomId === null ? null : typeof body.targetClassroomId === "string" && body.targetClassroomId ? body.targetClassroomId : undefined;
   const depositAmount = body.depositAmount === null ? null : typeof body.depositAmount === "number" && body.depositAmount > 0 ? body.depositAmount : undefined;
+  const programType = typeof body.programType === "string" && PROGRAM_TYPE_OPTIONS.includes(body.programType) ? body.programType : undefined;
 
   const outcome = await withBranchTenantContext(actor, async (tx) => {
     const enrollment = await tx.enrollment.findUnique({ where: { id: params.enrollmentId } });
@@ -52,7 +54,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { enroll
 
     const updated = await tx.enrollment.update({
       where: { id: enrollment.id },
-      data: { candidateFullName, candidateGradeLevel, guardianFullName, guardianPhone, targetClassroomId, depositAmount },
+      data: { candidateFullName, candidateGradeLevel, guardianFullName, guardianPhone, targetClassroomId, depositAmount, programType },
     });
 
     await logActivity(tx, {

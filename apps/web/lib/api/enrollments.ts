@@ -30,10 +30,13 @@ export const STAGE_LABEL: Record<EnrollmentStage, string> = {
   IPTAL_EDILDI: "İptal Edildi",
 };
 
+export const PROGRAM_TYPE_OPTIONS = ["Normal Kayıt", "Deneme Kulübü", "Yaz Kursu", "Kış Kursu"];
+
 export interface EnrollmentRow {
   id: string;
   type: EnrollmentType;
   stage: EnrollmentStage;
+  programType: string;
   candidateFullName: string;
   candidateGradeLevel: string;
   guardianFullName: string;
@@ -53,6 +56,7 @@ export function fetchEnrollments(stage?: EnrollmentStage) {
 
 export interface CreateEnrollmentInput {
   type: EnrollmentType;
+  programType?: string;
   candidateFullName: string;
   candidateGradeLevel: string;
   guardianFullName: string;
@@ -75,6 +79,7 @@ export interface UpdateEnrollmentInput {
   guardianPhone?: string;
   targetClassroomId?: string | null;
   depositAmount?: number | null;
+  programType?: string;
 }
 
 export function updateEnrollment(enrollmentId: string, input: UpdateEnrollmentInput) {
