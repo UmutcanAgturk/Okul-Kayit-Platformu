@@ -41,9 +41,19 @@ export function BeklentiTab() {
   const bekleyenTaksit = (pendingQuery.data?.installments ?? []).reduce((s, i) => s + Number(i.amount), 0);
 
   const scenarioNets = FORECAST_SCENARIOS.map((s) => {
-    const beklenenGelir = Math.round((gelir / months) * (s.tahsilat / 85) + s.yeniKayit * 1500 + bekleyenTaksit * (s.tahsilat / 100));
+    const gecmisOrtGelir = gelir / months;
+    const tahsilatKatsayili = gecmisOrtGelir * (s.tahsilat / 85);
+    const yeniKayitGeliri = s.yeniKayit * 1500;
+    const bekleyenTaksitPayi = bekleyenTaksit * (s.tahsilat / 100);
+    const beklenenGelir = Math.round(tahsilatKatsayili + yeniKayitGeliri + bekleyenTaksitPayi);
     const beklenenGider = Math.round(gider / months);
-    return { s, net: beklenenGelir - beklenenGider, beklenenGelir, beklenenGider };
+    return {
+      s,
+      net: beklenenGelir - beklenenGider,
+      beklenenGelir,
+      beklenenGider,
+      formula: { gecmisOrtGelir, tahsilatKatsayili, yeniKayitGeliri, bekleyenTaksitPayi },
+    };
   });
   const maxNet = Math.max(...scenarioNets.map((r) => Math.abs(r.net)), 1);
 
@@ -63,7 +73,7 @@ export function BeklentiTab() {
       </div>
 
       <div className="grid cols-3">
-        {scenarioNets.map(({ s, net }) => (
+        {scenarioNets.map(({ s, net, beklenenGelir, beklenenGider, formula }) => (
           <div key={s.key} className={`card stat-card tone-${s.tone}`}>
             <p className="stat-label">{s.label} Senaryo</p>
             <p className="stat-value">{tl(net)}</p>
@@ -73,6 +83,35 @@ export function BeklentiTab() {
               <div>Yeni kayıt varsayımı: <b>{s.yeniKayit}</b></div>
               <p style={{ margin: "8px 0 0" }}>{s.aciklama}</p>
             </div>
+            <details style={{ marginTop: 10 }}>
+              <summary style={{ cursor: "pointer", fontSize: "var(--text-2xs)", fontWeight: 700, color: "var(--ink-muted)" }}>Nasıl hesaplandı?</summary>
+              <dl style={{ margin: "8px 0 0", display: "flex", flexDirection: "column", gap: 4, fontSize: "var(--text-2xs)", color: "var(--ink-muted)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                  <dt>Geçmiş ort. aylık gelir × (%{s.tahsilat}/%85)</dt>
+                  <dd style={{ margin: 0 }}>{tl(formula.tahsilatKatsayili)}</dd>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                  <dt>+ Yeni kayıt geliri ({s.yeniKayit} × ₺1.500)</dt>
+                  <dd style={{ margin: 0 }}>{tl(formula.yeniKayitGeliri)}</dd>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                  <dt>+ Bekleyen taksit payı (₺{Math.round(bekleyenTaksit).toLocaleString("tr-TR")} × %{s.tahsilat})</dt>
+                  <dd style={{ margin: 0 }}>{tl(formula.bekleyenTaksitPayi)}</dd>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, borderTop: "1px solid var(--border)", paddingTop: 4, fontWeight: 700 }}>
+                  <dt>= Beklenen gelir</dt>
+                  <dd style={{ margin: 0 }}>{tl(beklenenGelir)}</dd>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                  <dt>− Geçmiş ort. aylık gider</dt>
+                  <dd style={{ margin: 0 }}>{tl(beklenenGider)}</dd>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, borderTop: "1px solid var(--border)", paddingTop: 4, fontWeight: 700, color: "var(--ink)" }}>
+                  <dt>= Beklenen net kâr</dt>
+                  <dd style={{ margin: 0 }}>{tl(net)}</dd>
+                </div>
+              </dl>
+            </details>
           </div>
         ))}
       </div>
