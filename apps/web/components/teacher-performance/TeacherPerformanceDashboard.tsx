@@ -8,6 +8,7 @@ import { ApiError } from "@/lib/api/client";
 import { fetchTeacherPerformance, TeacherPerformanceRow } from "@/lib/api/teacher-performance";
 import { Icon } from "@/components/ui/icons";
 import { HBarChart } from "@/components/ui/charts/HBarChart";
+import { HqBranchSelector } from "@/components/hq/HqBranchSelector";
 
 const ALLOWED_ROLES = ["BRANCH_ADMIN"];
 
@@ -91,7 +92,7 @@ export function TeacherPerformanceDashboard() {
   if (!me || (isError && error instanceof ApiError && error.status === 401)) {
     return null;
   }
-  if (!ALLOWED_ROLES.includes(me.role) && !(me.role === "SUPERADMIN" && me.actingTenantId)) {
+  if (!ALLOWED_ROLES.includes(me.role) && me.role !== "SUPERADMIN") {
     return (
       <div className="card card-pad">
         <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
@@ -108,6 +109,7 @@ export function TeacherPerformanceDashboard() {
         Öğretmenin branşındaki (zümre) kazanımlara ait tüm öğrenci sonuçlarının ortalama başarı yüzdesi — gerçek sınav
         verisinden hesaplanır.
       </p>
+      <HqBranchSelector role={me.role} activeTenantId={me.actingTenantId} />
 
       {perfQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
 

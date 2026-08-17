@@ -11,6 +11,8 @@ import { PayrollPanel } from "./PayrollPanel";
 import { BelgelerPanel } from "./BelgelerPanel";
 import { StatistikTab } from "./StatistikTab";
 import { BeklentiTab } from "./BeklentiTab";
+import { MuhasebeConsolidatedPanel } from "./MuhasebeConsolidatedPanel";
+import { HqBranchSelector } from "@/components/hq/HqBranchSelector";
 
 const ALLOWED_ROLES = ["BRANCH_ADMIN", "ACCOUNTING"];
 const TABS = [
@@ -21,7 +23,11 @@ const TABS = [
   { id: "bordro", label: "Bordro" },
   { id: "belgeler", label: "Belgeler (Fatura/Dekont/Senet)" },
 ] as const;
-type TabId = (typeof TABS)[number]["id"];
+// Demo'daki isConsolidated ("Tüm Şubeler") sekmesi — yalnızca Genel Merkez'e
+// açık, tek bir şubenin değil TÜM şubelerin defterini gösterir (bkz.
+// MuhasebeConsolidatedPanel, /api/hq/accounting-ledger).
+const HQ_TAB = { id: "konsolide", label: "Tüm Şubeler (Konsolide)" } as const;
+type TabId = (typeof TABS)[number]["id"] | typeof HQ_TAB.id;
 
 /**
  * Muhasebe modülünün gerçek (localStorage değil, Postgres'e karşı çalışan)
@@ -52,7 +58,7 @@ export function MuhasebeDashboard() {
     return null; // yönlendirme useEffect'te yapılıyor
   }
 
-  if (!ALLOWED_ROLES.includes(me.role) && !(me.role === "SUPERADMIN" && me.actingTenantId)) {
+  if (!ALLOWED_ROLES.includes(me.role) && me.role !== "SUPERADMIN") {
     return (
       <div className="card card-pad">
         <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
@@ -68,6 +74,7 @@ export function MuhasebeDashboard() {
       <p className="lede">
         {me.firstName} {me.lastName} · {me.role === "BRANCH_ADMIN" ? "Şube Yöneticisi" : me.role === "SUPERADMIN" ? "Genel Merkez (Şube Yöneticisi yetkisiyle)" : "Muhasebe"}
       </p>
+      <HqBranchSelector role={me.role} activeTenantId={me.actingTenantId} />
 
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 18 }}>
         {TABS.map((t) => (
@@ -80,6 +87,15 @@ export function MuhasebeDashboard() {
             {t.label}
           </button>
         ))}
+        {me.role === "SUPERADMIN" && (
+          <button
+            type="button"
+            onClick={() => setTab(HQ_TAB.id)}
+            className={`screen-tab ${tab === HQ_TAB.id ? "active" : ""}`}
+          >
+            {HQ_TAB.label}
+          </button>
+        )}
       </div>
 
       {tab === "genel" && <LedgerPanel />}
@@ -88,6 +104,7 @@ export function MuhasebeDashboard() {
       {tab === "beklenti" && <BeklentiTab />}
       {tab === "bordro" && <PayrollPanel />}
       {tab === "belgeler" && <BelgelerPanel />}
+      {tab === "konsolide" && me.role === "SUPERADMIN" && <MuhasebeConsolidatedPanel />}
     </div>
   );
 }

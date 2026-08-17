@@ -17,6 +17,7 @@ import {
   STAGE_LABEL,
   updateEnrollment,
 } from "@/lib/api/enrollments";
+import { HqBranchSelector } from "@/components/hq/HqBranchSelector";
 
 const ALLOWED_ROLES = ["BRANCH_ADMIN", "GUIDANCE_COORDINATOR"];
 const GRADE_OPTIONS = Object.keys(GRADE_LEVEL_LABEL);
@@ -175,7 +176,7 @@ export function EnrollmentsDashboard() {
     return null;
   }
 
-  if (!ALLOWED_ROLES.includes(me.role) && !(me.role === "SUPERADMIN" && me.actingTenantId)) {
+  if (!ALLOWED_ROLES.includes(me.role) && me.role !== "SUPERADMIN") {
     return (
       <div className="card card-pad">
         <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
@@ -193,6 +194,7 @@ export function EnrollmentsDashboard() {
       <p className="lede">
         {me.firstName} {me.lastName} · Aday öğrencinin yerini ayırtın, ardından sözleşme ve ödeme planıyla tam kayda dönüştürün.
       </p>
+      <HqBranchSelector role={me.role} activeTenantId={me.actingTenantId} />
 
       {enrollmentsQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
 

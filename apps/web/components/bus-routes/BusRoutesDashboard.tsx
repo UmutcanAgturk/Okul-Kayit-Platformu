@@ -14,6 +14,8 @@ import {
   toggleBusRouteMember,
 } from "@/lib/api/bus-routes";
 import { Icon } from "@/components/ui/icons";
+import { HqBranchSelector } from "@/components/hq/HqBranchSelector";
+import type { MeResponse } from "@/lib/api/auth";
 
 function RouteRosterPanel({ routeId, onClose }: { routeId: string; onClose: () => void }) {
   const queryClient = useQueryClient();
@@ -58,7 +60,7 @@ function RouteRosterPanel({ routeId, onClose }: { routeId: string; onClose: () =
   );
 }
 
-function BranchBusRoutesView({ me }: { me: { firstName: string; lastName: string } }) {
+function BranchBusRoutesView({ me }: { me: MeResponse }) {
   const queryClient = useQueryClient();
   const routesQuery = useQuery({ queryKey: busRouteKeys.branchList(), queryFn: fetchBusRoutes });
 
@@ -111,6 +113,7 @@ function BranchBusRoutesView({ me }: { me: { firstName: string; lastName: string
       <p className="lede">
         {me.firstName} {me.lastName}
       </p>
+      <HqBranchSelector role={me.role} activeTenantId={me.actingTenantId} />
 
       <div className="card card-pad" style={{ marginBottom: 14 }}>
         <div className="card-head">
@@ -301,7 +304,7 @@ export function BusRoutesDashboard() {
     return null;
   }
 
-  if (me.role === "BRANCH_ADMIN" || (me.role === "SUPERADMIN" && me.actingTenantId)) return <BranchBusRoutesView me={me} />;
+  if (me.role === "BRANCH_ADMIN" || me.role === "SUPERADMIN") return <BranchBusRoutesView me={me} />;
   if (me.role === "STUDENT" || me.role === "PARENT") return <StudentBusRouteView me={me} />;
 
   return (

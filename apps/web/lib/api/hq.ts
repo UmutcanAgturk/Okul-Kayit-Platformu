@@ -109,6 +109,25 @@ export function fetchHqAccountingSummary() {
   return apiFetch<HqLedgerSummary>("/api/hq/accounting-ledger", { cache: "no-store" });
 }
 
+export interface HqLedgerDetailEntry {
+  id: string;
+  type: "GELIR" | "GIDER";
+  category: string;
+  amount: string;
+  entryDate: string;
+  note: string | null;
+}
+
+export interface HqLedgerDetail {
+  tenant: { id: string; name: string; code: string };
+  entries: HqLedgerDetailEntry[];
+  summary: { totalGelir: number; totalGider: number; net: number };
+}
+
+export function fetchHqAccountingLedgerDetail(tenantId: string) {
+  return apiFetch<HqLedgerDetail>(`/api/hq/accounting-ledger?tenantId=${tenantId}`, { cache: "no-store" });
+}
+
 export interface HqStudentRow {
   id: string;
   studentNo: string;
@@ -268,6 +287,7 @@ export function clearActingTenant() {
 export const hqKeys = {
   tenants: () => ["hq", "tenants"] as const,
   accountingSummary: () => ["hq", "accounting-summary"] as const,
+  accountingDetail: (tenantId: string) => ["hq", "accounting-detail", tenantId] as const,
   students: (q: string, tenantId: string) => ["hq", "students", q, tenantId] as const,
   exams: () => ["hq", "exams"] as const,
   analytics: () => ["hq", "analytics"] as const,

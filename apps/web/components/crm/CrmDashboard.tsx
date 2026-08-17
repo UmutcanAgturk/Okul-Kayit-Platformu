@@ -7,6 +7,7 @@ import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { CRM_STAGE_LABEL, CRM_STAGES, createCrmLead, CrmLead, crmKeys, deleteCrmLead, fetchCrmLeads, updateCrmLead } from "@/lib/api/crm";
 import { GRADE_LEVEL_LABEL } from "@/lib/api/enrollments";
+import { HqBranchSelector } from "@/components/hq/HqBranchSelector";
 
 const ALLOWED_ROLES = ["BRANCH_ADMIN", "GUIDANCE_COORDINATOR"];
 const GRADE_OPTIONS = Object.keys(GRADE_LEVEL_LABEL);
@@ -130,7 +131,7 @@ export function CrmDashboard() {
   if (!me || (isError && error instanceof ApiError && error.status === 401)) {
     return null;
   }
-  if (!ALLOWED_ROLES.includes(me.role) && !(me.role === "SUPERADMIN" && me.actingTenantId)) {
+  if (!ALLOWED_ROLES.includes(me.role) && me.role !== "SUPERADMIN") {
     return (
       <div className="card card-pad">
         <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
@@ -146,6 +147,7 @@ export function CrmDashboard() {
     <div className="screen">
       <h1>CRM</h1>
       <p className="lede">Aday öğrencileri statü bazında takip edin.</p>
+      <HqBranchSelector role={me.role} activeTenantId={me.actingTenantId} />
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <div className="card card-pad">

@@ -19,6 +19,7 @@ const ASSIGNMENT_ACTIONS = ["Öğrenci sınıfa atandı", "Öğrencinin sınıf 
 import { StudentDetailDrawer } from "./StudentDetailDrawer";
 import { ClassroomsPanel } from "./ClassroomsPanel";
 import type { BranchStudentRow } from "@/lib/api/students-roster";
+import { HqBranchSelector } from "@/components/hq/HqBranchSelector";
 
 const ALLOWED_ROLES = ["BRANCH_ADMIN", "GUIDANCE_COORDINATOR"];
 
@@ -82,7 +83,7 @@ export function StudentsRosterDashboard() {
   if (!me || (isError && error instanceof ApiError && error.status === 401)) {
     return null;
   }
-  if (!ALLOWED_ROLES.includes(me.role) && !(me.role === "SUPERADMIN" && me.actingTenantId)) {
+  if (!ALLOWED_ROLES.includes(me.role) && me.role !== "SUPERADMIN") {
     return (
       <div className="card card-pad">
         <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
@@ -109,12 +110,13 @@ export function StudentsRosterDashboard() {
     });
   const selectedStudent: BranchStudentRow | null =
     (studentsQuery.data?.students ?? []).find((s) => s.id === selectedStudentId) ?? null;
-  const canManageClassrooms = me.role === "BRANCH_ADMIN" || (me.role === "SUPERADMIN" && !!me.actingTenantId);
+  const canManageClassrooms = me.role === "BRANCH_ADMIN" || me.role === "SUPERADMIN";
 
   return (
     <div className="screen">
       <h1>Öğrenciler</h1>
       <p className="lede">Tüm öğrenci kaydınız ve sınıf ataması — sağdaki açılır menüden bir öğrenciyi doğrudan bir şubeye atayabilirsiniz.</p>
+      <HqBranchSelector role={me.role} activeTenantId={me.actingTenantId} />
 
       {canManageClassrooms && <ClassroomsPanel classrooms={classroomsQuery.data?.classrooms ?? []} />}
 

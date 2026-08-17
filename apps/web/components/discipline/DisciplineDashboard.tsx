@@ -15,6 +15,7 @@ import {
   fetchDisciplineRecords,
 } from "@/lib/api/discipline";
 import { Icon } from "@/components/ui/icons";
+import { HqBranchSelector } from "@/components/hq/HqBranchSelector";
 
 const ALLOWED_ROLES = ["TEACHER", "BRANCH_ADMIN", "GUIDANCE_COORDINATOR"];
 
@@ -105,7 +106,7 @@ export function DisciplineDashboard() {
   if (!me || (isError && error instanceof ApiError && error.status === 401)) {
     return null;
   }
-  if (!ALLOWED_ROLES.includes(me.role) && !(me.role === "SUPERADMIN" && me.actingTenantId)) {
+  if (!ALLOWED_ROLES.includes(me.role) && me.role !== "SUPERADMIN") {
     return (
       <div className="card card-pad">
         <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
@@ -122,6 +123,7 @@ export function DisciplineDashboard() {
       <p className="lede">
         {me.firstName} {me.lastName}
       </p>
+      <HqBranchSelector role={me.role} activeTenantId={me.actingTenantId} />
 
       <div className="grid cols-3" style={{ marginBottom: 14 }}>
         <div className="card card-pad" style={{ textAlign: "center" }}>

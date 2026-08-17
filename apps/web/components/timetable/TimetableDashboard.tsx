@@ -16,6 +16,8 @@ import {
   fetchTeacherTimetable,
 } from "@/lib/api/timetable";
 import { Icon } from "@/components/ui/icons";
+import { HqBranchSelector } from "@/components/hq/HqBranchSelector";
+import type { MeResponse } from "@/lib/api/auth";
 
 /**
  * Ders Programı — demo/seviye360-app.html'deki "schedule" ekranının gerçek
@@ -45,7 +47,7 @@ export function TimetableDashboard() {
     return null;
   }
 
-  if (me.role === "BRANCH_ADMIN" || (me.role === "SUPERADMIN" && me.actingTenantId)) return <BranchTimetable />;
+  if (me.role === "BRANCH_ADMIN" || me.role === "SUPERADMIN") return <BranchTimetable me={me} />;
   if (me.role === "TEACHER") return <TeacherTimetable />;
   if (me.role === "STUDENT" || me.role === "PARENT") return <StudentTimetable students={me.students ?? []} />;
 
@@ -67,7 +69,7 @@ function groupByDay<T extends { dayOfWeek: number }>(rows: T[]) {
   return DAY_LABELS.map((label, idx) => ({ label, dayOfWeek: idx, rows: byDay.get(idx) ?? [] })).filter((d) => d.rows.length > 0);
 }
 
-function BranchTimetable() {
+function BranchTimetable({ me }: { me: MeResponse }) {
   const queryClient = useQueryClient();
   const [classroomId, setClassroomId] = useState("");
   const [teacherId, setTeacherId] = useState("");
@@ -111,6 +113,7 @@ function BranchTimetable() {
     <div className="screen">
       <h1>Ders Programı</h1>
       <p className="lede">Şube genelindeki tüm sınıfların haftalık ders programı.</p>
+      <HqBranchSelector role={me.role} activeTenantId={me.actingTenantId} />
 
       <div className="card card-pad" style={{ marginBottom: 14 }}>
         <div className="card-head">

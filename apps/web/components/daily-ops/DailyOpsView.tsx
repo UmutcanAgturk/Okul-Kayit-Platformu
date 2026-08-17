@@ -14,6 +14,7 @@ import {
   type StaffAttendanceClientStatus,
 } from "@/lib/api/daily-ops";
 import { Icon } from "@/components/ui/icons";
+import { HqBranchSelector } from "@/components/hq/HqBranchSelector";
 
 const ALLOWED_ROLES = ["BRANCH_ADMIN", "ACCOUNTING"];
 
@@ -122,7 +123,7 @@ export function DailyOpsView() {
   if (!me || (isError && error instanceof ApiError && error.status === 401)) {
     return null;
   }
-  if (!ALLOWED_ROLES.includes(me.role) && !(me.role === "SUPERADMIN" && me.actingTenantId)) {
+  if (!ALLOWED_ROLES.includes(me.role) && me.role !== "SUPERADMIN") {
     return (
       <div className="card card-pad">
         <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
@@ -138,6 +139,7 @@ export function DailyOpsView() {
     <div className="screen">
       <h1>Günlük Operasyon Paneli</h1>
       <p className="lede">Bugünün kritik operasyonel görünümü — tamamı canlı veriden hesaplanır.</p>
+      <HqBranchSelector role={me.role} activeTenantId={me.actingTenantId} />
 
       {opsQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
 

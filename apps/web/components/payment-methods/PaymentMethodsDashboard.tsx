@@ -30,6 +30,7 @@ import {
 } from "@/lib/api/payment-methods";
 import { fetchLedger } from "@/lib/api/accounting";
 import { Icon } from "@/components/ui/icons";
+import { HqBranchSelector } from "@/components/hq/HqBranchSelector";
 
 const ALLOWED_ROLES = ["BRANCH_ADMIN", "ACCOUNTING"];
 
@@ -596,7 +597,7 @@ export function PaymentMethodsDashboard() {
   if (!me || (isError && error instanceof ApiError && error.status === 401)) {
     return null;
   }
-  if (!ALLOWED_ROLES.includes(me.role) && !(me.role === "SUPERADMIN" && me.actingTenantId)) {
+  if (!ALLOWED_ROLES.includes(me.role) && me.role !== "SUPERADMIN") {
     return (
       <div className="card card-pad">
         <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
@@ -619,6 +620,7 @@ export function PaymentMethodsDashboard() {
     <div className="screen">
       <h1>Ödeme Yöntemleri</h1>
       <p className="lede">Öğrencinin taksit tahsilatında kullanılacak ödeme aracını (kart/havale/nakit) dosyada tutun.</p>
+      <HqBranchSelector role={me.role} activeTenantId={me.actingTenantId} />
 
       <PendingReceiptsPanel />
 

@@ -14,6 +14,7 @@ import {
 } from "@/lib/api/attendance";
 import { Icon } from "@/components/ui/icons";
 import { AttendanceOverviewDashboard } from "@/components/attendance/AttendanceOverviewDashboard";
+import { HqBranchSelector } from "@/components/hq/HqBranchSelector";
 
 const ALLOWED_ROLES = ["TEACHER", "BRANCH_ADMIN", "GUIDANCE_COORDINATOR"];
 const OVERVIEW_ROLES = ["BRANCH_ADMIN"];
@@ -59,7 +60,7 @@ export function AttendanceDashboard() {
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [tab, setTab] = useState<"ozet" | "al">("ozet");
 
-  const canSeeOverview = !!me && (OVERVIEW_ROLES.includes(me.role) || (me.role === "SUPERADMIN" && !!me.actingTenantId));
+  const canSeeOverview = !!me && (OVERVIEW_ROLES.includes(me.role) || me.role === "SUPERADMIN");
 
   const classrooms = classroomsQuery.data?.classrooms ?? [];
   useEffect(() => {
@@ -109,7 +110,7 @@ export function AttendanceDashboard() {
   if (!me || (isError && error instanceof ApiError && error.status === 401)) {
     return null;
   }
-  if (!ALLOWED_ROLES.includes(me.role) && !(me.role === "SUPERADMIN" && me.actingTenantId)) {
+  if (!ALLOWED_ROLES.includes(me.role) && me.role !== "SUPERADMIN") {
     return (
       <div className="card card-pad">
         <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
@@ -127,6 +128,7 @@ export function AttendanceDashboard() {
       <p className="lede">
         {me.firstName} {me.lastName}
       </p>
+      <HqBranchSelector role={me.role} activeTenantId={me.actingTenantId} />
 
       {canSeeOverview && (
         <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>

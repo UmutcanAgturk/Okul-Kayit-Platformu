@@ -20,6 +20,8 @@ import {
   toggleTeacherMentor,
 } from "@/lib/api/mentor";
 import { GRADE_LEVEL_LABEL } from "@/lib/api/enrollments";
+import { HqBranchSelector } from "@/components/hq/HqBranchSelector";
+import type { MeResponse } from "@/lib/api/auth";
 
 const STATUS_LABEL: Record<string, string> = { BEKLIYOR: "Bekliyor", ONAYLANDI: "Onaylandı", REDDEDILDI: "Reddedildi", TAMAMLANDI: "Tamamlandı" };
 const STATUS_CHIP: Record<string, string> = {
@@ -333,7 +335,7 @@ function TeacherMentorView({ me }: { me: { firstName: string; lastName: string }
   );
 }
 
-function BranchMentorView({ me }: { me: { firstName: string; lastName: string } }) {
+function BranchMentorView({ me }: { me: MeResponse }) {
   const queryClient = useQueryClient();
   const requestsQuery = useQuery({ queryKey: mentorKeys.branchRequests(), queryFn: fetchBranchMentorRequests });
   const teachersQuery = useQuery({ queryKey: mentorKeys.branchTeachers(), queryFn: fetchBranchTeachers });
@@ -363,6 +365,7 @@ function BranchMentorView({ me }: { me: { firstName: string; lastName: string } 
   return (
     <div className="screen">
       <ScreenHeader title="Seviye Mentör" firstName={me.firstName} lastName={me.lastName} />
+      <HqBranchSelector role={me.role} activeTenantId={me.actingTenantId} />
 
       {summary && (
         <div className="grid cols-3" style={{ marginBottom: 14 }}>
@@ -513,7 +516,7 @@ export function MentorDashboard() {
 
   if (me.role === "STUDENT" || me.role === "PARENT") return <StudentOrParentMentorView me={me} />;
   if (me.role === "TEACHER") return <TeacherMentorView me={me} />;
-  if (me.role === "BRANCH_ADMIN" || (me.role === "SUPERADMIN" && me.actingTenantId)) return <BranchMentorView me={me} />;
+  if (me.role === "BRANCH_ADMIN" || me.role === "SUPERADMIN") return <BranchMentorView me={me} />;
 
   return (
     <div className="card card-pad">

@@ -79,15 +79,24 @@ export const MODULES_BY_ROLE: Record<UserRole, ModuleCard[]> = {
 };
 
 /**
- * SUPERADMIN "Kurumlar" sayfasından "Bu Şube Olarak Yönet" ile bir şube
- * seçtiğinde (bkz. app/api/hq/acting-tenant, lib/db-context.ts
- * withBranchTenantContext) demo'daki HQ portalının "branch:" ekranlarına
- * düşen fallback'inin karşılığı: BRANCH_ADMIN'in TÜM modülleri + geri
- * dönmek için Kurumlar kartı.
+ * Genel Merkez (SUPERADMIN) demo'daki HQ portalı gibi TÜM modüllere her
+ * zaman erişebilir — actingTenantId'ye bağlı değil. Tek-şube ekranlarında
+ * (Sınıf Atama, Personel, Muhasebe, Etüt, vb.) HqBranchSelector ekranın
+ * üstünde gömülü şube seçici sunar (bkz. components/hq/HqBranchSelector),
+ * demo'daki hqBranchSelectorHtml deseninin karşılığı — Kurumlar > "Bu Şube
+ * Olarak Yönet"e gitmeye gerek kalmaz. ROLLER/İLETİŞİM/ÖLÇME kartları HQ
+ * varyantlarını kullanır (bkz. RolesDashboard/MessagesDashboard/
+ * OlcmeDegerlendirmeView'daki bare-SUPERADMIN çapraz-şube özel davranışı).
  */
-export function modulesForActor(role: UserRole, actingTenantId?: string | null): ModuleCard[] {
-  if (role === "SUPERADMIN" && actingTenantId) {
-    return [KURUMLAR_CARD, ...MODULES_BY_ROLE.BRANCH_ADMIN];
+export function modulesForActor(role: UserRole, _actingTenantId?: string | null): ModuleCard[] {
+  if (role === "SUPERADMIN") {
+    const seen = new Set<string>();
+    const all = [SUBE_HARITASI_CARD, KURUMLAR_CARD, ROLLER_HQ_CARD, ILETISIM_HQ_CARD, ...MODULES_BY_ROLE.BRANCH_ADMIN, PROFILIM_CARD];
+    return all.filter((card) => {
+      if (seen.has(card.href)) return false;
+      seen.add(card.href);
+      return true;
+    });
   }
   return MODULES_BY_ROLE[role] ?? [];
 }

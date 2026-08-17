@@ -12,6 +12,8 @@ import { Icon } from "@/components/ui/icons";
 import { LineChart } from "@/components/ui/charts/LineChart";
 import { PrintDocumentViewer } from "@/components/documents/PrintDocumentViewer";
 import { KarnePrintBody } from "@/components/documents/DocumentPrintBodies";
+import { HqBranchSelector } from "@/components/hq/HqBranchSelector";
+import type { MeResponse } from "@/lib/api/auth";
 
 const SELF_SERVICE_ROLES = ["STUDENT", "PARENT"];
 const STAFF_ROLES = ["BRANCH_ADMIN", "GUIDANCE_COORDINATOR", "TEACHER"];
@@ -183,7 +185,7 @@ interface StaffRosterRow {
  * kendi sınıflarına scope edilmiş `/api/teacher/my-classes`'tan roster alır;
  * demo'da da teacher:karne yalnızca `teacherRoster()` (kendi sınıfı) gösterir.
  */
-function StaffReportCardView({ me }: { me: { firstName: string; lastName: string; role: string } }) {
+function StaffReportCardView({ me }: { me: MeResponse }) {
   const [search, setSearch] = useState("");
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const isTeacher = me.role === "TEACHER";
@@ -220,6 +222,7 @@ function StaffReportCardView({ me }: { me: { firstName: string; lastName: string
       <p className="lede">
         {me.firstName} {me.lastName} · Bir öğrenci seçerek karnesini görüntüleyin.
       </p>
+      <HqBranchSelector role={me.role} activeTenantId={me.actingTenantId} />
 
       <div className="card card-pad" style={{ marginBottom: 14 }}>
         <div className="field" style={{ maxWidth: 340, marginBottom: 16 }}>
@@ -323,7 +326,7 @@ export function ReportCardView() {
   if (!me || (isError && error instanceof ApiError && error.status === 401)) {
     return null;
   }
-  const isStaff = STAFF_ROLES.includes(me.role) || (me.role === "SUPERADMIN" && !!me.actingTenantId);
+  const isStaff = STAFF_ROLES.includes(me.role) || me.role === "SUPERADMIN";
   if (isStaff) {
     return <StaffReportCardView me={me} />;
   }

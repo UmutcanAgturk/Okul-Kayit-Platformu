@@ -9,6 +9,7 @@ import { downloadReport, fetchFinancialSummary, reportsKeys } from "@/lib/api/re
 import { examKeys, fetchAchievementSummary, fetchBranchExams } from "@/lib/api/exams";
 import { PrintDocumentViewer } from "@/components/documents/PrintDocumentViewer";
 import { OlcmeReportPrintBody } from "@/components/documents/DocumentPrintBodies";
+import { HqBranchSelector } from "@/components/hq/HqBranchSelector";
 
 const ALLOWED_ROLES = ["BRANCH_ADMIN"];
 
@@ -71,7 +72,7 @@ export function ReportsDashboard() {
   if (!me || (isError && error instanceof ApiError && error.status === 401)) {
     return null;
   }
-  if (!ALLOWED_ROLES.includes(me.role) && !(me.role === "SUPERADMIN" && me.actingTenantId)) {
+  if (!ALLOWED_ROLES.includes(me.role) && me.role !== "SUPERADMIN") {
     return (
       <div className="card card-pad">
         <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
@@ -87,6 +88,7 @@ export function ReportsDashboard() {
     <div className="screen">
       <h1>Raporlar / Dışa Aktarım</h1>
       <p className="lede">Mevcut kurum verinizden anında oluşan raporlar — CSV olarak indirin veya görüntüleyin.</p>
+      <HqBranchSelector role={me.role} activeTenantId={me.actingTenantId} />
 
       <div className="grid cols-3">
         <ReportCard

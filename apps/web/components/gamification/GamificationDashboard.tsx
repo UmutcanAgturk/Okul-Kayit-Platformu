@@ -7,6 +7,8 @@ import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { fetchLeaderboard, fetchStudentGamification, gamificationKeys } from "@/lib/api/gamification";
 import { Icon } from "@/components/ui/icons";
+import { HqBranchSelector } from "@/components/hq/HqBranchSelector";
+import type { MeResponse } from "@/lib/api/auth";
 
 function medal(i: number) {
   if (i === 0) return "🥇";
@@ -124,7 +126,7 @@ function StudentOrParentAchievementsView({
   );
 }
 
-function LeaderboardView({ me, title }: { me: { firstName: string; lastName: string }; title: string }) {
+function LeaderboardView({ me, title }: { me: MeResponse; title: string }) {
   const query = useQuery({ queryKey: gamificationKeys.leaderboard(), queryFn: fetchLeaderboard });
   const rows = query.data?.rows ?? [];
 
@@ -134,6 +136,7 @@ function LeaderboardView({ me, title }: { me: { firstName: string; lastName: str
       <p className="lede">
         {me.firstName} {me.lastName}
       </p>
+      <HqBranchSelector role={me.role} activeTenantId={me.actingTenantId} />
 
       <div className="card card-pad">
         <div className="card-head">
@@ -212,7 +215,7 @@ export function GamificationDashboard() {
   }
 
   if (me.role === "STUDENT" || me.role === "PARENT") return <StudentOrParentAchievementsView me={me} />;
-  if (me.role === "BRANCH_ADMIN" || (me.role === "SUPERADMIN" && me.actingTenantId)) return <LeaderboardView me={me} title="Lider Tablosu" />;
+  if (me.role === "BRANCH_ADMIN" || me.role === "SUPERADMIN") return <LeaderboardView me={me} title="Lider Tablosu" />;
   if (me.role === "TEACHER") return <LeaderboardView me={me} title="Sınıf Lider Tablosu" />;
 
   return (

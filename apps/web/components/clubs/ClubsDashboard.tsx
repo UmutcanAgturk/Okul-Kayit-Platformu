@@ -17,6 +17,8 @@ import {
   toggleMyClubMembership,
 } from "@/lib/api/clubs";
 import { Icon } from "@/components/ui/icons";
+import { HqBranchSelector } from "@/components/hq/HqBranchSelector";
+import type { MeResponse } from "@/lib/api/auth";
 
 function ClubRosterPanel({ clubId, onClose }: { clubId: string; onClose: () => void }) {
   const queryClient = useQueryClient();
@@ -58,7 +60,7 @@ function ClubRosterPanel({ clubId, onClose }: { clubId: string; onClose: () => v
   );
 }
 
-function BranchClubsView({ me }: { me: { firstName: string; lastName: string } }) {
+function BranchClubsView({ me }: { me: MeResponse }) {
   const queryClient = useQueryClient();
   const clubsQuery = useQuery({ queryKey: clubKeys.branchList(), queryFn: fetchBranchClubs });
   const teachersQuery = useQuery({ queryKey: teacherKeys.list(), queryFn: fetchTeachers });
@@ -98,6 +100,7 @@ function BranchClubsView({ me }: { me: { firstName: string; lastName: string } }
       <p className="lede">
         {me.firstName} {me.lastName}
       </p>
+      <HqBranchSelector role={me.role} activeTenantId={me.actingTenantId} />
 
       <div className="card card-pad" style={{ marginBottom: 14 }}>
         <div className="card-head">
@@ -321,7 +324,7 @@ export function ClubsDashboard() {
     return null;
   }
 
-  if (me.role === "BRANCH_ADMIN" || (me.role === "SUPERADMIN" && me.actingTenantId)) return <BranchClubsView me={me} />;
+  if (me.role === "BRANCH_ADMIN" || me.role === "SUPERADMIN") return <BranchClubsView me={me} />;
   if (me.role === "TEACHER") return <TeacherClubsView me={me} />;
   if (me.role === "STUDENT" || me.role === "PARENT") return <StudentOrParentClubsView me={me} />;
 

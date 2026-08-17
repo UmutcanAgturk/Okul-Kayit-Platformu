@@ -13,6 +13,7 @@ import { Icon } from "@/components/ui/icons";
 import { LineChart } from "@/components/ui/charts/LineChart";
 import { HBarChart } from "@/components/ui/charts/HBarChart";
 import { CompositionBar } from "@/components/ui/charts/CompositionBar";
+import { HqBranchSelector } from "@/components/hq/HqBranchSelector";
 
 const ALLOWED_ROLES = ["BRANCH_ADMIN"];
 const PTA_STATUS_LABEL: Record<string, string> = { BEKLIYOR: "Bekliyor", ONAYLANDI: "Onaylandı", REDDEDILDI: "Reddedildi" };
@@ -75,7 +76,7 @@ export function TodaySummaryDashboard() {
   if (!me || (isError && error instanceof ApiError && error.status === 401)) {
     return null;
   }
-  if (!ALLOWED_ROLES.includes(me.role) && !(me.role === "SUPERADMIN" && me.actingTenantId)) {
+  if (!ALLOWED_ROLES.includes(me.role) && me.role !== "SUPERADMIN") {
     return (
       <div className="card card-pad">
         <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
@@ -102,6 +103,7 @@ export function TodaySummaryDashboard() {
       <p className="lede">
         {greeting()}, {me.firstName} {me.lastName}
       </p>
+      <HqBranchSelector role={me.role} activeTenantId={me.actingTenantId} />
 
       {summaryQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
 

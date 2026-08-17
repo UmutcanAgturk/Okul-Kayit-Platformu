@@ -15,6 +15,8 @@ import {
   respondToPtaRequest,
 } from "@/lib/api/pta";
 import { Icon } from "@/components/ui/icons";
+import { HqBranchSelector } from "@/components/hq/HqBranchSelector";
+import type { MeResponse } from "@/lib/api/auth";
 
 const STATUS_LABEL: Record<string, string> = { BEKLIYOR: "Bekliyor", ONAYLANDI: "Onaylandı", REDDEDILDI: "Reddedildi" };
 const STATUS_CHIP: Record<string, string> = { BEKLIYOR: "weak", ONAYLANDI: "strong", REDDEDILDI: "critical" };
@@ -273,7 +275,7 @@ function TeacherPtaView({ me }: { me: { firstName: string; lastName: string } })
   );
 }
 
-function BranchPtaView({ me }: { me: { firstName: string; lastName: string } }) {
+function BranchPtaView({ me }: { me: MeResponse }) {
   const requestsQuery = useQuery({ queryKey: ptaKeys.branchAll(), queryFn: fetchBranchPtaRequests });
   const requests = requestsQuery.data?.requests ?? [];
 
@@ -283,6 +285,7 @@ function BranchPtaView({ me }: { me: { firstName: string; lastName: string } }) 
       <p className="lede">
         {me.firstName} {me.lastName}
       </p>
+      <HqBranchSelector role={me.role} activeTenantId={me.actingTenantId} />
       <div className="card card-pad">
         <div className="card-head">
           <h3>Talepler ({requests.length})</h3>
@@ -347,7 +350,7 @@ export function PtaDashboard() {
 
   if (me.role === "PARENT") return <ParentPtaView me={me} />;
   if (me.role === "TEACHER") return <TeacherPtaView me={me} />;
-  if (me.role === "BRANCH_ADMIN" || me.role === "GUIDANCE_COORDINATOR" || (me.role === "SUPERADMIN" && me.actingTenantId)) return <BranchPtaView me={me} />;
+  if (me.role === "BRANCH_ADMIN" || me.role === "GUIDANCE_COORDINATOR" || me.role === "SUPERADMIN") return <BranchPtaView me={me} />;
 
   return (
     <div className="card card-pad">

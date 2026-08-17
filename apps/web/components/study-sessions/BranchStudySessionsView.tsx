@@ -12,6 +12,7 @@ import {
   type StudySessionStatus,
 } from "@/lib/api/study-sessions";
 import { Icon } from "@/components/ui/icons";
+import { HqBranchSelector } from "@/components/hq/HqBranchSelector";
 
 const ALLOWED_ROLES = ["BRANCH_ADMIN", "GUIDANCE_COORDINATOR"];
 
@@ -90,7 +91,7 @@ export function BranchStudySessionsView() {
   if (!me || (isError && error instanceof ApiError && error.status === 401)) {
     return null;
   }
-  if (!ALLOWED_ROLES.includes(me.role) && !(me.role === "SUPERADMIN" && me.actingTenantId)) {
+  if (!ALLOWED_ROLES.includes(me.role) && me.role !== "SUPERADMIN") {
     return (
       <div className="card card-pad">
         <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
@@ -104,6 +105,7 @@ export function BranchStudySessionsView() {
     <div className="screen">
       <h1>Etüt</h1>
       <p className="lede">Şubedeki tüm öğretmenlerin etüt taleplerinin genel görünümü.</p>
+      <HqBranchSelector role={me.role} activeTenantId={me.actingTenantId} />
 
       <div className="grid cols-4" style={{ marginBottom: 14 }}>
         <div className="card stat-card">

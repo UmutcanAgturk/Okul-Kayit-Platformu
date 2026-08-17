@@ -28,6 +28,7 @@ import {
   updateTeacherUsername,
 } from "@/lib/api/teachers";
 import { Icon } from "@/components/ui/icons";
+import { HqBranchSelector } from "@/components/hq/HqBranchSelector";
 
 const ALLOWED_ROLES = ["BRANCH_ADMIN", "ACCOUNTING"];
 
@@ -264,7 +265,7 @@ export function PersonelDashboard() {
     return null; // yönlendirme useEffect'te yapılıyor
   }
 
-  if (!ALLOWED_ROLES.includes(me.role) && !(me.role === "SUPERADMIN" && me.actingTenantId)) {
+  if (!ALLOWED_ROLES.includes(me.role) && me.role !== "SUPERADMIN") {
     return (
       <div className="card card-pad">
         <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
@@ -281,6 +282,7 @@ export function PersonelDashboard() {
         <p className="lede">
           {me.firstName} {me.lastName} · {me.role === "BRANCH_ADMIN" ? "Şube Yöneticisi" : me.role === "SUPERADMIN" ? "Genel Merkez (Şube Yöneticisi yetkisiyle)" : "Muhasebe"}
         </p>
+        <HqBranchSelector role={me.role} activeTenantId={me.actingTenantId} />
         <div style={{ display: "flex", gap: 6, marginBottom: 18 }}>
           <button type="button" className="screen-tab" onClick={() => setTab("personel")}>
             Personel
@@ -310,6 +312,7 @@ export function PersonelDashboard() {
       <p className="lede">
         {me.firstName} {me.lastName} · {me.role === "BRANCH_ADMIN" ? "Şube Yöneticisi" : me.role === "SUPERADMIN" ? "Genel Merkez (Şube Yöneticisi yetkisiyle)" : "Muhasebe"}
       </p>
+      <HqBranchSelector role={me.role} activeTenantId={me.actingTenantId} />
       <div style={{ display: "flex", gap: 6, marginBottom: 18 }}>
         <button type="button" className="screen-tab active">
           Personel

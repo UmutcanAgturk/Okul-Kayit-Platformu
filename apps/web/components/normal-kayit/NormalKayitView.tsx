@@ -21,6 +21,7 @@ import { Icon } from "@/components/ui/icons";
 import { BulkImportPanel } from "./BulkImportPanel";
 import { PrintDocumentViewer } from "@/components/documents/PrintDocumentViewer";
 import { EnrollmentContractPrintBody } from "@/components/documents/DocumentPrintBodies";
+import { HqBranchSelector } from "@/components/hq/HqBranchSelector";
 
 const ALLOWED_ROLES = ["BRANCH_ADMIN", "GUIDANCE_COORDINATOR"];
 const LOCKED_STAGES = ["KAYIT_TAMAMLANDI", "IPTAL_EDILDI"];
@@ -102,7 +103,7 @@ export function NormalKayitView() {
   if (!me || (isError && error instanceof ApiError && error.status === 401)) {
     return null;
   }
-  if (!ALLOWED_ROLES.includes(me.role) && !(me.role === "SUPERADMIN" && me.actingTenantId)) {
+  if (!ALLOWED_ROLES.includes(me.role) && me.role !== "SUPERADMIN") {
     return (
       <div className="card card-pad">
         <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
@@ -187,6 +188,7 @@ export function NormalKayitView() {
           ? "Ön kaydı olan bir adayı sözleşme ve ödeme planıyla tam kayda dönüştürün."
           : "CSV'den birden çok öğrenciyi tek seferde içe aktarın — ön kayıt gerektirmez, doğrudan tam kayıt oluşturur."}
       </p>
+      <HqBranchSelector role={me.role} activeTenantId={me.actingTenantId} />
 
       <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
         <button type="button" className={`btn sm ${mode === "tekli" ? "primary" : ""}`} onClick={() => setMode("tekli")}>
