@@ -1,14 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   accountingKeys,
   createLedgerEntry,
   deleteLedgerEntry,
   fetchLedger,
+  fetchTaxSettings,
   fetchVatSummary,
+  fetchWithholdingSummary,
   updateLedgerEntry,
+  updateTaxSettings,
 } from "@/lib/api/accounting";
 import { ApiError } from "@/lib/api/client";
 import { Icon } from "@/components/ui/icons";
@@ -75,6 +78,7 @@ export function LedgerPanel() {
     queryFn: () => fetchLedger(ledgerFilter),
   });
   const vatQuery = useQuery({ queryKey: accountingKeys.vatSummary(), queryFn: fetchVatSummary });
+  const withholdingQuery = useQuery({ queryKey: accountingKeys.withholdingSummary(), queryFn: fetchWithholdingSummary });
 
   const [type, setType] = useState<"GELIR" | "GIDER">("GELIR");
   const [category, setCategory] = useState("");
@@ -94,6 +98,7 @@ export function LedgerPanel() {
   function invalidateLedger() {
     queryClient.invalidateQueries({ queryKey: ["accounting", "ledger"] });
     queryClient.invalidateQueries({ queryKey: accountingKeys.vatSummary() });
+    queryClient.invalidateQueries({ queryKey: accountingKeys.withholdingSummary() });
   }
 
   const createMutation = useMutation({
@@ -180,11 +185,14 @@ export function LedgerPanel() {
   const entries = ledgerQuery.data?.entries ?? [];
   const summary = ledgerQuery.data?.summary;
   const vat = vatQuery.data?.summary;
+  const withholding = withholdingQuery.data?.summary;
   const trend = buildMonthlyTrend(entries);
 
   return (
     <div className="grid cols-2">
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <TaxSettingsCard />
+
         <div className="card card-pad">
           <div className="card-head">
             <h3>Yeni Kayıt Ekle</h3>
@@ -265,6 +273,25 @@ export function LedgerPanel() {
               <dd style={{ margin: 0, textAlign: "right", fontWeight: 600, color: "var(--critical)" }}>{tl(vat.odenecekKdv)}</dd>
               <dt>Devreden KDV</dt>
               <dd style={{ margin: 0, textAlign: "right", fontWeight: 600, color: "var(--strong)" }}>{tl(vat.devredenKdv)}</dd>
+            </dl>
+          </div>
+        )}
+
+        {withholding && withholding.kayitSayisi > 0 && (
+          <div className="card card-pad">
+            <div className="card-head">
+              <h3>Kira Stopajı Özeti</h3>
+            </div>
+            <p style={{ margin: "-4px 0 8px", fontSize: "var(--text-2xs)", color: "var(--ink-faint)" }}>
+              GVK md 94 kapsamında stopaja tabi işaretlenmiş, kategorisi &quot;Kira&quot; olan gider kayıtları — {withholding.kayitSayisi} kayıt
+            </p>
+            <dl style={{ margin: 0, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
+              <dt>Brüt kira gideri</dt>
+              <dd style={{ margin: 0, textAlign: "right", fontWeight: 600, color: "var(--ink)" }}>{tl(withholding.brutToplam)}</dd>
+              <dt>Stopaj kesintisi</dt>
+              <dd style={{ margin: 0, textAlign: "right", fontWeight: 600, color: "var(--critical)" }}>{tl(withholding.stopajKesintisi)}</dd>
+              <dt>Net ödenecek kira</dt>
+              <dd style={{ margin: 0, textAlign: "right", fontWeight: 600, color: "var(--strong)" }}>{tl(withholding.netOdenecek)}</dd>
             </dl>
           </div>
         )}
@@ -442,6 +469,66 @@ export function LedgerPanel() {
           )}
         </div>
       </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Vergi Ayarları — Vergi No / Vergi Dairesi (bkz. task #84). KDV oranı ve
+ * stopaj oranı burada bir "varsayılan" olarak tutulmaz; gerçek backend'de
+ * her Kayıt Defteri satırının KENDİ vatRate/withholdingRate alanı vardır
+ * (bkz. yukarıdaki "Yeni Kayıt Ekle" formu) — demo'nun tek bir sabit oran
+ * varsaymasından daha esnek, bu yüzden burada tekrar edilmez.
+ */
+function TaxSettingsCard() {
+  const queryClient = useQueryClient();
+  const settingsQuery = useQuery({ queryKey: accountingKeys.taxSettings(), queryFn: fetchTaxSettings });
+  const [taxNo, setTaxNo] = useState("");
+  const [taxOffice, setTaxOffice] = useState("");
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (settingsQuery.data) {
+      setTaxNo(settingsQuery.data.settings.taxNo ?? "");
+      setTaxOffice(settingsQuery.data.settings.taxOffice ?? "");
+    }
+  }, [settingsQuery.data]);
+
+  const saveMutation = useMutation({
+    mutationFn: updateTaxSettings,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: accountingKeys.taxSettings() });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    },
+  });
+
+  return (
+    <div className="card card-pad">
+      <div className="card-head">
+        <h3>Vergi Ayarları</h3>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div className="field">
+          <label>Vergi No</label>
+          <input value={taxNo} onChange={(e) => setTaxNo(e.target.value)} />
+        </div>
+        <div className="field">
+          <label>Vergi Dairesi</label>
+          <input value={taxOffice} onChange={(e) => setTaxOffice(e.target.value)} />
+        </div>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
+        <button
+          type="button"
+          className="btn sm"
+          disabled={saveMutation.isPending}
+          onClick={() => saveMutation.mutate({ taxNo: taxNo.trim() || null, taxOffice: taxOffice.trim() || null })}
+        >
+          {saveMutation.isPending ? "Kaydediliyor…" : "Vergi Ayarlarını Kaydet"}
+        </button>
+        {saved && <span style={{ fontSize: "var(--text-xs)", color: "var(--strong)" }}>Kaydedildi</span>}
       </div>
     </div>
   );

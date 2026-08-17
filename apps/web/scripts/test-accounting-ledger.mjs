@@ -153,7 +153,85 @@ async function main() {
   const filterNoMatchBody = await filterNoMatchRes.json();
   check("GET accounting-ledger?search=xyzabc-yok: boş liste dönüyor", filterNoMatchBody.entries?.length === 0, filterNoMatchBody.entries?.length);
 
-  // ===== 10) Temizlik: bu script'in oluşturduğu test kaydını sil =====
+  // ===== 11) Kira Stopajı Özeti (task #84) =====
+  const noSessionWithholding = await fetch(`${BASE}/api/branch/accounting-ledger/withholding-summary`);
+  check("GET withholding-summary: oturumsuz 401", noSessionWithholding.status === 401, noSessionWithholding.status);
+
+  const teacherWithholding = await fetch(`${BASE}/api/branch/accounting-ledger/withholding-summary`, { headers: { Cookie: teacherCookie } });
+  check("Yetki: TEACHER rolü kira stopajı özetini göremiyor (403)", teacherWithholding.status === 403, teacherWithholding.status);
+
+  const withholdingRes = await fetch(`${BASE}/api/branch/accounting-ledger/withholding-summary`, { headers: { Cookie: branchAdminCookie } });
+  const withholdingBody = await withholdingRes.json();
+  check("GET withholding-summary: 200 dönüyor", withholdingRes.status === 200, withholdingRes.status);
+  check("GET withholding-summary: seed'deki Kira kaydı (18000, %20) hesaba dahil", withholdingBody.summary?.kayitSayisi >= 1, withholdingBody.summary);
+  check(
+    "GET withholding-summary: stopajKesintisi = brutToplam - netOdenecek",
+    Math.abs(withholdingBody.summary.stopajKesintisi - (withholdingBody.summary.brutToplam - withholdingBody.summary.netOdenecek)) < 0.01,
+    withholdingBody.summary,
+  );
+
+  const cankayaWithholding = await fetch(`${BASE}/api/branch/accounting-ledger/withholding-summary`, { headers: { Cookie: cankayaCookie } });
+  const cankayaWithholdingBody = await cankayaWithholding.json();
+  check(
+    "Tenant izolasyonu: Çankaya'nın kira stopajı özeti Mezitli'ninkinden farklı",
+    cankayaWithholdingBody.summary?.brutToplam !== withholdingBody.summary?.brutToplam || cankayaWithholdingBody.summary?.kayitSayisi === 0,
+    cankayaWithholdingBody.summary,
+  );
+
+  // ===== 12) Vergi Ayarları (task #84) =====
+  const noSessionTax = await fetch(`${BASE}/api/branch/tax-settings`);
+  check("GET tax-settings: oturumsuz 401", noSessionTax.status === 401, noSessionTax.status);
+
+  const teacherTax = await fetch(`${BASE}/api/branch/tax-settings`, { headers: { Cookie: teacherCookie } });
+  check("Yetki: TEACHER rolü vergi ayarlarını göremiyor (403)", teacherTax.status === 403, teacherTax.status);
+
+  const taxGetRes = await fetch(`${BASE}/api/branch/tax-settings`, { headers: { Cookie: branchAdminCookie } });
+  const taxGetBody = await taxGetRes.json();
+  check("GET tax-settings: 200 dönüyor", taxGetRes.status === 200, taxGetRes.status);
+  const originalTaxNo = taxGetBody.settings?.taxNo ?? null;
+  const originalTaxOffice = taxGetBody.settings?.taxOffice ?? null;
+
+  const teacherTaxPatch = await fetch(`${BASE}/api/branch/tax-settings`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: teacherCookie },
+    body: JSON.stringify({ taxNo: "0000000000" }),
+  });
+  check("Yetki: TEACHER rolü vergi ayarlarını değiştiremiyor (403)", teacherTaxPatch.status === 403, teacherTaxPatch.status);
+
+  const taxPatchRes = await fetch(`${BASE}/api/branch/tax-settings`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({ taxNo: "3330011122", taxOffice: "Mezitli Vergi Dairesi (test)" }),
+  });
+  const taxPatchBody = await taxPatchRes.json();
+  check("PATCH tax-settings: 200 dönüyor", taxPatchRes.status === 200, taxPatchRes.status);
+  check("PATCH tax-settings: Vergi No güncellendi", taxPatchBody.settings?.taxNo === "3330011122", taxPatchBody.settings);
+  check("PATCH tax-settings: Vergi Dairesi güncellendi", taxPatchBody.settings?.taxOffice === "Mezitli Vergi Dairesi (test)", taxPatchBody.settings);
+
+  const dbTenantAfterPatch = await prisma.tenant.findUnique({ where: { id: mezitli.id } });
+  check("DB: Tenant.taxOffice gerçekten güncellendi", dbTenantAfterPatch?.taxOffice === "Mezitli Vergi Dairesi (test)", dbTenantAfterPatch?.taxOffice);
+
+  const cankayaTaxPatch = await fetch(`${BASE}/api/branch/tax-settings`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: cankayaCookie },
+    body: JSON.stringify({ taxNo: "9999999999" }),
+  });
+  check("PATCH tax-settings: Çankaya yöneticisi kendi tenant'ını güncelleyebiliyor (200)", cankayaTaxPatch.status === 200, cankayaTaxPatch.status);
+
+  const dbMezitliUnaffected = await prisma.tenant.findUnique({ where: { id: mezitli.id } });
+  check(
+    "Tenant izolasyonu: Çankaya'nın PATCH'i Mezitli'nin taxNo'sunu ETKİLEMİYOR",
+    dbMezitliUnaffected?.taxNo === "3330011122",
+    dbMezitliUnaffected?.taxNo,
+  );
+
+  // Temizlik: her iki tenant'ın vergi ayarlarını orijinaline döndür
+  await prisma.tenant.update({ where: { id: mezitli.id }, data: { taxNo: originalTaxNo, taxOffice: originalTaxOffice } });
+  const cankaya = await prisma.tenant.findUnique({ where: { code: "CANKAYA-01" } });
+  if (cankaya) await prisma.tenant.update({ where: { id: cankaya.id }, data: { taxNo: null } });
+  check("Temizlik: vergi ayarları orijinaline döndürüldü", true);
+
+  // ===== 13) Temizlik: bu script'in oluşturduğu test kaydını sil =====
   const cleanupRes = await fetch(`${BASE}/api/branch/accounting-ledger/${postBody.entry.id}`, {
     method: "DELETE",
     headers: { Cookie: branchAdminCookie },

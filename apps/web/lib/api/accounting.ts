@@ -81,6 +81,30 @@ export function fetchVatSummary() {
   return apiFetch<VatSummaryResponse>("/api/branch/accounting-ledger/vat-summary", { cache: "no-store" });
 }
 
+export interface WithholdingSummary {
+  kayitSayisi: number;
+  brutToplam: number;
+  stopajKesintisi: number;
+  netOdenecek: number;
+}
+
+export function fetchWithholdingSummary() {
+  return apiFetch<{ summary: WithholdingSummary }>("/api/branch/accounting-ledger/withholding-summary", { cache: "no-store" });
+}
+
+export interface TaxSettings {
+  taxNo: string | null;
+  taxOffice: string | null;
+}
+
+export function fetchTaxSettings() {
+  return apiFetch<{ settings: TaxSettings }>("/api/branch/tax-settings", { cache: "no-store" });
+}
+
+export function updateTaxSettings(input: { taxNo?: string | null; taxOffice?: string | null }) {
+  return apiFetch<{ settings: TaxSettings }>("/api/branch/tax-settings", { method: "PATCH", body: JSON.stringify(input) });
+}
+
 export interface Installment {
   id: string;
   studentId: string;
@@ -156,6 +180,8 @@ export const accountingKeys = {
   ledger: (filter?: { type?: string; search?: string }) =>
     ["accounting", "ledger", filter?.type ?? "ALL", filter?.search ?? ""] as const,
   vatSummary: () => ["accounting", "vat-summary"] as const,
+  withholdingSummary: () => ["accounting", "withholding-summary"] as const,
+  taxSettings: () => ["accounting", "tax-settings"] as const,
   installments: (status?: string) => ["accounting", "installments", status ?? "ALL"] as const,
   aging: () => ["accounting", "aging"] as const,
   payroll: () => ["accounting", "payroll"] as const,

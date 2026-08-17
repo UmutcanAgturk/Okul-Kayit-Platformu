@@ -70,8 +70,13 @@ model Tenant {
   address  String?
   phone    String?
   email    String?
-  capacity Int?
-  taxNo    String?
+  capacity  Int?
+  taxNo     String?
+  // Vergi Dairesi — Muhasebe > Vergi Ayarları'ndan (bkz. task #84,
+  // app/api/branch/tax-settings) şube tarafından düzenlenebilir; taxNo'nun
+  // aksine yalnızca faturalarda bilgi amaçlıdır, Kurumlar (HQ) formunda yer
+  // almaz çünkü şube muhasebesinin kendi bilgisidir.
+  taxOffice String?
 
   // "Kurum Türü" (demo'daki KURUM_TURU_OPTIONS listesi — bkz. lib/api/hq.ts
   // KURUM_TURU_OPTIONS) ve "Açılış Tarihi" — sadece bilgi amaçlı, herhangi bir
