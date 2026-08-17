@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
       tx.teacherProfile.findMany({ select: { user: { select: { tenantId: true } } } }),
       tx.user.findMany({
         where: { role: UserRole.BRANCH_ADMIN },
-        select: { id: true, tenantId: true, firstName: true, lastName: true, phone: true },
+        select: { id: true, tenantId: true, firstName: true, lastName: true, phone: true, email: true },
       }),
     ]);
 
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
     const branchAdminByTenant = new Map(
       branchAdmins
         .filter((u) => u.tenantId)
-        .map((u) => [u.tenantId as string, { name: `${u.firstName} ${u.lastName}`, phone: u.phone }]),
+        .map((u) => [u.tenantId as string, { name: `${u.firstName} ${u.lastName}`, phone: u.phone, email: u.email }]),
     );
 
     return tenants.map((t) => ({
@@ -80,6 +80,11 @@ export async function GET(request: NextRequest) {
       teacherCount: teacherCounts.get(t.id) ?? 0,
       branchAdminName: branchAdminByTenant.get(t.id)?.name ?? null,
       branchAdminPhone: branchAdminByTenant.get(t.id)?.phone ?? null,
+      // 3. denetim bulgusu — demo'nun salt-okunur kurum detayı Şube Müdürü
+      // bölümünde Kullanıcı Adı satırı gösteriyordu, burada hiç dönmüyordu
+      // (yalnızca ad/telefon). Şifre kasıtlı olarak YOK — hash'li, yalnızca
+      // "Kimlik Bilgisini Sıfırla" ile yeniden üretilebiliyor.
+      branchAdminEmail: branchAdminByTenant.get(t.id)?.email ?? null,
     }));
   });
 

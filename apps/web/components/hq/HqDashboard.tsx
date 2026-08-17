@@ -302,6 +302,16 @@ function TenantCard({
             <dt style={{ color: "var(--ink-faint)" }}>Kurum Kodu</dt>
             <dd style={{ margin: 0, fontFamily: "monospace", color: "var(--ink-muted)" }}>{tenant.code}</dd>
           </div>
+          {tenant.branchAdminEmail && (
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+              {/* 3. denetim bulgusu — demo'nun salt-okunur detayı Şube Müdürü
+                  Kullanıcı Adı'nı da gösteriyordu, burada hiç dönmüyordu.
+                  Şifre kasıtlı olarak yok — "Kimlik Bilgisini Sıfırla" ile
+                  yeniden üretiliyor, hash'li olduğu için okunamaz. */}
+              <dt style={{ color: "var(--ink-faint)" }}>Şube Müdürü Kullanıcı Adı</dt>
+              <dd style={{ margin: 0, fontFamily: "monospace", color: "var(--ink-muted)" }}>{tenant.branchAdminEmail}</dd>
+            </div>
+          )}
         </dl>
       </details>
 

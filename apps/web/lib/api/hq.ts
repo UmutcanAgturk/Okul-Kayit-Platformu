@@ -21,6 +21,7 @@ export interface HqTenant {
   teacherCount: number;
   branchAdminName: string | null;
   branchAdminPhone: string | null;
+  branchAdminEmail: string | null;
 }
 
 // demo/seviye360-app.html'deki KURUM_TURU_OPTIONS listesiyle birebir aynı.

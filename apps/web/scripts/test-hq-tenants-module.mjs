@@ -73,8 +73,11 @@ async function main() {
   check("Mezitli öğrenci sayısı ham DB ile eşleşiyor", mezitli?.studentCount === mezitliStudentCount, `${mezitli?.studentCount} vs ${mezitliStudentCount}`);
   check("Mezitli sınıf sayısı ham DB ile eşleşiyor", mezitli?.classroomCount === mezitliClassroomCount, `${mezitli?.classroomCount} vs ${mezitliClassroomCount}`);
   check("Mezitli şube müdürü Merve Aslan", mezitli?.branchAdminName === "Merve Aslan", mezitli?.branchAdminName);
+  // task #105 (3. denetim) — branchAdminEmail (kullanıcı adı) artık dönüyor
+  check("Mezitli şube müdürü kullanıcı adı doğru", mezitli?.branchAdminEmail === "merve.aslan@seviye360.com", mezitli?.branchAdminEmail);
   check("Çankaya öğrenci sayısı ham DB ile eşleşiyor", cankaya?.studentCount === cankayaStudentCount, `${cankaya?.studentCount} vs ${cankayaStudentCount}`);
   check("Çankaya şube müdürü Onur Kaya", cankaya?.branchAdminName === "Onur Kaya", cankaya?.branchAdminName);
+  check("Çankaya şube müdürü kullanıcı adı doğru", cankaya?.branchAdminEmail === "onur.kaya@seviye360.com", cankaya?.branchAdminEmail);
 
   // ===== Zaten var olan konsolide muhasebe görünümü (regresyon) =====
   const ledgerRes = await fetch(`${BASE}/api/hq/accounting-ledger`, { headers: { Cookie: superadminCookie } });
