@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
-import { fetchBranchMap, toneForPct } from "@/lib/api/branch-map";
+import { BranchMapRow, fetchBranchMap, toneForPct } from "@/lib/api/branch-map";
 import { TURKEY_MAP_VIEWBOX, TURKEY_PROVINCES } from "@/lib/turkey-provinces";
 import { Icon } from "@/components/ui/icons";
 
@@ -22,6 +22,16 @@ function tl(n: number) {
 export function BranchMapDashboard() {
   const router = useRouter();
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
+  const [selectedDistrict, setSelectedDistrict] = useState<string>("");
+
+  function goToCity(city: string) {
+    setSelectedCity(city);
+    setSelectedDistrict("");
+  }
+  function goBackToMap() {
+    setSelectedCity(null);
+    setSelectedDistrict("");
+  }
 
   const { data: me, isLoading, isError, error } = useQuery({
     queryKey: authKeys.me(),
@@ -66,6 +76,18 @@ export function BranchMapDashboard() {
           Bu modüle erişim yetkiniz yok. Şube Performans Haritası yalnızca Genel Merkez rolüne açıktır.
         </p>
       </div>
+    );
+  }
+
+  if (selectedCity) {
+    return (
+      <CityDrilldown
+        city={selectedCity}
+        branches={branches}
+        selectedDistrict={selectedDistrict}
+        onSelectDistrict={setSelectedDistrict}
+        onBack={goBackToMap}
+      />
     );
   }
 
@@ -123,12 +145,13 @@ export function BranchMapDashboard() {
                   return (
                     <path
                       key={p.name}
-                      className={`map-province${p.name === selectedCity ? " active-city" : ""}`}
+                      className={`map-province${active ? " active-city" : ""}`}
                       d={p.d}
                       fill={fill}
                       stroke={stroke}
                       strokeWidth={1}
-                      onClick={() => active && setSelectedCity(p.name === selectedCity ? null : p.name)}
+                      style={active ? { cursor: "pointer" } : undefined}
+                      onClick={() => active && goToCity(p.name)}
                     >
                       <title>{active ? `${p.name} — ${count} kurum · %${occ} doluluk` : `${p.name} — kurum yok`}</title>
                     </path>
@@ -171,8 +194,7 @@ export function BranchMapDashboard() {
                       <tr
                         key={b.id}
                         className="row-clickable"
-                        onClick={() => setSelectedCity(b.city === selectedCity ? null : b.city)}
-                        style={b.city === selectedCity ? { background: "var(--surface-2)" } : undefined}
+                        onClick={() => b.city && goToCity(b.city)}
                       >
                         <td>
                           <b>{b.city}</b> · {b.district}
@@ -197,6 +219,130 @@ export function BranchMapDashboard() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * İl drill-down (bkz. demo renderCityDrilldown/mountCityDrilldown) — il
+ * seçildiğinde ülke haritası yerine gösterilir. Demo'daki gibi TÜM ilçeleri
+ * (kurumu olsun olmasın) listelemek yerine, yalnızca o ilde GERÇEKTEN
+ * kurumu olan ilçeler gösterilir — statik bir il→ilçe referans verisi
+ * gerçek backend'de yok, bu yüzden "veri zaten gerçek" ilkesiyle mevcut
+ * şube verisinden türetilir.
+ */
+function CityDrilldown({
+  city,
+  branches,
+  selectedDistrict,
+  onSelectDistrict,
+  onBack,
+}: {
+  city: string;
+  branches: BranchMapRow[];
+  selectedDistrict: string;
+  onSelectDistrict: (district: string) => void;
+  onBack: () => void;
+}) {
+  const cityBranches = branches.filter((b) => b.city === city);
+  const districts = Array.from(new Set(cityBranches.map((b) => b.district).filter((d): d is string => !!d))).sort((a, b) =>
+    a.localeCompare(b, "tr"),
+  );
+  const visibleBranches = selectedDistrict ? cityBranches.filter((b) => b.district === selectedDistrict) : cityBranches;
+
+  return (
+    <div className="screen">
+      <button type="button" className="btn" style={{ marginBottom: 14 }} onClick={onBack}>
+        <Icon name="map" /> Türkiye Haritasına Dön
+      </button>
+      <h1>{city}</h1>
+      <p className="lede">
+        {city} ilinde {cityBranches.length} kurum, {districts.length} ilçede dağılmış durumda. Bir ilçeye tıklayarak o
+        ilçenin kurumlarını görün.
+      </p>
+
+      <div className="card card-pad" style={{ marginBottom: 14 }}>
+        <div className="card-head">
+          <h3>{city} — İlçe Dağılımı</h3>
+        </div>
+        <div className="grid cols-4">
+          <button
+            type="button"
+            className={`card stat-card row-clickable${selectedDistrict === "" ? " tone-accent" : ""}`}
+            style={{ textAlign: "left", cursor: "pointer", border: "none" }}
+            onClick={() => onSelectDistrict("")}
+          >
+            <p className="stat-label">Tümü</p>
+            <p className="stat-value">{cityBranches.length}</p>
+            <p className="stat-sub">kurum</p>
+          </button>
+          {districts.map((d) => {
+            const count = cityBranches.filter((b) => b.district === d).length;
+            return (
+              <button
+                type="button"
+                key={d}
+                className={`card stat-card row-clickable${selectedDistrict === d ? " tone-accent" : ""}`}
+                style={{ textAlign: "left", cursor: "pointer", border: "none" }}
+                onClick={() => onSelectDistrict(d)}
+              >
+                <p className="stat-label">{d}</p>
+                <p className="stat-value">{count}</p>
+                <p className="stat-sub">kurum</p>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="card card-pad">
+        <div className="card-head">
+          <h3>Kurumlar</h3>
+          <span className="hint">
+            {city} · {selectedDistrict || "tümü"} ({visibleBranches.length})
+          </span>
+        </div>
+        {visibleBranches.length === 0 ? (
+          <div className="empty-state">
+            <Icon name="map" />
+            <p>Bu ilçede kurum yok.</p>
+          </div>
+        ) : (
+          <div className="table-wrap">
+            <table className="data">
+              <thead>
+                <tr>
+                  <th>Kurum</th>
+                  <th>İlçe</th>
+                  <th>Ciro</th>
+                  <th>Tahsilat</th>
+                  <th>Doluluk</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleBranches.map((b) => (
+                  <tr key={b.id}>
+                    <td>
+                      <b>{b.name}</b>
+                    </td>
+                    <td>{b.district}</td>
+                    <td>{tl(b.revenue)}</td>
+                    <td>
+                      <span className={`chip ${toneForPct(b.collectionPct)}`}>%{b.collectionPct}</span>
+                    </td>
+                    <td>
+                      <span className={`chip ${toneForPct(b.occupancyPct)}`}>%{b.occupancyPct}</span>{" "}
+                      <span style={{ color: "var(--ink-faint)", fontSize: "var(--text-xs)" }}>
+                        ({b.studentCount}/{b.capacity ?? 0})
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
