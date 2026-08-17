@@ -54,7 +54,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
     <div className="app">
       <MessageToastWatcher />
       <CommandPalette role={me.role} actingTenantId={me.actingTenantId} open={cmdOpen} onOpenChange={setCmdOpen} />
-      <GuidedTour />
+      <GuidedTour modules={modules} />
       <a href="#content" className="skip-link">İçeriğe atla</a>
       <div className={`sidebar-scrim ${sidebarOpen ? "open" : ""}`} onClick={() => setSidebarOpen(false)} />
       <nav className={`sidebar ${sidebarOpen ? "open" : ""}`} aria-label="Ana gezinme">
