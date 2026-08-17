@@ -86,6 +86,12 @@ export async function POST(request: NextRequest) {
   const messageBody = typeof body?.body === "string" ? body.body.trim() : "";
   const audience = body?.audience as Audience;
   const classroomId = typeof body?.classroomId === "string" && body.classroomId ? body.classroomId : null;
+  // task #101 — sınıf bazlı toplu seçimin YANINDA, tekil öğrenci seçimi
+  // (demo'daki öğretmen roster checkbox listesinin karşılığı). Doluysa
+  // classroomId GÖZ ARDI edilir — yalnızca seçilen öğrenciler (ALL_STUDENTS)
+  // veya onların velileri (ALL_GUARDIANS) hedeflenir.
+  const rawStudentIds = Array.isArray(body?.studentIds) ? body.studentIds : [];
+  const studentIds: string[] = rawStudentIds.filter((id: unknown): id is string => typeof id === "string" && id.length > 0);
   const rawAttachments = Array.isArray(body?.attachments) ? body.attachments : [];
 
   if (!title || !messageBody || !AUDIENCE_VALUES.includes(audience)) {
@@ -119,16 +125,22 @@ export async function POST(request: NextRequest) {
       const classroom = await tx.classroom.findUnique({ where: { id: classroomId } });
       if (!classroom) return { error: "Sınıf bulunamadı" as const };
     }
+    if (studentIds.length > 0) {
+      const foundCount = await tx.studentProfile.count({ where: { id: { in: studentIds } } });
+      if (foundCount !== studentIds.length) return { error: "Seçilen öğrencilerden biri bulunamadı" as const };
+    }
 
     let recipientUserIds: string[] = [];
     let audienceLabel = AUDIENCE_LABEL[audience];
 
     if (audience === "ALL_STUDENTS" || audience === "ALL_GUARDIANS") {
       const students = await tx.studentProfile.findMany({
-        where: classroomId ? { classroomId } : {},
+        where: studentIds.length > 0 ? { id: { in: studentIds } } : classroomId ? { classroomId } : {},
         include: { guardians: { include: { parent: true } } },
       });
-      if (classroomId) {
+      if (studentIds.length > 0) {
+        audienceLabel = audience === "ALL_STUDENTS" ? `Seçili ${students.length} Öğrenci` : `Seçili ${students.length} Öğrencinin Velisi`;
+      } else if (classroomId) {
         const classroom = await tx.classroom.findUnique({ where: { id: classroomId } });
         audienceLabel = `${classroom!.name} Sınıfı ${audienceLabel}`;
       }

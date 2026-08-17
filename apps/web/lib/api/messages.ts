@@ -28,9 +28,37 @@ export function sendMessage(input: {
   body: string;
   audience: MessageAudience;
   classroomId?: string;
+  studentIds?: string[];
   attachments?: { fileName: string; mimeType: string; dataUrl: string }[];
 }) {
   return apiFetch<{ message: SentMessage }>("/api/branch/messages", { method: "POST", body: JSON.stringify(input) });
+}
+
+// İletişim > Kime: tekil öğrenci seçimi (task #101) — bkz.
+// app/api/branch/messages/students-search/route.ts yorumu.
+export interface MessageStudentSearchResult {
+  id: string;
+  name: string;
+  studentNo: string;
+  classroomName: string | null;
+}
+
+export function searchMessageStudents(q: string) {
+  return apiFetch<{ students: MessageStudentSearchResult[] }>(`/api/branch/messages/students-search?q=${encodeURIComponent(q)}`, { cache: "no-store" });
+}
+
+// İletişim — HQ Yayını (task #101) — bkz. app/api/hq/messages/route.ts yorumu.
+export type HqRecipientType = "STUDENTS" | "GUARDIANS" | "TEACHERS" | "MANAGERS";
+
+export function fetchHqSentMessages() {
+  return apiFetch<{ messages: SentMessage[] }>("/api/hq/messages", { cache: "no-store" });
+}
+
+export function sendHqMessage(input: { title: string; body: string; recipientTypes: HqRecipientType[] }) {
+  return apiFetch<{ audienceLabel: string; recipientCount: number; tenantsReached: number }>("/api/hq/messages", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }
 
 export function recallMessage(messageId: string) {
@@ -103,4 +131,6 @@ export const messageKeys = {
   inbox: () => ["messages", "inbox"] as const,
   classrooms: () => ["messages", "classrooms"] as const,
   templates: () => ["messages", "templates"] as const,
+  hqSent: () => ["messages", "hq-sent"] as const,
+  studentSearch: (q: string) => ["messages", "student-search", q] as const,
 };

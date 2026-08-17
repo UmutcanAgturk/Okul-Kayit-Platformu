@@ -245,6 +245,119 @@ async function main() {
   const recallNoAuthRes = await fetch(`${BASE}/api/branch/messages/${sentMessageId}`, { method: "DELETE" });
   check("Geri çekme: oturumsuz 401", recallNoAuthRes.status === 401, recallNoAuthRes.status);
 
+  // ===== task #101: tekil öğrenci seçimi (students-search + studentIds) =====
+  const searchNoAuthRes = await fetch(`${BASE}/api/branch/messages/students-search?q=el`);
+  check("GET students-search: oturumsuz 401", searchNoAuthRes.status === 401, searchNoAuthRes.status);
+
+  const searchParentRes = await fetch(`${BASE}/api/branch/messages/students-search?q=el`, { headers: { Cookie: parentCookie } });
+  check("Yetki: PARENT öğrenci arayamaz (403)", searchParentRes.status === 403, searchParentRes.status);
+
+  const searchTooShortRes = await fetch(`${BASE}/api/branch/messages/students-search?q=e`, { headers: { Cookie: teacherCookie } });
+  const searchTooShortBody = await searchTooShortRes.json();
+  check("GET students-search: 1 karakter boş liste döner", searchTooShortRes.status === 200 && searchTooShortBody.students?.length === 0, searchTooShortBody);
+
+  const searchRes = await fetch(`${BASE}/api/branch/messages/students-search?q=Elif`, { headers: { Cookie: teacherCookie } });
+  const searchBody = await searchRes.json();
+  const elifSearchResult = searchBody.students?.find((s) => s.name === "Elif Yılmaz");
+  check("GET students-search: Elif Yılmaz sonuçlarda (studentNo/classroomName ile)", !!elifSearchResult && !!elifSearchResult.studentNo, elifSearchResult);
+
+  const elif = await prisma.studentProfile.findFirst({ where: { studentNo: "201001" } });
+  const classroomStudentCount = await prisma.studentProfile.count({ where: { classroomId: classroom.id } });
+  check("Kurulum: 9-A sınıfında birden fazla öğrenci var (daraltma testi için)", classroomStudentCount > 1, classroomStudentCount);
+
+  // Not: audience=ALL_STUDENTS kullanılır (ALL_GUARDIANS değil) çünkü 9-A'daki
+  // TEK veli kaydı Elif'e ait (seed verisi) — ALL_GUARDIANS ile recipientCount=1
+  // hem doğru daraltmada HEM YANLIŞLIKLA tüm sınıfa gönderilse bile aynı çıkardı
+  // (diğer öğrencilerin velisi yok). ALL_STUDENTS ile 9-A'nın 4 öğrencisi VAR,
+  // bu yüzden recipientCount=1 gerçek bir daraltma kanıtı olur (aksi halde 4 olurdu).
+  const studentIdSendRes = await fetch(`${BASE}/api/branch/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({
+      title: "Tekil Öğrenci Testi",
+      body: "Yalnızca Elif'e gitmeli.",
+      audience: "ALL_STUDENTS",
+      classroomId: classroom.id,
+      studentIds: [elif.id],
+    }),
+  });
+  const studentIdSendBody = await studentIdSendRes.json();
+  check(
+    "POST studentIds ile: 201 ve recipientCount=1 (sınıfın 4 öğrencisi DEĞİL, yalnızca seçilen)",
+    studentIdSendRes.status === 201 && studentIdSendBody.message?.recipientCount === 1,
+    studentIdSendBody.message,
+  );
+  check("audienceLabel 'Seçili' ile başlıyor (classroomId göz ardı edildi)", studentIdSendBody.message?.audienceLabel?.startsWith("Seçili"), studentIdSendBody.message?.audienceLabel);
+
+  const dbRecipient = await prisma.messageRecipient.findFirst({ where: { messageId: studentIdSendBody.message.id } });
+  check("DB: tek alıcı gerçekten Elif'in kendi User'ı", dbRecipient?.userId === elif.userId, dbRecipient?.userId);
+
+  const badStudentIdRes = await fetch(`${BASE}/api/branch/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({ title: "x", body: "y", audience: "ALL_GUARDIANS", studentIds: ["does-not-exist"] }),
+  });
+  check("POST studentIds: olmayan öğrenci id'si 404", badStudentIdRes.status === 404, badStudentIdRes.status);
+
+  // ===== task #101: HQ Yayını (bare SUPERADMIN, çapraz-tenant) =====
+  const superadminCookie = await loginAs("admin@seviye360.com", SEED_DEV_PASSWORD);
+  check("Kurulum: SUPERADMIN girişi başarılı", !!superadminCookie);
+
+  const hqMsgNoAuthRes = await fetch(`${BASE}/api/hq/messages`);
+  check("GET hq/messages: oturumsuz 401", hqMsgNoAuthRes.status === 401, hqMsgNoAuthRes.status);
+
+  const hqMsgBranchAdminRes = await fetch(`${BASE}/api/hq/messages`, { headers: { Cookie: branchAdminCookie } });
+  check("Yetki: BRANCH_ADMIN HQ yayınlarını göremez (403)", hqMsgBranchAdminRes.status === 403, hqMsgBranchAdminRes.status);
+
+  const hqSendBranchAdminRes = await fetch(`${BASE}/api/hq/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({ title: "x", body: "y", recipientTypes: ["MANAGERS"] }),
+  });
+  check("Yetki: BRANCH_ADMIN HQ yayını gönderemez (403)", hqSendBranchAdminRes.status === 403, hqSendBranchAdminRes.status);
+
+  const hqNoTypesRes = await fetch(`${BASE}/api/hq/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: superadminCookie },
+    body: JSON.stringify({ title: "x", body: "y", recipientTypes: [] }),
+  });
+  check("POST hq/messages: boş recipientTypes 400", hqNoTypesRes.status === 400, hqNoTypesRes.status);
+
+  const hqSendRes = await fetch(`${BASE}/api/hq/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: superadminCookie },
+    body: JSON.stringify({ title: "Genel Merkez Duyurusu", body: "Tüm şube müdürlerine önemli duyuru.", recipientTypes: ["MANAGERS"] }),
+  });
+  const hqSendBody = await hqSendRes.json();
+  check(
+    "POST hq/messages: 201 ve en az 2 şubeye ulaştı (Mezitli + Çankaya)",
+    hqSendRes.status === 201 && hqSendBody.tenantsReached >= 2 && hqSendBody.recipientCount >= 2,
+    hqSendBody,
+  );
+
+  // Not: Çankaya BRANCH_ADMIN'i (onur.kaya) için AYRI bir login YAPILMAZ —
+  // dosyanın başında zaten "otherBranchAdminCookie" olarak giriş yapılmış
+  // (tekrar login rate-limit'e (429) takılabiliyordu, aynı hesabı tekrar
+  // giriş yapmadan yeniden kullanmak bu depodaki test script'lerinde
+  // yaygın bir desen).
+  const cankayaAdminInboxRes = await fetch(`${BASE}/api/messages/inbox`, { headers: { Cookie: otherBranchAdminCookie } });
+  const cankayaAdminInboxBody = await cankayaAdminInboxRes.json();
+  const cankayaHqEntry = cankayaAdminInboxBody.messages?.find((m) => m.title === "Genel Merkez Duyurusu");
+  check("Çankaya şube müdürü HQ yayınını gelen kutusunda GÖRÜYOR (çapraz-tenant)", !!cankayaHqEntry, cankayaHqEntry);
+
+  const branchAdminInboxRes = await fetch(`${BASE}/api/messages/inbox`, { headers: { Cookie: branchAdminCookie } });
+  const branchAdminInboxBody = await branchAdminInboxRes.json();
+  const mezitliHqEntry = branchAdminInboxBody.messages?.find((m) => m.title === "Genel Merkez Duyurusu");
+  check("Mezitli şube müdürü de AYNI HQ yayınını görüyor", !!mezitliHqEntry, mezitliHqEntry);
+
+  const hqSentListRes = await fetch(`${BASE}/api/hq/messages`, { headers: { Cookie: superadminCookie } });
+  const hqSentListBody = await hqSentListRes.json();
+  check(
+    "GET hq/messages: gönderilenler listesinde İKİ ayrı satır var (her tenant için bir Message satırı)",
+    hqSentListBody.messages?.filter((m) => m.title === "Genel Merkez Duyurusu").length >= 2,
+    hqSentListBody.messages?.filter((m) => m.title === "Genel Merkez Duyurusu"),
+  );
+
   // ===== Aktivite Akışı yansıması =====
   const activityRes = await fetch(`${BASE}/api/branch/activity-log`, { headers: { Cookie: branchAdminCookie } });
   const activityBody = await activityRes.json();
@@ -254,9 +367,11 @@ async function main() {
   );
 
   // Temizlik
-  await prisma.messageRecipient.deleteMany({ where: { messageId: { in: [sentMessageId, otherSendBody.message.id, teacherSendBody.message.id] } } });
-  await prisma.message.deleteMany({ where: { id: { in: [sentMessageId, otherSendBody.message.id, teacherSendBody.message.id] } } });
-  await prisma.auditLogEntry.deleteMany({ where: { action: { in: ["Mesaj gönderildi", "Mesaj geri çekildi"] } } });
+  const hqMessageIds = (hqSentListBody.messages ?? []).filter((m) => m.title === "Genel Merkez Duyurusu").map((m) => m.id);
+  const allTestMessageIds = [sentMessageId, otherSendBody.message.id, teacherSendBody.message.id, studentIdSendBody.message.id, ...hqMessageIds];
+  await prisma.messageRecipient.deleteMany({ where: { messageId: { in: allTestMessageIds } } });
+  await prisma.message.deleteMany({ where: { id: { in: allTestMessageIds } } });
+  await prisma.auditLogEntry.deleteMany({ where: { action: { in: ["Mesaj gönderildi", "Mesaj geri çekildi", "Genel Merkez yayını alındı"] } } });
 
   console.log("\n=== ÖZET ===");
   const fails = results.filter((r) => !r.ok);

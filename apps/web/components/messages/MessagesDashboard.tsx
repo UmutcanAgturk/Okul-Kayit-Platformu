@@ -10,16 +10,21 @@ import {
   deleteInboxMessage,
   deleteTemplate,
   fetchClassroomsForMessaging,
+  fetchHqSentMessages,
   fetchInbox,
   fetchSentMessages,
   fetchTemplates,
   markMessageRead,
   messageKeys,
   recallMessage,
+  searchMessageStudents,
+  sendHqMessage,
   sendMessage,
   updateTemplate,
+  type HqRecipientType,
   type MessageAttachmentRow,
   type MessageAudience,
+  type MessageStudentSearchResult,
   type MessageTemplate,
   type MessageTemplateKind,
 } from "@/lib/api/messages";
@@ -84,6 +89,83 @@ function AttachmentList({ attachments }: { attachments: MessageAttachmentRow[] }
   );
 }
 
+/**
+ * İletişim > Kime: tekil öğrenci seçimi (task #101) — demo'nun öğretmen
+ * roster checkbox listesinin (renderIletisimComposeTeacher) karşılığı,
+ * ancak arama tabanlı (bu depoda öğretmenin kendi roster'ı yok — bkz.
+ * app/api/branch/messages/students-search yorumu). Seçim doluysa sınıf
+ * bazlı toplu filtre sunucu tarafında göz ardı edilir.
+ */
+function StudentPicker({ selected, onChange }: { selected: MessageStudentSearchResult[]; onChange: (next: MessageStudentSearchResult[]) => void }) {
+  const [rawQuery, setRawQuery] = useState("");
+  const [query, setQuery] = useState("");
+
+  useEffect(() => {
+    const t = setTimeout(() => setQuery(rawQuery.trim()), 180);
+    return () => clearTimeout(t);
+  }, [rawQuery]);
+
+  const searchQuery = useQuery({
+    queryKey: messageKeys.studentSearch(query),
+    queryFn: () => searchMessageStudents(query),
+    enabled: query.length >= 2,
+  });
+  const results = (searchQuery.data?.students ?? []).filter((s) => !selected.some((sel) => sel.id === s.id));
+
+  return (
+    <div className="field" style={{ marginTop: 12 }}>
+      <label>Tekil Öğrenci Seç (opsiyonel — doluysa sınıf filtresi göz ardı edilir)</label>
+      <input type="text" value={rawQuery} onChange={(e) => setRawQuery(e.target.value)} placeholder="İsim veya öğrenci no ile ara…" />
+      {query.length >= 2 && results.length > 0 && (
+        <div style={{ marginTop: 6, border: "1px solid var(--border)", borderRadius: 8, maxHeight: 160, overflowY: "auto" }}>
+          {results.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => {
+                onChange([...selected, s]);
+                setRawQuery("");
+              }}
+              style={{
+                display: "block",
+                width: "100%",
+                textAlign: "left",
+                padding: "6px 10px",
+                fontSize: "var(--text-xs)",
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+              }}
+            >
+              <b>{s.name}</b> · {s.studentNo}
+              {s.classroomName && ` · ${s.classroomName}`}
+            </button>
+          ))}
+        </div>
+      )}
+      {selected.length > 0 && (
+        <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {selected.map((s) => (
+            <span key={s.id} className="chip" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              {s.name}
+              <button
+                type="button"
+                onClick={() => onChange(selected.filter((x) => x.id !== s.id))}
+                style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0, fontWeight: 700, color: "var(--ink-faint)" }}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+          <button type="button" className="btn xs" onClick={() => onChange([])}>
+            Temizle
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ComposeForm({
   canTargetStaff,
   appliedTemplate,
@@ -96,6 +178,7 @@ function ComposeForm({
   const [body, setBody] = useState("");
   const [audience, setAudience] = useState<MessageAudience>("ALL_GUARDIANS");
   const [classroomId, setClassroomId] = useState("");
+  const [selectedStudents, setSelectedStudents] = useState<MessageStudentSearchResult[]>([]);
   const [attachments, setAttachments] = useState<{ fileName: string; mimeType: string; dataUrl: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -166,12 +249,14 @@ function ComposeForm({
         body: body.trim(),
         audience,
         classroomId: classroomFilterable && classroomId ? classroomId : undefined,
+        studentIds: classroomFilterable && selectedStudents.length > 0 ? selectedStudents.map((s) => s.id) : undefined,
         attachments: attachments.length > 0 ? attachments : undefined,
       });
       setStatus(`Mesaj ${result.message.recipientCount} kişiye gönderildi.`);
       setTitle("");
       setBody("");
       setClassroomId("");
+      setSelectedStudents([]);
       setAttachments([]);
       queryClient.invalidateQueries({ queryKey: messageKeys.sent() });
     } catch (e) {
@@ -194,6 +279,7 @@ function ComposeForm({
             onChange={(e) => {
               setAudience(e.target.value as MessageAudience);
               setClassroomId("");
+              setSelectedStudents([]);
             }}
           >
             <option value="ALL_GUARDIANS">Tüm Veliler</option>
@@ -216,6 +302,7 @@ function ComposeForm({
           </div>
         )}
       </div>
+      {classroomFilterable && <StudentPicker selected={selectedStudents} onChange={setSelectedStudents} />}
       <div className="field" style={{ marginTop: 12 }}>
         <label>Hazır Şablon Kullan (opsiyonel)</label>
         <select value="" onChange={(e) => e.target.value && applyTemplate(e.target.value)}>
@@ -325,6 +412,134 @@ function SentList() {
                 </button>
               )}
             </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const HQ_RECIPIENT_TYPE_DEFS: { id: HqRecipientType; label: string }[] = [
+  { id: "STUDENTS", label: "Öğrenciler" },
+  { id: "GUARDIANS", label: "Veliler" },
+  { id: "TEACHERS", label: "Öğretmenler" },
+  { id: "MANAGERS", label: "Şube Müdürleri" },
+];
+
+/**
+ * İletişim — HQ Yayını (task #101) — bare SUPERADMIN için "Tüm Sistem (Tüm
+ * Şubeler)" kapsamı + "Şube Müdürleri" alıcı türü (demo'daki isHq dalının
+ * karşılığı, bkz. app/api/hq/messages/route.ts yorumu). Şube bazlı gönderim
+ * zaten "Bu Şube Olarak Yönet" ile mevcut ComposeForm üzerinden yapılabildiği
+ * için burada kapsam seçimi YOK — her zaman tüm sistem.
+ */
+function HqComposeForm() {
+  const queryClient = useQueryClient();
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [types, setTypes] = useState<Set<HqRecipientType>>(new Set(["STUDENTS", "GUARDIANS"]));
+  const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+
+  function toggleType(id: HqRecipientType) {
+    setTypes((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function handleSend() {
+    setError(null);
+    setStatus(null);
+    if (!title.trim() || !body.trim()) {
+      setError("Başlık ve mesaj metni zorunludur.");
+      return;
+    }
+    if (types.size === 0) {
+      setError("En az bir alıcı türü seçmelisiniz.");
+      return;
+    }
+    setSending(true);
+    try {
+      const result = await sendHqMessage({ title: title.trim(), body: body.trim(), recipientTypes: Array.from(types) });
+      setStatus(`Gönderildi — ${result.tenantsReached} şubedeki ${result.recipientCount} alıcıya ulaştı.`);
+      setTitle("");
+      setBody("");
+      queryClient.invalidateQueries({ queryKey: messageKeys.hqSent() });
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Yayın gönderilemedi.");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div className="card card-pad">
+      <div className="card-head">
+        <h3>Genel Merkez Yayını</h3>
+      </div>
+      <p style={{ margin: "-6px 0 12px", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
+        Kapsam otomatik olarak <b>Tüm Sistem (Tüm Şubeler)</b> ile sınırlıdır. Tek bir şubeye göndermek için Kurum Yönetimi&apos;nden
+        &quot;Bu Şube Olarak Yönet&quot; ile o şubeye geçebilirsiniz.
+      </p>
+      <div className="field">
+        <label>Alıcı Türü</label>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {HQ_RECIPIENT_TYPE_DEFS.map((t) => (
+            <label key={t.id} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: "var(--text-sm)" }}>
+              <input type="checkbox" checked={types.has(t.id)} onChange={() => toggleType(t.id)} />
+              {t.label}
+            </label>
+          ))}
+        </div>
+      </div>
+      <div className="field" style={{ marginTop: 12 }}>
+        <label>Başlık</label>
+        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Örn. Sistem Bakım Duyurusu" />
+      </div>
+      <div className="field" style={{ marginTop: 12 }}>
+        <label>Mesaj</label>
+        <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={4} placeholder="Mesaj içeriği…" />
+      </div>
+      {error && <p style={{ margin: "8px 0 0", fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--critical)" }}>{error}</p>}
+      {status && <p style={{ margin: "8px 0 0", fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--strong)" }}>{status}</p>}
+      <button type="button" onClick={handleSend} disabled={sending} className="btn primary" style={{ marginTop: 12 }}>
+        {sending ? "Gönderiliyor…" : "Tüm Sisteme Gönder"}
+      </button>
+    </div>
+  );
+}
+
+function HqSentList() {
+  const sentQuery = useQuery({ queryKey: messageKeys.hqSent(), queryFn: fetchHqSentMessages });
+  const messages = sentQuery.data?.messages ?? [];
+
+  return (
+    <div className="card card-pad">
+      <div className="card-head">
+        <h3>Gönderilen Yayınlar</h3>
+      </div>
+      {sentQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
+      {!sentQuery.isLoading && messages.length === 0 && (
+        <div className="empty-state">
+          <Icon name="send" />
+          <p>Henüz bir yayın göndermediniz.</p>
+        </div>
+      )}
+      <div style={{ display: "flex", flexDirection: "column", maxHeight: 480, overflowY: "auto" }}>
+        {messages.map((m) => (
+          <div key={m.id} style={{ borderBottom: "1px solid var(--border)", padding: "9px 0" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: "var(--text-base)", fontWeight: 600 }}>{m.title}</span>
+              <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>{formatDateTime(m.createdAt)}</span>
+            </div>
+            <p style={{ margin: "2px 0 0", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>{m.body}</p>
+            <p style={{ margin: "4px 0 0", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
+              {m.audienceLabel} · {m.recipientCount} alıcı
+            </p>
           </div>
         ))}
       </div>
@@ -571,7 +786,21 @@ export function MessagesDashboard() {
     return null;
   }
 
+  const isHqBroadcast = me.role === "SUPERADMIN" && !me.actingTenantId;
   const canSend = SENDER_ROLES.includes(me.role) || (me.role === "SUPERADMIN" && !!me.actingTenantId);
+
+  if (isHqBroadcast) {
+    return (
+      <div className="screen">
+        <h1>İletişim — Genel Merkez</h1>
+        <p className="lede">Tüm sistemdeki şubelere tek seferde duyuru/mesaj yayınlayın. Tek bir şubeye göndermek için Kurum Yönetimi&apos;nden o şubeye geçin.</p>
+        <div style={{ marginBottom: 14 }}>
+          <HqComposeForm />
+        </div>
+        <HqSentList />
+      </div>
+    );
+  }
 
   return (
     <div className="screen">
