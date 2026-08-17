@@ -3,7 +3,7 @@ import { PaymentMethodType, UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
 import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { hashPassword } from "@/lib/auth";
-import { generateStudentEmail, generateStudentNo, generateTempPassword } from "@/lib/enrollment";
+import { generateParentEmail, generateStudentEmail, generateStudentNo, generateTempPassword } from "@/lib/enrollment";
 import { actorLabel, logActivity } from "@/lib/audit-log";
 import { formatDocumentNo } from "@/lib/documents";
 
@@ -164,6 +164,66 @@ export async function POST(request: NextRequest, { params }: { params: { enrollm
       },
     });
 
+    // Veli için self-servis portal hesabı (task #90) — demo'daki "otomatik veli
+    // kullanıcı adı/şifre" akışının gerçek karşılığı. Aynı guardianPhone ile
+    // (kardeş kaydı gibi) daha önce bir veli hesabı oluşturulmuşsa YENİ hesap
+    // AÇILMAZ — mevcut ParentProfile'a yalnızca yeni bir StudentGuardian
+    // bağlantısı eklenir (bu yüzden veli tek girişle tüm çocuklarını görür).
+    const guardianPhoneDigits = enrollment.guardianPhone.replace(/\D/g, "");
+    const guardianPhoneNormalized = /^\d{10,11}$/.test(guardianPhoneDigits) ? guardianPhoneDigits : null;
+
+    let parentUserId: string | null = null;
+    let parentCredentials: { username: string; password: string } | null = null;
+    let parentLinkedExisting = false;
+    let existingPhoneOwner: { id: string; role: UserRole } | null = null;
+    if (guardianPhoneNormalized) {
+      existingPhoneOwner = await tx.user.findUnique({
+        where: { tenantId_phone: { tenantId: effectiveTenantId(actor), phone: guardianPhoneNormalized } },
+        select: { id: true, role: true },
+      });
+      if (existingPhoneOwner && existingPhoneOwner.role === "PARENT") {
+        parentUserId = existingPhoneOwner.id;
+        parentLinkedExisting = true;
+      }
+    }
+    if (!parentUserId) {
+      let parentEmail = generateParentEmail(enrollment.guardianFullName, tenant.code);
+      for (let attempt = 2; await tx.user.findUnique({ where: { email: parentEmail } }); attempt++) {
+        const [local, domain] = parentEmail.split("@");
+        parentEmail = `${local.replace(/\d+$/, "")}${attempt}@${domain}`;
+        if (attempt > 20) throw new Error("Veli için benzersiz e-posta üretilemedi");
+      }
+      const parentTempPassword = generateTempPassword();
+      const parentPasswordHash = await hashPassword(parentTempPassword);
+      const [parentFirstName, ...parentRest] = enrollment.guardianFullName.trim().split(/\s+/);
+      const parentLastName = parentRest.join(" ") || parentFirstName;
+      const parentUser = await tx.user.create({
+        data: {
+          tenantId: effectiveTenantId(actor),
+          email: parentEmail,
+          passwordHash: parentPasswordHash,
+          role: "PARENT",
+          firstName: parentFirstName,
+          lastName: parentLastName,
+          // Numara tenant içinde BAŞKA bir kullanıcıya (örn. öğrencinin kendi
+          // phone'una) aitse çakışmayı (@@unique([tenantId, phone])) önlemek
+          // için boş bırakılır; aksi halde ileride kardeş kaydında bu velinin
+          // hesabını numaradan bulabilmek için burada saklanır.
+          phone: existingPhoneOwner ? null : guardianPhoneNormalized,
+        },
+      });
+      parentUserId = parentUser.id;
+      parentCredentials = { username: parentEmail, password: parentTempPassword };
+    }
+    const parentProfile = await tx.parentProfile.upsert({
+      where: { userId: parentUserId },
+      create: { userId: parentUserId },
+      update: {},
+    });
+    await tx.studentGuardian.create({
+      data: { studentId: student.id, parentId: parentProfile.id, relation: "Veli", isBillingResponsible: true },
+    });
+
     const installments = [];
     for (let i = 0; i < installmentCount; i++) {
       const dueDate = new Date(firstDueDate);
@@ -239,7 +299,18 @@ export async function POST(request: NextRequest, { params }: { params: { enrollm
       detail: `${enrollment.candidateFullName} — Öğrenci No: ${studentNo}`,
     });
 
-    return { kind: "completed" as const, enrollment: updatedEnrollment, student, installments, email, tempPassword, promissoryNotes, paymentMethod };
+    return {
+      kind: "completed" as const,
+      enrollment: updatedEnrollment,
+      student,
+      installments,
+      email,
+      tempPassword,
+      promissoryNotes,
+      paymentMethod,
+      parentCredentials,
+      parentLinkedExisting,
+    };
   });
 
   if (outcome.kind === "not_found") {
@@ -272,6 +343,11 @@ export async function POST(request: NextRequest, { params }: { params: { enrollm
       promissoryNotes: outcome.promissoryNotes,
       paymentMethod: outcome.paymentMethod,
       credentials: { username: outcome.email, password: outcome.tempPassword },
+      // Veli hesabı YENİ oluşturulduysa giriş bilgileri döner; kardeş kaydı
+      // gibi mevcut bir veli hesabına bağlanıldıysa null (yeni şifre YOKTUR —
+      // veli zaten mevcut hesabıyla giriş yapabilir).
+      parentCredentials: outcome.parentCredentials,
+      parentLinkedExisting: outcome.parentLinkedExisting,
     },
     { status: 201 },
   );

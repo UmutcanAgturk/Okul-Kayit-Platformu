@@ -124,6 +124,8 @@ export interface CompleteEnrollmentResult {
   promissoryNotes: { id: string; no: string; amount: number; dueDate: string }[];
   paymentMethod: { id: string; type: string } | null;
   credentials: { username: string; password: string };
+  parentCredentials: { username: string; password: string } | null;
+  parentLinkedExisting: boolean;
 }
 
 export function completeEnrollment(enrollmentId: string, input: CompleteEnrollmentInput) {

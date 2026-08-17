@@ -354,6 +354,26 @@ export function NormalKayitView() {
                         Senet ödeme yöntemi seçildi — {lastCompleted.promissoryNotes.length} senet oluşturuldu (bkz. Muhasebe &gt; Belgeler &gt; Senetler).
                       </p>
                     )}
+                    {lastCompleted?.parentLinkedExisting && (
+                      <p style={{ margin: "8px 0 0", fontSize: "var(--text-xs)", color: "var(--strong)" }}>
+                        Bu telefon numarasıyla kayıtlı bir veli hesabı zaten vardı — yeni hesap açılmadı, öğrenci mevcut veli hesabına bağlandı (kardeş kaydı).
+                      </p>
+                    )}
+                    {lastCompleted?.parentCredentials && (
+                      <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px dashed var(--strong)" }}>
+                        <p style={{ margin: 0, fontSize: "var(--text-xs)", fontWeight: 700, color: "var(--strong)" }}>Veli Portalı Girişi</p>
+                        <dl style={{ margin: "6px 0 0", display: "flex", flexDirection: "column", gap: 4, fontSize: "var(--text-xs)", color: "var(--strong)" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between" }}>
+                            <dt>Kullanıcı adı</dt>
+                            <dd style={{ margin: 0, fontFamily: "monospace" }}>{lastCompleted.parentCredentials.username}</dd>
+                          </div>
+                          <div style={{ display: "flex", justifyContent: "space-between" }}>
+                            <dt>Şifre</dt>
+                            <dd style={{ margin: 0, fontFamily: "monospace" }}>{lastCompleted.parentCredentials.password}</dd>
+                          </div>
+                        </dl>
+                      </div>
+                    )}
                     <button type="button" className="btn xs" style={{ marginTop: 10 }} onClick={() => setShowContract(true)}>
                       Kayıt Sözleşmesini Yazdır
                     </button>

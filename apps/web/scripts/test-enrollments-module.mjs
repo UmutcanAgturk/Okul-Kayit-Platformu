@@ -180,6 +180,12 @@ async function main() {
   check("complete: 3 taksit oluştu", completeBody.installments?.length === 3, completeBody.installments?.length);
   check("complete: enrollment KAYIT_TAMAMLANDI", completeBody.enrollment?.stage === "KAYIT_TAMAMLANDI", completeBody.enrollment?.stage);
   check("complete: credentials döndü", !!completeBody.credentials?.username && !!completeBody.credentials?.password);
+  check(
+    "complete (task #90): veli için de credentials döndü",
+    !!completeBody.parentCredentials?.username && !!completeBody.parentCredentials?.password,
+    completeBody.parentCredentials,
+  );
+  check("complete: parentLinkedExisting false (yeni veli hesabı)", completeBody.parentLinkedExisting === false, completeBody.parentLinkedExisting);
   check("complete: enrollment.contractSignedAt set edildi", !!completeBody.enrollment?.contractSignedAt, completeBody.enrollment?.contractSignedAt);
   check("complete: student.nationalId/gender kaydedildi", completeBody.student?.nationalId === testNationalId && completeBody.student?.gender === "Kadın", completeBody.student);
   check(
@@ -204,6 +210,67 @@ async function main() {
     check("Oluşturulan StudentProfile doğru sınıf düzeyinde", dbStudent?.gradeLevel === "SINIF_9", dbStudent?.gradeLevel);
     const dbNotes = await prisma.promissoryNote.findMany({ where: { studentId } });
     check("DB: 3 PromissoryNote gerçekten oluşmuş", dbNotes.length === 3, dbNotes.length);
+
+    // ===== task #90: veli hesabı DB'de gerçekten oluşmuş mu =====
+    const dbGuardianLink = await prisma.studentGuardian.findFirst({
+      where: { studentId },
+      include: { parent: { include: { user: true } } },
+    });
+    check("DB: StudentGuardian bağlantısı oluştu", !!dbGuardianLink, dbGuardianLink);
+    check("DB: veli User'ı PARENT rolünde", dbGuardianLink?.parent?.user?.role === "PARENT", dbGuardianLink?.parent?.user?.role);
+    check(
+      "DB: veli User email'i credentials.username ile eşleşiyor",
+      dbGuardianLink?.parent?.user?.email === completeBody.parentCredentials?.username,
+      dbGuardianLink?.parent?.user?.email,
+    );
+    check("DB: StudentGuardian.isBillingResponsible true", dbGuardianLink?.isBillingResponsible === true, dbGuardianLink?.isBillingResponsible);
+
+    const parentLoginCookie = completeBody.parentCredentials
+      ? await loginAs(completeBody.parentCredentials.username, completeBody.parentCredentials.password)
+      : null;
+    check("Üretilen veli hesabıyla giriş başarılı", !!parentLoginCookie);
+    if (parentLoginCookie) {
+      const parentMeRes = await fetch(`${BASE}/api/me`, { headers: { Cookie: parentLoginCookie } });
+      const parentMeBody = await parentMeRes.json();
+      check("Giriş yapan veli hesabı PARENT rolünde", parentMeBody.role === "PARENT", parentMeBody.role);
+    }
+  }
+
+  // ===== task #90: kardeş kaydı — aynı guardianPhone ile TEKRAR veli hesabı AÇILMAMALI =====
+  const siblingName = `Test Kardeş ${Date.now()}`;
+  const createSiblingRes = await fetch(`${BASE}/api/branch/enrollments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    // NOT: enrollmentId'nin guardianPhone'u yukarıdaki PATCH testinde
+    // "05559998877" olarak güncellendi — kardeş eşleşmesi bu GÜNCEL numarayı
+    // kullanmalı, oluşturma anındaki orijinal "05551112233"'ü değil.
+    body: JSON.stringify({ type: "ON_KAYIT", candidateFullName: siblingName, candidateGradeLevel: "SINIF_9", guardianFullName: "Test Veli", guardianPhone: "05559998877" }),
+  });
+  const createSiblingBody = await createSiblingRes.json();
+  const siblingEnrollmentId = createSiblingBody.enrollment?.id;
+  const siblingCompleteRes = await fetch(`${BASE}/api/branch/enrollments/${siblingEnrollmentId}/complete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({ installmentCount: 1, installmentAmount: 1500, firstDueDate }),
+  });
+  const siblingCompleteBody = await siblingCompleteRes.json();
+  check("complete (kardeş): 201", siblingCompleteRes.status === 201, siblingCompleteRes.status);
+  check("complete (kardeş): parentLinkedExisting true", siblingCompleteBody.parentLinkedExisting === true, siblingCompleteBody.parentLinkedExisting);
+  check("complete (kardeş): parentCredentials null (yeni hesap YOK)", siblingCompleteBody.parentCredentials === null, siblingCompleteBody.parentCredentials);
+
+  const siblingStudentId = siblingCompleteBody.student?.id;
+  if (siblingStudentId && studentId) {
+    const [firstGuardian, siblingGuardian] = await Promise.all([
+      prisma.studentGuardian.findFirst({ where: { studentId } }),
+      prisma.studentGuardian.findFirst({ where: { studentId: siblingStudentId } }),
+    ]);
+    check(
+      "DB: kardeşler AYNI ParentProfile'a bağlı",
+      !!firstGuardian?.parentId && firstGuardian.parentId === siblingGuardian?.parentId,
+      { first: firstGuardian?.parentId, sibling: siblingGuardian?.parentId },
+    );
+    const parentUserCount = await prisma.user.count({ where: { email: completeBody.parentCredentials?.username } });
+    check("DB: veli için hâlâ TEK bir User var (ikinci hesap açılmadı)", parentUserCount === 1, parentUserCount);
   }
 
   // ===== Kilitli durum: tekrar tamamlama / düzenleme / iptal =====
@@ -381,12 +448,29 @@ async function main() {
   check("Aktivite Akışı: kayıt adayı iptal edildi", actions.includes("Kayıt adayı iptal edildi"));
 
   // ===== Temizlik (yalnızca bu testin oluşturduğu veriler; seed'deki Kerem Şahin dokunulmadı) =====
+  if (siblingStudentId) {
+    await prisma.paymentInstallment.deleteMany({ where: { studentId: siblingStudentId } });
+    await prisma.studentProfile.delete({ where: { id: siblingStudentId } }).catch(() => {});
+    if (siblingCompleteBody.credentials?.username) {
+      await prisma.user.deleteMany({ where: { email: siblingCompleteBody.credentials.username } });
+    }
+    // Beklenen durumda kardeş için YENİ bir veli hesabı açılmaz (mevcut hesaba
+    // bağlanır); ama beklenmedik bir eşleşmeme durumunda leftover kalmaması
+    // için savunmacı temizlik.
+    if (siblingCompleteBody.parentCredentials?.username) {
+      await prisma.user.deleteMany({ where: { email: siblingCompleteBody.parentCredentials.username } });
+    }
+  }
   if (studentId) {
     await prisma.promissoryNote.deleteMany({ where: { studentId } });
     await prisma.paymentInstallment.deleteMany({ where: { studentId } });
     await prisma.studentProfile.delete({ where: { id: studentId } }).catch(() => {});
     if (completeBody.credentials?.username) {
       await prisma.user.deleteMany({ where: { email: completeBody.credentials.username } });
+    }
+    // task #90: veli hesabı (StudentGuardian cascade ile zaten silindi, User'ı ayrıca sil)
+    if (completeBody.parentCredentials?.username) {
+      await prisma.user.deleteMany({ where: { email: completeBody.parentCredentials.username } });
     }
   }
   if (thirdStudentId) {
@@ -396,6 +480,9 @@ async function main() {
     if (thirdCompleteBody.credentials?.username) {
       await prisma.user.deleteMany({ where: { email: thirdCompleteBody.credentials.username } });
     }
+    if (thirdCompleteBody.parentCredentials?.username) {
+      await prisma.user.deleteMany({ where: { email: thirdCompleteBody.parentCredentials.username } });
+    }
   }
   if (fourthStudentId) {
     await prisma.paymentInstallment.deleteMany({ where: { studentId: fourthStudentId } });
@@ -403,10 +490,15 @@ async function main() {
     if (fourthCompleteBody.credentials?.username) {
       await prisma.user.deleteMany({ where: { email: fourthCompleteBody.credentials.username } });
     }
+    if (fourthCompleteBody.parentCredentials?.username) {
+      await prisma.user.deleteMany({ where: { email: fourthCompleteBody.parentCredentials.username } });
+    }
   }
   await prisma.busRoute.delete({ where: { id: busRoute.id } }).catch(() => {});
   await prisma.classroom.delete({ where: { id: mismatchClassroom.id } }).catch(() => {});
-  await prisma.enrollment.deleteMany({ where: { id: { in: [enrollmentId, secondId, thirdId, fourthId, fifthId, programTypeEnrollmentId].filter(Boolean) } } });
+  await prisma.enrollment.deleteMany({
+    where: { id: { in: [enrollmentId, secondId, thirdId, fourthId, fifthId, siblingEnrollmentId, programTypeEnrollmentId].filter(Boolean) } },
+  });
   await prisma.auditLogEntry.deleteMany({
     where: { action: { in: ["Kayıt adayı eklendi", "Kayıt adayı düzenlendi", "Kayıt tamamlandı", "Kayıt adayı iptal edildi"] } },
   });
