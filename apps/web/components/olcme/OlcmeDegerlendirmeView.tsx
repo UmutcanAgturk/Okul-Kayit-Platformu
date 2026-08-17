@@ -10,6 +10,8 @@ import { fetchMyClasses } from "@/lib/api/my-classes";
 import {
   createBranchExam,
   EXAM_ANSWER_KEY_OPTIONS,
+  EXAM_TYPE_LABEL,
+  EXAM_TYPE_OPTIONS,
   examKeys,
   fetchAchievementSummary,
   fetchAtRiskStudents,
@@ -20,7 +22,9 @@ import {
   fetchExamQuestionStats,
   fetchExamResultRoster,
   submitExamResult,
+  type CurriculumAchievement,
 } from "@/lib/api/exams";
+import { parseCsv } from "@/lib/csv";
 import { GRADE_LEVEL_LABEL } from "@/lib/api/enrollments";
 import { Icon } from "@/components/ui/icons";
 import { LineChart } from "@/components/ui/charts/LineChart";
@@ -574,17 +578,37 @@ interface DraftQuestion {
   correctAnswer: string;
 }
 
+/**
+ * İki aşamalı sihirbaz (bkz. demo sinavUygulamaStage "config"→"mapping"):
+ * "config" — sınav adı/türü/tarihi + ders bazlı soru sayısı seçimi;
+ * "mapping" — her ders için, YALNIZCA o dersin kazanım taksonomisinden
+ * seçilebilen soru kartları (+ opsiyonel CSV'den toplu kazanım ataması) ve
+ * sınav kapsamı (kitapçık/ücret/sınıf düzeyi). Kaydedilirken dersler sırayla
+ * tek bir düz `questions` dizisine birleştirilip mevcut, değişmemiş
+ * POST /api/branch/exams uç noktasına gönderilir — backend zaten sıralı bir
+ * soru listesi bekliyordu, bu yüzden hiçbir API/şema değişikliği gerekmedi.
+ */
 function UygulamaTab() {
   const queryClient = useQueryClient();
   const achievementsQuery = useQuery({ queryKey: examKeys.curriculum(), queryFn: fetchCurriculumAchievements });
   const achievements = achievementsQuery.data?.achievements ?? [];
+  const subjects = useMemo(
+    () => Array.from(new Set(achievements.map((a) => a.subject))).sort((a, b) => a.localeCompare(b, "tr")),
+    [achievements],
+  );
 
+  const [stage, setStage] = useState<"config" | "mapping">("config");
   const [name, setName] = useState("");
+  const [examType, setExamType] = useState(EXAM_TYPE_OPTIONS[0]);
   const [examDate, setExamDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [questions, setQuestions] = useState<DraftQuestion[]>([]);
+  const [subjectCounts, setSubjectCounts] = useState<Record<string, number>>({});
+  const [questionMap, setQuestionMap] = useState<Record<string, DraftQuestion[]>>({});
+  const [subjectSearch, setSubjectSearch] = useState<Record<string, string>>({});
+  const [importStatus, setImportStatus] = useState<Record<string, string>>({});
   const [bookletCount, setBookletCount] = useState<2 | 4>(4);
   const [feePerStudent, setFeePerStudent] = useState("");
   const [eligibleGrades, setEligibleGrades] = useState<string[]>([]);
+  const [configError, setConfigError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
@@ -592,8 +616,12 @@ function UygulamaTab() {
     mutationFn: createBranchExam,
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: examKeys.list() });
+      setStage("config");
       setName("");
-      setQuestions([]);
+      setSubjectCounts({});
+      setQuestionMap({});
+      setSubjectSearch({});
+      setImportStatus({});
       setFeePerStudent("");
       setEligibleGrades([]);
       setFormError(null);
@@ -602,75 +630,252 @@ function UygulamaTab() {
     onError: (err) => setFormError(err instanceof ApiError ? err.message : "Sınav oluşturulamadı."),
   });
 
-  function addQuestion(achievementId: string) {
-    if (!achievementId) return;
-    setQuestions((prev) => [...prev, { achievementId, correctAnswer: "" }]);
+  function toggleSubject(subject: string, checked: boolean) {
+    setSubjectCounts((prev) => {
+      const next = { ...prev };
+      if (checked) next[subject] = next[subject] ?? 10;
+      else delete next[subject];
+      return next;
+    });
   }
 
-  function removeQuestion(index: number) {
-    setQuestions((prev) => prev.filter((_, i) => i !== index));
+  function continueToMapping() {
+    const checkedSubjects = Object.keys(subjectCounts);
+    if (!name.trim() || !examDate || checkedSubjects.length === 0) {
+      setConfigError("Sınav adı, tarih ve en az bir ders zorunludur.");
+      return;
+    }
+    setConfigError(null);
+    const nextMap: Record<string, DraftQuestion[]> = {};
+    for (const subject of checkedSubjects) {
+      const count = subjectCounts[subject];
+      const existing = questionMap[subject] ?? [];
+      nextMap[subject] = Array.from({ length: count }, (_, i) => existing[i] ?? { achievementId: "", correctAnswer: "" });
+    }
+    setQuestionMap(nextMap);
+    setStage("mapping");
   }
 
-  function setQuestionAnswer(index: number, correctAnswer: string) {
-    setQuestions((prev) => prev.map((q, i) => (i === index ? { ...q, correctAnswer } : q)));
+  function setQuestionAchievement(subject: string, index: number, achievementId: string) {
+    setQuestionMap((prev) => ({ ...prev, [subject]: prev[subject].map((q, i) => (i === index ? { ...q, achievementId } : q)) }));
+  }
+  function setQuestionAnswer(subject: string, index: number, correctAnswer: string) {
+    setQuestionMap((prev) => ({ ...prev, [subject]: prev[subject].map((q, i) => (i === index ? { ...q, correctAnswer } : q)) }));
+  }
+
+  // CSV'den Kazanım Ata — yalnızca ders içindeki MEVCUT kazanım kodlarıyla
+  // eşleştirir (demo'nun aksine, eşleşmeyen kodlar için yeni bir kazanım
+  // OTOMATİK OLUŞTURULMAZ — bu, Kazanım Yükleme sekmesinin kapsamıdır).
+  function handleCsvImport(subject: string, file: File) {
+    setImportStatus((prev) => ({ ...prev, [subject]: "Dosya ayrıştırılıyor…" }));
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const text = String(reader.result ?? "");
+        const table = parseCsv(text);
+        const dataRows = table.length > 1 ? table.slice(1) : table;
+        const byCode = new Map(
+          achievements.filter((a) => a.subject === subject).map((a) => [a.code.trim().toLocaleUpperCase("tr-TR"), a]),
+        );
+        const current = questionMap[subject] ?? [];
+        const nextQuestions = [...current];
+        let slot = 0;
+        let assigned = 0;
+        let notFound = 0;
+        for (const row of dataRows) {
+          if (slot >= nextQuestions.length) break;
+          const code = (row[0] ?? "").trim();
+          if (!code) continue;
+          const ach = byCode.get(code.toLocaleUpperCase("tr-TR"));
+          if (!ach) {
+            notFound++;
+            continue;
+          }
+          nextQuestions[slot] = { ...nextQuestions[slot], achievementId: ach.id };
+          slot++;
+          assigned++;
+        }
+        setQuestionMap((prev) => ({ ...prev, [subject]: nextQuestions }));
+        setImportStatus((prev) => ({
+          ...prev,
+          [subject]: notFound > 0 ? `${assigned} soru atandı, ${notFound} kod bu derste bulunamadı.` : `${assigned} soru otomatik atandı.`,
+        }));
+      } catch {
+        setImportStatus((prev) => ({ ...prev, [subject]: "Hata: dosya okunamadı." }));
+      }
+    };
+    reader.readAsText(file, "utf-8");
   }
 
   function toggleGrade(grade: string) {
     setEligibleGrades((prev) => (prev.includes(grade) ? prev.filter((g) => g !== grade) : [...prev, grade]));
   }
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function handleSubmit() {
     setSuccessMsg(null);
-    if (!name.trim() || questions.length === 0) {
-      setFormError("Sınav adı ve en az bir soru zorunludur.");
+    const checkedSubjects = Object.keys(subjectCounts);
+    const allQuestions = checkedSubjects.flatMap((subject) => questionMap[subject] ?? []);
+    if (allQuestions.length === 0 || allQuestions.some((q) => !q.achievementId)) {
+      setFormError("Her soru için bir kazanım seçilmelidir.");
       return;
     }
+    setFormError(null);
     createMutation.mutate({
       name: name.trim(),
       examDate,
+      type: examType,
       bookletCount,
       feePerStudent: feePerStudent.trim() ? Number(feePerStudent) : null,
       eligibleGradeLevels: eligibleGrades,
-      questions: questions.map((q) => ({ achievementId: q.achievementId, correctAnswer: q.correctAnswer || null })),
+      questions: allQuestions.map((q) => ({ achievementId: q.achievementId, correctAnswer: q.correctAnswer || null })),
     });
   }
+
+  function achievementOptionsFor(subject: string, selectedId: string): CurriculumAchievement[] {
+    const search = (subjectSearch[subject] ?? "").trim().toLocaleLowerCase("tr-TR");
+    const subjectAchievements = achievements.filter((a) => a.subject === subject);
+    if (!search) return subjectAchievements;
+    const filtered = subjectAchievements.filter(
+      (a) => a.code.toLocaleLowerCase("tr-TR").includes(search) || a.label.toLocaleLowerCase("tr-TR").includes(search),
+    );
+    const selected = subjectAchievements.find((a) => a.id === selectedId);
+    if (selected && !filtered.some((a) => a.id === selected.id)) filtered.unshift(selected);
+    return filtered;
+  }
+
+  if (stage === "config") {
+    return (
+      <div className="card card-pad">
+        <div className="card-head">
+          <h3>Yeni Sınav Uygulaması</h3>
+        </div>
+        <p style={{ margin: "0 0 14px", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
+          Ders başına soru sayısı belirleyin — devam ettiğinizde her ders için, o dersin kazanım taksonomisinden
+          soru-kazanım eşleştirmesi yapacağınız bir ekrana geçilir.
+        </p>
+        {successMsg && <p style={{ margin: "0 0 12px", fontSize: "var(--text-xs)", color: "var(--strong)" }}>{successMsg}</p>}
+        <div className="grid cols-2">
+          <div className="field">
+            <label>Sınav Uygulaması Adı</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Örn. 1. Dönem Matematik-Fizik Deneme" />
+          </div>
+          <div className="field">
+            <label>Sınav Türü</label>
+            <select value={examType} onChange={(e) => setExamType(e.target.value)}>
+              {EXAM_TYPE_OPTIONS.map((t) => (
+                <option key={t} value={t}>
+                  {EXAM_TYPE_LABEL[t]}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="field" style={{ maxWidth: 260, marginTop: 12 }}>
+          <label>Tarih</label>
+          <input type="date" value={examDate} onChange={(e) => setExamDate(e.target.value)} />
+        </div>
+        <div className="field" style={{ marginTop: 14 }}>
+          <label>Ders ve Soru Sayısı</label>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, border: "1px solid var(--border-strong)", borderRadius: 8, padding: 10 }}>
+            {subjects.map((subject) => (
+              <div key={subject} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "var(--text-xs)", flex: 1 }}>
+                  <input
+                    type="checkbox"
+                    checked={subjectCounts[subject] !== undefined}
+                    onChange={(e) => toggleSubject(subject, e.target.checked)}
+                  />
+                  {subject}
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={subjectCounts[subject] ?? 10}
+                  disabled={subjectCounts[subject] === undefined}
+                  onChange={(e) => setSubjectCounts((prev) => ({ ...prev, [subject]: Math.max(1, Number(e.target.value) || 1) }))}
+                  style={{ width: 70 }}
+                />
+                <span style={{ fontSize: "var(--text-2xs)", color: "var(--ink-faint)" }}>soru</span>
+              </div>
+            ))}
+            {subjects.length === 0 && (
+              <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
+                Henüz kazanım taksonomisi yüklenmedi — önce Kazanım Yükleme sekmesinden ekleyin.
+              </p>
+            )}
+          </div>
+        </div>
+        {configError && <p style={{ margin: "10px 0 0", fontSize: "var(--text-xs)", color: "var(--critical)" }}>{configError}</p>}
+        <button type="button" className="btn primary" style={{ marginTop: 14 }} onClick={continueToMapping}>
+          Devam Et: Soru-Kazanım Eşleştirmesi
+        </button>
+      </div>
+    );
+  }
+
+  const checkedSubjects = Object.keys(subjectCounts);
+  const totalQuestions = checkedSubjects.reduce((sum, s) => sum + (questionMap[s]?.length ?? 0), 0);
 
   return (
     <div className="card card-pad">
       <div className="card-head">
-        <h3>Yeni Sınav Uygulaması Oluştur</h3>
+        <h3>{name}</h3>
+        <span className="hint">
+          {EXAM_TYPE_LABEL[examType]} · {examDate} · {totalQuestions} soru
+        </span>
       </div>
-      <p style={{ margin: "0 0 14px", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
-        Her soru bir kazanıma (MEB müfredatından) bağlanır — bu eşleme, Sonuç Girişi&apos;nde girilen doğru/yanlış/boş
-        işaretlemesinden Kazanım Analizi&apos;ni otomatik hesaplar. Cevap anahtarı (doğru şık) opsiyoneldir, Sonuç
-        Girişi&apos;nde referans olarak gösterilir.
-      </p>
-      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        <div className="grid cols-2">
-          <div className="field">
-            <label>Sınav Adı</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Örn. 1. Dönem Deneme Sınavı" />
-          </div>
-          <div className="field">
-            <label>Sınav Tarihi</label>
-            <input type="date" value={examDate} onChange={(e) => setExamDate(e.target.value)} />
-          </div>
-        </div>
-
-        <div>
-          <label style={{ display: "block", fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--ink-muted)", marginBottom: 6 }}>
-            Sorular ({questions.length})
-          </label>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 280, overflowY: "auto", marginBottom: 10 }}>
-            {questions.map((q, i) => {
-              const ach = achievements.find((a) => a.id === q.achievementId);
-              return (
-                <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "6px 10px", fontSize: "var(--text-xs)" }}>
-                  <span style={{ flex: 1 }}>
-                    <b>Soru {i + 1}</b> — {ach ? `${ach.code} · ${ach.label}` : q.achievementId}
-                  </span>
-                  <select value={q.correctAnswer} onChange={(e) => setQuestionAnswer(i, e.target.value)} style={{ padding: "3px 6px", fontSize: "var(--text-xs)" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        {checkedSubjects.map((subject) => (
+          <div key={subject}>
+            <p style={{ fontSize: "var(--text-xs)", fontWeight: 700, margin: "0 0 8px" }}>
+              {subject}{" "}
+              <span style={{ color: "var(--ink-faint)", fontWeight: 400 }}>
+                ({questionMap[subject]?.length ?? 0} soru — yalnızca {subject} kazanımları listelenir)
+              </span>
+            </p>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10 }}>
+              <input
+                value={subjectSearch[subject] ?? ""}
+                onChange={(e) => setSubjectSearch((prev) => ({ ...prev, [subject]: e.target.value }))}
+                placeholder="Kazanım koduyla ara (örn. MAT.9.1)"
+                style={{ flex: 1, minWidth: 180, fontSize: "var(--text-xs)" }}
+              />
+              <label className="btn xs" style={{ cursor: "pointer", margin: 0 }}>
+                <Icon name="attach" /> CSV&apos;den Kazanım Ata
+                <input
+                  type="file"
+                  accept=".csv,text/csv"
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleCsvImport(subject, file);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+              {importStatus[subject] && <span className="hint">{importStatus[subject]}</span>}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 8 }}>
+              {(questionMap[subject] ?? []).map((q, i) => (
+                <div key={i} style={{ display: "flex", flexDirection: "column", gap: 4, border: "1px solid var(--border)", borderRadius: 7, padding: "7px 9px" }}>
+                  <span style={{ fontSize: "var(--text-2xs)", color: "var(--ink-faint)", fontWeight: 700 }}>SORU {i + 1}</span>
+                  <select
+                    value={q.achievementId}
+                    onChange={(e) => setQuestionAchievement(subject, i, e.target.value)}
+                    style={{ fontSize: "var(--text-2xs)" }}
+                  >
+                    <option value="">— Kazanım seçilmedi —</option>
+                    {achievementOptionsFor(subject, q.achievementId).map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.code} · {a.label}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={q.correctAnswer}
+                    onChange={(e) => setQuestionAnswer(subject, i, e.target.value)}
+                    style={{ fontSize: "var(--text-2xs)" }}
+                  >
                     <option value="">Doğru Cevap: —</option>
                     {EXAM_ANSWER_KEY_OPTIONS.map((o) => (
                       <option key={o} value={o}>
@@ -678,72 +883,53 @@ function UygulamaTab() {
                       </option>
                     ))}
                   </select>
-                  <button type="button" className="btn xs" onClick={() => removeQuestion(i)}>
-                    Sil
-                  </button>
                 </div>
-              );
-            })}
-            {questions.length === 0 && <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>Henüz soru eklenmedi.</p>}
-          </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <select id="add-question-achievement" style={{ flex: 1 }}>
-              <option value="">— Kazanım seçin —</option>
-              {achievements.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.code} — {a.label} ({a.subject})
-                </option>
               ))}
-            </select>
-            <button
-              type="button"
-              className="btn sm"
-              onClick={() => {
-                const sel = document.getElementById("add-question-achievement") as HTMLSelectElement;
-                addQuestion(sel.value);
-              }}
-            >
-              + Soru Ekle
-            </button>
+            </div>
           </div>
-        </div>
+        ))}
+      </div>
 
-        <div style={{ borderTop: "1px solid var(--border)", paddingTop: 12 }}>
-          <label style={{ display: "block", fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--ink-muted)", marginBottom: 6 }}>
-            Sınav Kapsamı
-          </label>
-          <div className="grid cols-2" style={{ marginBottom: 12 }}>
-            <div className="field">
-              <label>Kitapçık Sayısı</label>
-              <select value={bookletCount} onChange={(e) => setBookletCount(Number(e.target.value) === 2 ? 2 : 4)}>
-                <option value={4}>4 (A/B/C/D)</option>
-                <option value={2}>2 (A/B)</option>
-              </select>
-            </div>
-            <div className="field">
-              <label>Öğrenci Başına Sınav Ücreti (₺)</label>
-              <input type="number" min="0" value={feePerStudent} onChange={(e) => setFeePerStudent(e.target.value)} placeholder="Örn. 45" />
-            </div>
+      <div style={{ borderTop: "1px solid var(--border)", marginTop: 20, paddingTop: 12 }}>
+        <label style={{ display: "block", fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--ink-muted)", marginBottom: 6 }}>
+          Sınav Kapsamı
+        </label>
+        <div className="grid cols-2" style={{ marginBottom: 12 }}>
+          <div className="field">
+            <label>Kitapçık Sayısı</label>
+            <select value={bookletCount} onChange={(e) => setBookletCount(Number(e.target.value) === 2 ? 2 : 4)}>
+              <option value={4}>4 (A/B/C/D)</option>
+              <option value={2}>2 (A/B)</option>
+            </select>
           </div>
           <div className="field">
-            <label>Sınıf Düzeyi Kapsamı (boş = Tümü)</label>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: 8, border: "1px solid var(--border-strong)", borderRadius: 8 }}>
-              {EXAM_ELIGIBLE_GRADES.map((g) => (
-                <label key={g} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "var(--text-xs)" }}>
-                  <input type="checkbox" checked={eligibleGrades.includes(g)} onChange={() => toggleGrade(g)} />
-                  {GRADE_LEVEL_LABEL[g] ?? g}
-                </label>
-              ))}
-            </div>
+            <label>Öğrenci Başına Sınav Ücreti (₺)</label>
+            <input type="number" min="0" value={feePerStudent} onChange={(e) => setFeePerStudent(e.target.value)} placeholder="Örn. 45" />
           </div>
         </div>
+        <div className="field">
+          <label>Sınıf Düzeyi Kapsamı (boş = Tümü)</label>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: 8, border: "1px solid var(--border-strong)", borderRadius: 8 }}>
+            {EXAM_ELIGIBLE_GRADES.map((g) => (
+              <label key={g} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "var(--text-xs)" }}>
+                <input type="checkbox" checked={eligibleGrades.includes(g)} onChange={() => toggleGrade(g)} />
+                {GRADE_LEVEL_LABEL[g] ?? g}
+              </label>
+            ))}
+          </div>
+        </div>
+      </div>
 
-        {formError && <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--critical)" }}>{formError}</p>}
-        {successMsg && <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--strong)" }}>{successMsg}</p>}
-        <button type="submit" disabled={createMutation.isPending} className="btn primary" style={{ alignSelf: "flex-start" }}>
-          {createMutation.isPending ? "Oluşturuluyor…" : "Sınavı Oluştur"}
+      {formError && <p style={{ margin: "12px 0 0", fontSize: "var(--text-xs)", color: "var(--critical)" }}>{formError}</p>}
+      {successMsg && <p style={{ margin: "12px 0 0", fontSize: "var(--text-xs)", color: "var(--strong)" }}>{successMsg}</p>}
+      <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
+        <button type="button" className="btn" onClick={() => setStage("config")}>
+          Geri: Ders/Soru Sayısını Düzenle
         </button>
-      </form>
+        <button type="button" disabled={createMutation.isPending} className="btn primary" onClick={handleSubmit}>
+          {createMutation.isPending ? "Oluşturuluyor…" : "Sınavı Oluştur ve Sınav Merkezi'ne Tanımla"}
+        </button>
+      </div>
     </div>
   );
 }

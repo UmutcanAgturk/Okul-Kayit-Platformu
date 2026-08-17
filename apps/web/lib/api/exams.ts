@@ -2,6 +2,16 @@ import { apiFetch } from "./client";
 
 export const EXAM_ANSWER_KEY_OPTIONS = ["A", "B", "C", "D", "E"];
 
+// Prisma ExamType enum'unun Türkçe etiketleri (bkz. schema.prisma) — demo'daki
+// SINAV_TURU_OPTIONS'ın 4 serbest metin seçeneğine karşılık, gerçek şemadaki
+// 3 sabit değere denk düşen en yakın karşılıklar.
+export const EXAM_TYPE_LABEL: Record<string, string> = {
+  DENEME: "Deneme Sınavı",
+  YAZILI: "Yazılı Sınav",
+  VIP_OLCME: "Kısa Sınav (VIP Ölçme)",
+};
+export const EXAM_TYPE_OPTIONS = Object.keys(EXAM_TYPE_LABEL);
+
 export interface BranchExam {
   id: string;
   name: string;
