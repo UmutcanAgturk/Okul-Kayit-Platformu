@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
+import { activityLogKeys, fetchActivityLog } from "@/lib/api/activity-log";
 import {
   assignStudentClassroom,
   fetchBranchClassrooms,
@@ -13,6 +14,8 @@ import {
 } from "@/lib/api/students-roster";
 import { GRADE_LEVEL_LABEL } from "@/lib/api/enrollments";
 import { Icon } from "@/components/ui/icons";
+
+const ASSIGNMENT_ACTIONS = ["Öğrenci sınıfa atandı", "Öğrencinin sınıf ataması kaldırıldı"];
 import { StudentDetailDrawer } from "./StudentDetailDrawer";
 import { ClassroomsPanel } from "./ClassroomsPanel";
 import type { BranchStudentRow } from "@/lib/api/students-roster";
@@ -45,11 +48,15 @@ export function StudentsRosterDashboard() {
 
   const studentsQuery = useQuery({ queryKey: studentsRosterKeys.all(), queryFn: fetchBranchStudents, enabled: !!me });
   const classroomsQuery = useQuery({ queryKey: ["branch-classrooms"], queryFn: fetchBranchClassrooms, enabled: !!me });
+  const activityLogQuery = useQuery({ queryKey: activityLogKeys.list(), queryFn: fetchActivityLog, enabled: !!me });
 
   const assignMutation = useMutation({
     mutationFn: ({ studentId, classroomId }: { studentId: string; classroomId: string | null }) =>
       assignStudentClassroom(studentId, classroomId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: studentsRosterKeys.all() }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: studentsRosterKeys.all() });
+      queryClient.invalidateQueries({ queryKey: activityLogKeys.list() });
+    },
   });
 
   const filtered = useMemo(() => {
@@ -82,6 +89,14 @@ export function StudentsRosterDashboard() {
   }
 
   const unassignedCount = (studentsQuery.data?.students ?? []).filter((s) => !s.classroomId).length;
+  const studentsByName = new Map((studentsQuery.data?.students ?? []).map((s) => [s.name, s]));
+  const recentAssignments = (activityLogQuery.data?.entries ?? [])
+    .filter((e) => ASSIGNMENT_ACTIONS.includes(e.action))
+    .slice(0, 8)
+    .map((e) => {
+      const [studentName, classroomName] = (e.detail ?? "").split(" → ");
+      return { id: e.id, studentName: studentName?.trim() ?? "", classroomName: classroomName?.trim() ?? null, createdAt: e.createdAt };
+    });
   const selectedStudent: BranchStudentRow | null =
     (studentsQuery.data?.students ?? []).find((s) => s.id === selectedStudentId) ?? null;
   const canManageClassrooms = me.role === "BRANCH_ADMIN" || (me.role === "SUPERADMIN" && !!me.actingTenantId);
@@ -104,13 +119,14 @@ export function StudentsRosterDashboard() {
         </div>
       </div>
 
-      {unassignedCount > 0 && (
-        <div className="card card-pad" style={{ marginBottom: 14, borderColor: "var(--weak)" }}>
+      <div className="grid cols-2" style={{ marginBottom: 14 }}>
+        <div className="card card-pad" style={unassignedCount > 0 ? { borderColor: "var(--weak)" } : undefined}>
           <div className="card-head">
             <h3>Atama Bekleyenler</h3>
             <span className="hint">{unassignedCount} öğrenci</span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            {unassignedCount === 0 && <p style={{ color: "var(--ink-faint)", fontSize: "var(--text-sm)" }}>Atama bekleyen öğrenci kalmadı.</p>}
             {(studentsQuery.data?.students ?? [])
               .filter((s) => !s.classroomId)
               .map((s) => {
@@ -140,7 +156,45 @@ export function StudentsRosterDashboard() {
               })}
           </div>
         </div>
-      )}
+
+        <div className="card card-pad">
+          <div className="card-head">
+            <h3>Son Atamalar</h3>
+            <span className="hint">Aktivite Akışı</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            {activityLogQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
+            {!activityLogQuery.isLoading && recentAssignments.length === 0 && (
+              <p style={{ color: "var(--ink-faint)", fontSize: "var(--text-sm)" }}>Henüz atama yapılmadı.</p>
+            )}
+            {recentAssignments.map((a) => {
+              const student = studentsByName.get(a.studentName);
+              return (
+                <div key={a.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, borderBottom: "1px solid var(--border)", padding: "7px 0" }}>
+                  <span style={{ fontSize: "var(--text-sm)" }}>{a.studentName}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {a.classroomName ? (
+                      <span className="chip strong">{a.classroomName}</span>
+                    ) : (
+                      <span className="chip neutral">Atama kaldırıldı</span>
+                    )}
+                    {a.classroomName && student?.classroomId && (
+                      <button
+                        type="button"
+                        className="btn xs"
+                        disabled={assignMutation.isPending}
+                        onClick={() => assignMutation.mutate({ studentId: student.id, classroomId: null })}
+                      >
+                        Geri Al
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
 
       <div className="card card-pad">
         <div className="field" style={{ maxWidth: 340, marginBottom: 16 }}>

@@ -109,6 +109,11 @@ async function main() {
     orderBy: { createdAt: "desc" },
   });
   check("Aktivite Akışı: sınıf atama işlemi loglandı", !!lastLog, lastLog?.action);
+  check(
+    "Aktivite Akışı detail formatı 'Son Atamalar' panelinin ayrıştırdığı 'Ad Soyad → Sınıf' biçiminde",
+    lastLog?.action === "Öğrenci sınıfa atandı" && !!lastLog.detail?.includes(" → 9-A"),
+    lastLog?.detail,
+  );
 
   // ===== Öğrenci Hızlı Görüntüle/Düzenle Çekmecesi — veli iletişim düzenleme =====
   const guardianRowBefore = await prisma.studentGuardian.findFirst({
