@@ -1,9 +1,10 @@
+import { Suspense } from "react";
 import { HqDashboard } from "@/components/hq/HqDashboard";
 
 export default function KurumlarPage() {
   return (
-    <>
-    <HqDashboard />
-    </>
+    <Suspense fallback={null}>
+      <HqDashboard />
+    </Suspense>
   );
 }

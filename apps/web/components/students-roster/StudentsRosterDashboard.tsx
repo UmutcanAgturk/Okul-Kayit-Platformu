@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
@@ -30,6 +30,7 @@ const ALLOWED_ROLES = ["BRANCH_ADMIN", "GUIDANCE_COORDINATOR"];
  */
 export function StudentsRosterDashboard() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
@@ -47,6 +48,15 @@ export function StudentsRosterDashboard() {
   }, [isError, error, router]);
 
   const studentsQuery = useQuery({ queryKey: studentsRosterKeys.all(), queryFn: fetchBranchStudents, enabled: !!me });
+
+  // Komut Paleti'nden gelen derin bağlantı (task #93) — bkz. CommandPalette.tsx.
+  useEffect(() => {
+    const targetId = searchParams.get("student");
+    if (targetId && studentsQuery.data?.students.some((s) => s.id === targetId)) {
+      setSelectedStudentId(targetId);
+    }
+  }, [searchParams, studentsQuery.data]);
+
   const classroomsQuery = useQuery({ queryKey: ["branch-classrooms"], queryFn: fetchBranchClassrooms, enabled: !!me });
   const activityLogQuery = useQuery({ queryKey: activityLogKeys.list(), queryFn: fetchActivityLog, enabled: !!me });
 

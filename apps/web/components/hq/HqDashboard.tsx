@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
@@ -501,12 +501,21 @@ function CreateTenantForm() {
 }
 
 function HqStudentsPanel({ tenants }: { tenants: HqTenant[] }) {
+  const searchParams = useSearchParams();
   const [q, setQ] = useState("");
   const [tenantId, setTenantId] = useState("");
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const query = useQuery({ queryKey: hqKeys.students(q, tenantId), queryFn: () => fetchHqStudents({ q, tenantId }) });
   const data = query.data;
   const selectedStudent = data?.students.find((s) => s.id === selectedStudentId) ?? null;
+
+  // Komut Paleti'nden gelen derin bağlantı (task #93) — bkz. CommandPalette.tsx.
+  useEffect(() => {
+    const targetId = searchParams.get("student");
+    if (targetId && data?.students.some((s) => s.id === targetId)) {
+      setSelectedStudentId(targetId);
+    }
+  }, [searchParams, data]);
 
   return (
     <div className="card card-pad">

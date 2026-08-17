@@ -1,5 +1,10 @@
+import { Suspense } from "react";
 import { StudentsRosterDashboard } from "@/components/students-roster/StudentsRosterDashboard";
 
 export default function OgrencilerPage() {
-  return <StudentsRosterDashboard />;
+  return (
+    <Suspense fallback={null}>
+      <StudentsRosterDashboard />
+    </Suspense>
+  );
 }
