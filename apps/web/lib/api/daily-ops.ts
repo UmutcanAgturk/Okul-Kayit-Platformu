@@ -31,4 +31,32 @@ export function fetchDailyOps() {
 
 export const dailyOpsKeys = {
   all: () => ["daily-ops"] as const,
+  staffAttendance: () => ["daily-ops", "staff-attendance"] as const,
 };
+
+export type StaffAttendanceClientStatus = "GELDI" | "GELMEDI" | "IZINLI";
+
+export interface StaffAttendanceRow {
+  userId: string;
+  name: string;
+  title: string;
+  status: StaffAttendanceClientStatus;
+}
+
+export interface StaffAttendance {
+  date: string;
+  staff: StaffAttendanceRow[];
+  presentCount: number;
+  totalCount: number;
+}
+
+export function fetchStaffAttendance() {
+  return apiFetch<StaffAttendance>("/api/branch/staff-attendance", { cache: "no-store" });
+}
+
+export function setStaffAttendance(userId: string, status: StaffAttendanceClientStatus) {
+  return apiFetch<{ userId: string; status: StaffAttendanceClientStatus; date: string }>("/api/branch/staff-attendance", {
+    method: "POST",
+    body: JSON.stringify({ userId, status }),
+  });
+}

@@ -15,11 +15,11 @@ import { subjectFromCode } from "@/lib/curriculum";
  * `/api/branch/payment-installments/[id]/collect` çağrılabilsin; bugünkü
  * etütler ders+saat bazında gruplanır.
  *
- * Demo'daki "Personel Devam Durumu" (staff Geldi/Gelmedi/İzinli) BİLİNÇLİ
- * OLARAK dışarıda bırakıldı — şemada personel için günlük bir yoklama/
- * check-in kavramı (öğrenci AttendanceRecord'undan tamamen ayrı bir kavram)
- * hiç yok; bu, ayrı bir modelleme kararı gerektiren gerçek bir yeni özellik
- * olur, mevcut veriden türetilemez.
+ * Demo'daki "Personel Devam Durumu" (staff Geldi/Gelmedi/İzinli) BURADA
+ * DEĞİL — kendi modeli (`StaffAttendanceRecord`) ve ayrı bir uç noktası var
+ * (bkz. app/api/branch/staff-attendance), çünkü demo'daki gibi hem okuma
+ * hem yazma (Geldi/Gelmedi/İzinli işaretleme) gerektiriyor; DailyOpsView bu
+ * uç noktayı ayrıca çağırır.
  */
 const ROLES_ALLOWED: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.ACCOUNTING];
 

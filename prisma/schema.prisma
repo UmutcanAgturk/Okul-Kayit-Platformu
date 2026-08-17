@@ -122,6 +122,7 @@ model Tenant {
   timetableSlots            TimetableSlot[]
   examBranchDispatches      ExamBranchDispatch[]
   institutionPaymentMethods InstitutionPaymentMethod[]
+  staffAttendanceRecords    StaffAttendanceRecord[]
 
   @@index([parentId])
 }
@@ -169,6 +170,8 @@ model User {
 
   sentMessages      Message[]
   messageRecipients MessageRecipient[]
+
+  staffAttendanceRecords StaffAttendanceRecord[]
 
   @@unique([tenantId, phone])
   @@index([tenantId, role])
@@ -261,6 +264,41 @@ model StaffProfile {
   updatedAt DateTime @updatedAt
 
   @@index([tenantId])
+}
+
+// Personel Devam Durumu — demo/seviye360-app.html'deki CURRENT_BRANCH.staffAttendance'ın
+// gerçek karşılığı (bkz. app/api/branch/daily-ops/route.ts'teki "BİLİNÇLİ
+// OLARAK dışarıda bırakıldı" notu — bu model o boşluğu kapatır). Demo ile
+// BİREBİR aynı "yalnızca istisna" deseni: GELDI hiç satır olarak saklanmaz —
+// bir kullanıcı için bugüne dair kayıt YOKSA "Geldi" varsayılır; GELDI
+// işaretlenince mevcut satır silinir (bkz. app/api/branch/staff-attendance
+// route'undaki setStaffAttendance mantığı). `userId`, StaffProfile veya
+// TeacherProfile'a sahip (reports/staff'taki gibi ikisi birleşik "personel"
+// listesi) bir User.id'sidir — recordedByUserId ise AttendanceRecord'daki
+// desenle AYNI: gerçek bir FK/relation DEĞİL, yalnızca işaretleyenin id'si.
+enum StaffAttendanceStatus {
+  GELMEDI // Gelmedi
+  IZINLI // İzinli/mazeretli
+}
+
+model StaffAttendanceRecord {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  date   DateTime // gün (saat bileşeni yok sayılır)
+  status StaffAttendanceStatus
+
+  recordedByUserId String // durumu işaretleyen şube yöneticisi/muhasebenin User.id'si
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@index([tenantId, date])
 }
 
 model StudentProfile {

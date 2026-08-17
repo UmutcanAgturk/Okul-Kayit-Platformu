@@ -6,7 +6,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { collectInstallment } from "@/lib/api/accounting";
-import { dailyOpsKeys, fetchDailyOps } from "@/lib/api/daily-ops";
+import {
+  dailyOpsKeys,
+  fetchDailyOps,
+  fetchStaffAttendance,
+  setStaffAttendance,
+  type StaffAttendanceClientStatus,
+} from "@/lib/api/daily-ops";
 import { Icon } from "@/components/ui/icons";
 
 const ALLOWED_ROLES = ["BRANCH_ADMIN", "ACCOUNTING"];
@@ -15,14 +21,76 @@ function tl(n: number) {
   return "₺" + Math.round(n).toLocaleString("tr-TR");
 }
 
+const STAFF_ATTENDANCE_LABEL: Record<StaffAttendanceClientStatus, string> = { GELDI: "Geldi", GELMEDI: "Gelmedi", IZINLI: "İzinli" };
+const STAFF_ATTENDANCE_CHIP: Record<StaffAttendanceClientStatus, string> = { GELDI: "chip strong", GELMEDI: "chip critical", IZINLI: "chip weak" };
+
+/**
+ * Personel Devam Durumu — demo'daki "Günlük Operasyon Paneli"nin aynı adlı
+ * kartı (bkz. app/api/branch/staff-attendance). Demo ile BİREBİR aynı
+ * "yalnızca istisna" deseni: Geldi hiç kayıt olarak saklanmaz, yalnızca
+ * Gelmedi/İzinli istisnaları API'ye yazılır.
+ */
+function StaffAttendancePanel() {
+  const queryClient = useQueryClient();
+  const attendanceQuery = useQuery({ queryKey: dailyOpsKeys.staffAttendance(), queryFn: fetchStaffAttendance });
+  const roster = attendanceQuery.data?.staff ?? [];
+
+  const setMutation = useMutation({
+    mutationFn: (vars: { userId: string; status: StaffAttendanceClientStatus }) => setStaffAttendance(vars.userId, vars.status),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: dailyOpsKeys.staffAttendance() }),
+  });
+
+  return (
+    <div className="card card-pad">
+      <div className="card-head">
+        <h3>Personel Devam Durumu</h3>
+        <span className="hint">{roster.filter((s) => s.status !== "GELDI").length} istisna</span>
+      </div>
+      {attendanceQuery.isLoading ? (
+        <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>
+      ) : roster.length === 0 ? (
+        <p style={{ color: "var(--ink-faint)", fontSize: "var(--text-sm)" }}>Henüz personel kaydı yok.</p>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 340, overflowY: "auto" }}>
+          {roster.map((s) => (
+            <div key={s.userId} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "7px 0", borderBottom: "1px solid var(--border)" }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}</div>
+                <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>{s.title}</div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                <span className={STAFF_ATTENDANCE_CHIP[s.status]} style={{ fontSize: "var(--text-2xs)" }}>
+                  {STAFF_ATTENDANCE_LABEL[s.status]}
+                </span>
+                {s.status === "GELDI" ? (
+                  <>
+                    <button type="button" className="btn xs" disabled={setMutation.isPending} onClick={() => setMutation.mutate({ userId: s.userId, status: "GELMEDI" })}>
+                      Gelmedi
+                    </button>
+                    <button type="button" className="btn xs" disabled={setMutation.isPending} onClick={() => setMutation.mutate({ userId: s.userId, status: "IZINLI" })}>
+                      İzinli
+                    </button>
+                  </>
+                ) : (
+                  <button type="button" className="btn xs" disabled={setMutation.isPending} onClick={() => setMutation.mutate({ userId: s.userId, status: "GELDI" })}>
+                    Geldi İşaretle
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /**
  * "Günlük Operasyon Paneli" — demo/seviye360-app.html'deki SCREENS["branch:ops"]'un
- * gerçek karşılığı (bkz. app/api/branch/daily-ops). "Bugün" Özeti'nden
- * (components/today-summary altında, varsa) farkı: yalnızca sayı değil,
- * her satırdan doğrudan aksiyon alınabilen (Tahsil Et) bir operasyon
- * konsolu. Personel Devam Durumu (Geldi/Gelmedi/İzinli) BİLİNÇLİ OLARAK
- * yok — bkz. route dosyasındaki not, şemada personel için günlük bir
- * yoklama kavramı hiç bulunmuyor.
+ * gerçek karşılığı (bkz. app/api/branch/daily-ops + app/api/branch/staff-attendance).
+ * "Bugün" Özeti'nden (components/today-summary altında, varsa) farkı: yalnızca
+ * sayı değil, her satırdan doğrudan aksiyon alınabilen (Tahsil Et, Geldi/
+ * Gelmedi/İzinli işaretleme) bir operasyon konsolu.
  */
 export function DailyOpsView() {
   const router = useRouter();
@@ -41,6 +109,7 @@ export function DailyOpsView() {
   }, [isError, error, router]);
 
   const opsQuery = useQuery({ queryKey: dailyOpsKeys.all(), queryFn: fetchDailyOps, enabled: !!me });
+  const attendanceQuery = useQuery({ queryKey: dailyOpsKeys.staffAttendance(), queryFn: fetchStaffAttendance, enabled: !!me });
 
   const collectMutation = useMutation({
     mutationFn: collectInstallment,
@@ -74,7 +143,14 @@ export function DailyOpsView() {
 
       {ops && (
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div className="grid cols-3">
+          <div className="grid cols-4">
+            <div className="card stat-card">
+              <p className="stat-label">Bugün · {ops.date}</p>
+              <p className="stat-value">
+                {attendanceQuery.data ? `${attendanceQuery.data.presentCount}/${attendanceQuery.data.totalCount}` : "—"}
+              </p>
+              <p className="stat-sub">personel bugün mesaide</p>
+            </div>
             <div className={`card stat-card ${ops.overduePayments.length ? "tone-critical" : ""}`}>
               <p className="stat-label">Geciken Ödeme</p>
               <p className="stat-value" style={ops.overduePayments.length ? { color: "var(--critical)" } : undefined}>
@@ -94,7 +170,8 @@ export function DailyOpsView() {
             </div>
           </div>
 
-          <div className="grid cols-2">
+          <div className="grid cols-3">
+            <StaffAttendancePanel />
             <div className="card card-pad">
               <div className="card-head">
                 <h3>Ödemesi Geciken Öğrenciler</h3>
