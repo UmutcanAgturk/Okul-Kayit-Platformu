@@ -362,6 +362,13 @@ model ParentProfile {
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // Velinin kendi T.C. Kimlik No'su — giriş artık yalnızca TC Kimlik No +
+  // şifre ile yapılır (bkz. app/api/auth/login), User.email veli/öğrenci
+  // için dahili/teknik bir alan haline geldi. StudentProfile.nationalId ile
+  // AYNI desen: opsiyonel (kayıt aşamasına göre henüz girilmemiş olabilir)
+  // ama global @unique.
+  nationalId String? @unique
+
   students StudentGuardian[]
 }
 

@@ -37,6 +37,7 @@ const MAX_ROWS = 200;
 interface BulkRow {
   candidateFullName: string;
   candidateGradeLevel: GradeLevel;
+  nationalId: string;
   guardianFullName: string;
   guardianPhone: string;
   classroomId?: string;
@@ -50,6 +51,9 @@ function validateRow(raw: unknown): BulkRow | string {
   const r = raw as Record<string, unknown>;
   const candidateFullName = typeof r.candidateFullName === "string" ? r.candidateFullName.trim() : "";
   const candidateGradeLevel = typeof r.candidateGradeLevel === "string" && r.candidateGradeLevel in GradeLevel ? (r.candidateGradeLevel as GradeLevel) : null;
+  // T.C. Kimlik No artık zorunlu — giriş yalnızca bununla yapılır (bkz.
+  // app/api/auth/login), demo'daki CSV içe aktarmanın tcKimlik sütunuyla aynı.
+  const nationalId = typeof r.nationalId === "string" ? r.nationalId.replace(/\D/g, "") : "";
   const guardianFullName = typeof r.guardianFullName === "string" ? r.guardianFullName.trim() : "";
   const guardianPhone = typeof r.guardianPhone === "string" ? r.guardianPhone.trim() : "";
   const classroomId = typeof r.classroomId === "string" && r.classroomId ? r.classroomId : undefined;
@@ -59,11 +63,12 @@ function validateRow(raw: unknown): BulkRow | string {
 
   if (!candidateFullName) return "Ad Soyad zorunludur";
   if (!candidateGradeLevel) return "Geçersiz/eksik Sınıf Düzeyi";
+  if (!/^\d{11}$/.test(nationalId)) return "T.C. Kimlik No 11 haneli olmalıdır";
   if (!guardianFullName) return "Veli Adı Soyadı zorunludur";
   if (!guardianPhone) return "Veli Telefonu zorunludur";
   if (!installmentCount || !installmentAmount || !firstDueDate) return "Taksit Sayısı, Taksit Tutarı ve İlk Vade zorunludur";
 
-  return { candidateFullName, candidateGradeLevel, guardianFullName, guardianPhone, classroomId, installmentCount, installmentAmount, firstDueDate };
+  return { candidateFullName, candidateGradeLevel, nationalId, guardianFullName, guardianPhone, classroomId, installmentCount, installmentAmount, firstDueDate };
 }
 
 export async function POST(request: NextRequest) {
@@ -104,6 +109,9 @@ export async function POST(request: NextRequest) {
           if (!classroom) return { kind: "bad_classroom" as const };
           if (classroom.gradeLevel !== row.candidateGradeLevel) return { kind: "grade_mismatch" as const };
         }
+        if (await tx.studentProfile.findUnique({ where: { nationalId: row.nationalId } })) {
+          return { kind: "national_id_taken" as const };
+        }
 
         const tenant = await tx.tenant.findUniqueOrThrow({ where: { id: effectiveTenantId(actor) } });
 
@@ -135,6 +143,7 @@ export async function POST(request: NextRequest) {
             gradeLevel: row.candidateGradeLevel,
             classroomId: row.classroomId ?? null,
             studentNo,
+            nationalId: row.nationalId,
           },
         });
 
@@ -169,20 +178,23 @@ export async function POST(request: NextRequest) {
           detail: `${row.candidateFullName} — Öğrenci No: ${studentNo}`,
         });
 
-        return { kind: "ok" as const, studentNo, email, tempPassword };
+        return { kind: "ok" as const, studentNo, tempPassword };
       });
 
       if (outcome.kind === "bad_classroom") {
         results.push({ rowIndex, kind: "error", message: "classroomId bu şubede bulunamadı" });
       } else if (outcome.kind === "grade_mismatch") {
         results.push({ rowIndex, kind: "error", message: "Sınıf seviyesi, seçilen şubeyle uyuşmuyor" });
+      } else if (outcome.kind === "national_id_taken") {
+        results.push({ rowIndex, kind: "error", message: "Bu T.C. Kimlik Numarası zaten kayıtlı" });
       } else {
         results.push({
           rowIndex,
           kind: "ok",
           candidateFullName: row.candidateFullName,
           studentNo: outcome.studentNo,
-          username: outcome.email,
+          // username artık öğrencinin TC Kimlik No'su — giriş bununla yapılır.
+          username: row.nationalId,
           password: outcome.tempPassword,
         });
       }

@@ -4,6 +4,8 @@ import { GRADE_LEVEL_LABEL } from "./enrollments";
 export interface BulkImportRow {
   candidateFullName: string;
   candidateGradeLevel: string;
+  // T.C. Kimlik No — giriş artık yalnızca bununla yapılır (bkz. app/api/auth/login).
+  nationalId: string;
   guardianFullName: string;
   guardianPhone: string;
   classroomId?: string;
@@ -31,6 +33,7 @@ export function detectColumns(header: string[]): Record<string, number> {
     const s = raw.toLocaleLowerCase("tr-TR").trim();
     if (s.includes("veli") && s.includes("tel")) idx.guardianPhone = i;
     else if (s.includes("veli")) idx.guardianFullName = i;
+    else if (s.includes("kimlik") || s.includes("t.c") || s === "tc" || s === "tckn") idx.nationalId = i;
     else if (s.includes("soyad")) idx.soyad = i;
     else if (s === "ad" || s === "adı" || s === "isim" || s === "öğrenci adı") idx.ad = i;
     else if (s.includes("şube") || s.includes("sube")) idx.classroom = i;

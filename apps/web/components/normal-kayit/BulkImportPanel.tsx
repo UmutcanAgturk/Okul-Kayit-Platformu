@@ -20,6 +20,7 @@ function buildPreviewRow(cells: string[], idx: Record<string, number>, classroom
   const gradeLevel = matchGradeLevel(get("gradeLevel"));
   const classroomName = get("classroom");
   const classroomId = classroomName ? classroomByName.get(classroomName.toLocaleUpperCase("tr-TR")) : undefined;
+  const nationalId = get("nationalId").replace(/\D/g, "");
   const guardianFullName = get("guardianFullName");
   const guardianPhone = get("guardianPhone");
   const installmentCount = parseInt(get("installmentCount"), 10) || 0;
@@ -30,6 +31,7 @@ function buildPreviewRow(cells: string[], idx: Record<string, number>, classroom
   let issue: string | undefined;
   if (!candidateFullName) issue = "Ad/Soyad eksik";
   else if (!gradeLevel) issue = "Sınıf düzeyi tanınamadı";
+  else if (!/^\d{11}$/.test(nationalId)) issue = "T.C. Kimlik No eksik/geçersiz (11 hane)";
   else if (!guardianFullName) issue = "Veli adı eksik";
   else if (!guardianPhone) issue = "Veli telefonu eksik";
   else if (!installmentCount || !installmentAmount || !parsedDate) issue = "Taksit bilgisi eksik/geçersiz";
@@ -37,6 +39,7 @@ function buildPreviewRow(cells: string[], idx: Record<string, number>, classroom
   return {
     candidateFullName,
     candidateGradeLevel: gradeLevel ?? "",
+    nationalId,
     guardianFullName,
     guardianPhone,
     classroomId,
@@ -112,8 +115,9 @@ export function BulkImportPanel() {
           <h3>CSV Dosyası Yükle</h3>
         </div>
         <p style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)", margin: "0 0 10px" }}>
-          Sütun başlıkları: Ad, Soyad, Veli Adı Soyadı, Veli Telefonu, Sınıf Düzeyi (opsiyonel: Şube, Taksit Sayısı,
-          Taksit Tutarı, İlk Vade). Dosya tamamen tarayıcınızda işlenir, sunucuya yüklenmez.
+          Sütun başlıkları: Ad, Soyad, T.C. Kimlik No, Veli Adı Soyadı, Veli Telefonu, Sınıf Düzeyi (opsiyonel: Şube,
+          Taksit Sayısı, Taksit Tutarı, İlk Vade). T.C. Kimlik No giriş için zorunludur (11 hane). Dosya tamamen
+          tarayıcınızda işlenir, sunucuya yüklenmez.
         </p>
         <input type="file" accept=".csv,text/csv" onChange={handleFile} />
         {fileName && <p style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)", marginTop: 6 }}>{fileName}</p>}
@@ -159,6 +163,7 @@ export function BulkImportPanel() {
               <thead>
                 <tr>
                   <th>Aday</th>
+                  <th>T.C. Kimlik No</th>
                   <th>Sınıf</th>
                   <th>Veli</th>
                   <th>Durum</th>
@@ -170,6 +175,7 @@ export function BulkImportPanel() {
                   return (
                     <tr key={i}>
                       <td style={{ fontWeight: 600 }}>{r.candidateFullName || "—"}</td>
+                      <td style={{ fontFamily: "monospace" }}>{r.nationalId || "—"}</td>
                       <td>{GRADE_LEVEL_LABEL[r.candidateGradeLevel] ?? "—"}</td>
                       <td style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
                         {r.guardianFullName} {r.guardianPhone && `· ${r.guardianPhone}`}

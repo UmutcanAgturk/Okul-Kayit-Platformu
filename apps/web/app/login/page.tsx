@@ -9,12 +9,15 @@ import { ApiError } from "@/lib/api/client";
  * Bu depodaki ilk gerçek giriş ekranı — demo/seviye360-app.html'in
  * localStorage tabanlı sahte giriş formunun aksine, doğrudan
  * /api/auth/login'e (bcrypt + imzalı oturum çerezi) karşı çalışır.
- * Seed verisiyle örnek giriş: merve.aslan@seviye360.com / seviye360dev-pw
- * (bkz. kök README.md "Yerel Geliştirme").
+ *
+ * Tek bir "identifier" alanı hem personel e-postasını/kullanıcı adını hem
+ * de Öğrenci/Veli'nin T.C. Kimlik No'sunu kabul eder (bkz.
+ * app/api/auth/login/route.ts) — Öğrenci/Veli rolleri yalnızca TC Kimlik No
+ * ile girebilir, e-postalarını bilseler bile backend reddeder.
  */
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -24,7 +27,7 @@ export default function LoginPage() {
     setError(null);
     setSubmitting(true);
     try {
-      await login(email, password);
+      await login(identifier, password);
       router.push("/dashboard");
       router.refresh();
     } catch (err) {
@@ -46,14 +49,15 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div className="field">
-            <label htmlFor="email">E-posta</label>
+            <label htmlFor="identifier">Kullanıcı Adı / T.C. Kimlik No</label>
             <input
-              id="email"
-              type="email"
+              id="identifier"
+              type="text"
               required
               autoComplete="username"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Personel: kullanıcı adı · Öğrenci/Veli: T.C. Kimlik No"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
             />
           </div>
           <div className="field">

@@ -76,7 +76,7 @@ export function EnrollmentsDashboard() {
 
   const [cancelingId, setCancelingId] = useState<string | null>(null);
   const [completingId, setCompletingId] = useState<string | null>(null);
-  const [completeDraft, setCompleteDraft] = useState({ installmentCount: "1", installmentAmount: "", firstDueDate: "" });
+  const [completeDraft, setCompleteDraft] = useState({ installmentCount: "1", installmentAmount: "", firstDueDate: "", nationalId: "", guardianNationalId: "" });
   const [completeError, setCompleteError] = useState<string | null>(null);
   const [credentials, setCredentials] = useState<{ username: string; password: string } | null>(null);
 
@@ -154,18 +154,24 @@ export function EnrollmentsDashboard() {
     setEditingId(null);
     setCancelingId(null);
     setCompleteError(null);
-    setCompleteDraft({ installmentCount: "1", installmentAmount: "", firstDueDate: new Date().toISOString().slice(0, 10) });
+    setCompleteDraft({ installmentCount: "1", installmentAmount: "", firstDueDate: new Date().toISOString().slice(0, 10), nationalId: "", guardianNationalId: "" });
   }
 
   function submitComplete(id: string) {
     const count = Number(completeDraft.installmentCount);
     const amount = Number(completeDraft.installmentAmount);
     const firstDueDate = completeDraft.firstDueDate;
+    const nationalId = completeDraft.nationalId.trim();
+    const guardianNationalId = completeDraft.guardianNationalId.trim();
     if (!count || count < 1 || count > 36 || !amount || amount <= 0 || !firstDueDate) {
       setCompleteError("Taksit sayısı (1-36), taksit tutarı (>0) ve ilk vade tarihi zorunludur.");
       return;
     }
-    completeMutation.mutate({ id, input: { installmentCount: count, installmentAmount: amount, firstDueDate } });
+    if (!/^\d{11}$/.test(nationalId) || !/^\d{11}$/.test(guardianNationalId)) {
+      setCompleteError("Öğrenci ve veli T.C. Kimlik No'su 11 haneli olmalıdır (giriş bununla yapılır).");
+      return;
+    }
+    completeMutation.mutate({ id, input: { installmentCount: count, installmentAmount: amount, firstDueDate, nationalId, guardianNationalId } });
   }
 
   if (isLoading) {
@@ -370,6 +376,28 @@ export function EnrollmentsDashboard() {
                     <div className="field">
                       <label>İlk Vade Tarihi</label>
                       <input type="date" value={completeDraft.firstDueDate} onChange={(e) => setCompleteDraft((d) => ({ ...d, firstDueDate: e.target.value }))} />
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                      <div className="field">
+                        <label>Öğrenci T.C. Kimlik No</label>
+                        <input
+                          value={completeDraft.nationalId}
+                          onChange={(e) => setCompleteDraft((d) => ({ ...d, nationalId: e.target.value.replace(/\D/g, "") }))}
+                          maxLength={11}
+                          placeholder="11 haneli"
+                          inputMode="numeric"
+                        />
+                      </div>
+                      <div className="field">
+                        <label>Veli T.C. Kimlik No</label>
+                        <input
+                          value={completeDraft.guardianNationalId}
+                          onChange={(e) => setCompleteDraft((d) => ({ ...d, guardianNationalId: e.target.value.replace(/\D/g, "") }))}
+                          maxLength={11}
+                          placeholder="11 haneli"
+                          inputMode="numeric"
+                        />
+                      </div>
                     </div>
                     {completeError && <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--critical)" }}>{completeError}</p>}
                     <div style={{ display: "flex", gap: 8 }}>

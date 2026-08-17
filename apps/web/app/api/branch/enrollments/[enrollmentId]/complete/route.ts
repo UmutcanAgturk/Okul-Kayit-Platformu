@@ -81,9 +81,16 @@ export async function POST(request: NextRequest, { params }: { params: { enrollm
     );
   }
 
-  const nationalId = typeof body.nationalId === "string" && body.nationalId.trim() ? body.nationalId.trim() : null;
-  if (nationalId && !/^\d{11}$/.test(nationalId)) {
-    return NextResponse.json({ message: "nationalId 11 haneli olmalıdır" }, { status: 400 });
+  // T.C. Kimlik No artık OPSİYONEL DEĞİL — giriş yalnızca TC Kimlik No +
+  // şifre ile yapıldığından (bkz. app/api/auth/login) hem öğrencinin hem de
+  // velinin kendi TC Kimlik No'su olmadan bir giriş hesabı anlamsız kalır.
+  const nationalId = typeof body.nationalId === "string" ? body.nationalId.trim() : "";
+  if (!/^\d{11}$/.test(nationalId)) {
+    return NextResponse.json({ message: "Öğrencinin T.C. Kimlik No'su zorunludur (11 hane)" }, { status: 400 });
+  }
+  const guardianNationalId = typeof body.guardianNationalId === "string" ? body.guardianNationalId.trim() : "";
+  if (!/^\d{11}$/.test(guardianNationalId)) {
+    return NextResponse.json({ message: "Velinin T.C. Kimlik No'su zorunludur (11 hane)" }, { status: 400 });
   }
   const birthDate = typeof body.birthDate === "string" && body.birthDate.trim() && !isNaN(Date.parse(body.birthDate)) ? new Date(body.birthDate) : null;
   const gender = typeof body.gender === "string" && GENDER_OPTIONS.includes(body.gender) ? body.gender : null;
@@ -117,7 +124,7 @@ export async function POST(request: NextRequest, { params }: { params: { enrollm
       return { kind: "already_final" as const, stage: enrollment.stage };
     }
 
-    if (nationalId && (await tx.studentProfile.findUnique({ where: { nationalId } }))) {
+    if (await tx.studentProfile.findUnique({ where: { nationalId } })) {
       return { kind: "national_id_taken" as const };
     }
     if (phone && (await tx.user.findUnique({ where: { tenantId_phone: { tenantId: effectiveTenantId(actor), phone } } }))) {
@@ -182,8 +189,11 @@ export async function POST(request: NextRequest, { params }: { params: { enrollm
     });
 
     // Veli için self-servis portal hesabı (task #90) — demo'daki "otomatik veli
-    // kullanıcı adı/şifre" akışının gerçek karşılığı. Aynı guardianPhone ile
-    // (kardeş kaydı gibi) daha önce bir veli hesabı oluşturulmuşsa YENİ hesap
+    // kullanıcı adı/şifre" akışının gerçek karşılığı. Eşleştirme artık
+    // guardianNationalId (ParentProfile.nationalId, global @unique) ile
+    // yapılır — TELEFON DEĞİL: bir veli tek bir gerçek kişidir, TC Kimlik No
+    // bunun tek belirsizliksiz anahtarı. Aynı guardianNationalId ile (kardeş
+    // kaydı gibi) daha önce bir veli hesabı oluşturulmuşsa YENİ hesap
     // AÇILMAZ — mevcut ParentProfile'a yalnızca yeni bir StudentGuardian
     // bağlantısı eklenir (bu yüzden veli tek girişle tüm çocuklarını görür).
     const guardianPhoneDigits = enrollment.guardianPhone.replace(/\D/g, "");
@@ -192,24 +202,30 @@ export async function POST(request: NextRequest, { params }: { params: { enrollm
     let parentUserId: string | null = null;
     let parentCredentials: { username: string; password: string } | null = null;
     let parentLinkedExisting = false;
-    let existingPhoneOwner: { id: string; role: UserRole } | null = null;
-    if (guardianPhoneNormalized) {
-      existingPhoneOwner = await tx.user.findUnique({
-        where: { tenantId_phone: { tenantId: effectiveTenantId(actor), phone: guardianPhoneNormalized } },
-        select: { id: true, role: true },
-      });
-      if (existingPhoneOwner && existingPhoneOwner.role === "PARENT") {
-        parentUserId = existingPhoneOwner.id;
-        parentLinkedExisting = true;
-      }
-    }
-    if (!parentUserId) {
+    const existingParent = await tx.parentProfile.findUnique({
+      where: { nationalId: guardianNationalId },
+      select: { userId: true },
+    });
+    if (existingParent) {
+      parentUserId = existingParent.userId;
+      parentLinkedExisting = true;
+    } else {
       let parentEmail = generateParentEmail(enrollment.guardianFullName, tenant.code);
       for (let attempt = 2; await tx.user.findUnique({ where: { email: parentEmail } }); attempt++) {
         const [local, domain] = parentEmail.split("@");
         parentEmail = `${local.replace(/\d+$/, "")}${attempt}@${domain}`;
         if (attempt > 20) throw new Error("Veli için benzersiz e-posta üretilemedi");
       }
+      // Numara tenant içinde BAŞKA bir kullanıcıya (örn. öğrencinin kendi
+      // phone'una) aitse çakışmayı (@@unique([tenantId, phone])) önlemek için
+      // boş bırakılır — giriş zaten guardianNationalId ile yapıldığından bu
+      // yalnızca iletişim amaçlı bir alandır, eşleştirme anahtarı DEĞİLDİR.
+      const phoneOwner = guardianPhoneNormalized
+        ? await tx.user.findUnique({
+            where: { tenantId_phone: { tenantId: effectiveTenantId(actor), phone: guardianPhoneNormalized } },
+            select: { id: true },
+          })
+        : null;
       const parentTempPassword = generateTempPassword();
       const parentPasswordHash = await hashPassword(parentTempPassword);
       const [parentFirstName, ...parentRest] = enrollment.guardianFullName.trim().split(/\s+/);
@@ -222,19 +238,15 @@ export async function POST(request: NextRequest, { params }: { params: { enrollm
           role: "PARENT",
           firstName: parentFirstName,
           lastName: parentLastName,
-          // Numara tenant içinde BAŞKA bir kullanıcıya (örn. öğrencinin kendi
-          // phone'una) aitse çakışmayı (@@unique([tenantId, phone])) önlemek
-          // için boş bırakılır; aksi halde ileride kardeş kaydında bu velinin
-          // hesabını numaradan bulabilmek için burada saklanır.
-          phone: existingPhoneOwner ? null : guardianPhoneNormalized,
+          phone: phoneOwner ? null : guardianPhoneNormalized,
         },
       });
       parentUserId = parentUser.id;
-      parentCredentials = { username: parentEmail, password: parentTempPassword };
+      parentCredentials = { username: guardianNationalId, password: parentTempPassword };
     }
     const parentProfile = await tx.parentProfile.upsert({
       where: { userId: parentUserId },
-      create: { userId: parentUserId },
+      create: { userId: parentUserId, nationalId: guardianNationalId },
       update: {},
     });
     await tx.studentGuardian.create({
@@ -359,7 +371,10 @@ export async function POST(request: NextRequest, { params }: { params: { enrollm
       installments: outcome.installments,
       promissoryNotes: outcome.promissoryNotes,
       paymentMethod: outcome.paymentMethod,
-      credentials: { username: outcome.email, password: outcome.tempPassword },
+      // username artık öğrencinin TC Kimlik No'sudur — giriş bununla yapılır
+      // (bkz. app/api/auth/login); outcome.email yalnızca dahili/teknik bir
+      // alandır, kullanıcıya hiç gösterilmez.
+      credentials: { username: nationalId, password: outcome.tempPassword },
       // Veli hesabı YENİ oluşturulduysa giriş bilgileri döner; kardeş kaydı
       // gibi mevcut bir veli hesabına bağlanıldıysa null (yeni şifre YOKTUR —
       // veli zaten mevcut hesabıyla giriş yapabilir).

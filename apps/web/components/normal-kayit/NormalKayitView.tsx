@@ -49,6 +49,7 @@ export function NormalKayitView() {
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [nationalId, setNationalId] = useState("");
+  const [guardianNationalId, setGuardianNationalId] = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [gender, setGender] = useState("");
   const [phone, setPhone] = useState("");
@@ -86,6 +87,7 @@ export function NormalKayitView() {
       setPhotoDataUrl(null);
       setPhotoError(null);
       setNationalId("");
+      setGuardianNationalId("");
       setBirthDate("");
       setGender("");
       setPhone("");
@@ -153,7 +155,11 @@ export function NormalKayitView() {
       return;
     }
     if (!/^\d{11}$/.test(nationalId)) {
-      setFormError("T.C. Kimlik Numarası 11 haneli olmalıdır.");
+      setFormError("Öğrencinin T.C. Kimlik Numarası 11 haneli olmalıdır.");
+      return;
+    }
+    if (!/^\d{11}$/.test(guardianNationalId)) {
+      setFormError("Velinin T.C. Kimlik Numarası 11 haneli olmalıdır (giriş bununla yapılır).");
       return;
     }
     if (!contractAccepted) {
@@ -168,6 +174,7 @@ export function NormalKayitView() {
         installmentAmount: amount,
         firstDueDate,
         nationalId,
+        guardianNationalId,
         birthDate: birthDate || undefined,
         gender: gender || undefined,
         phone: phone || undefined,
@@ -277,16 +284,22 @@ export function NormalKayitView() {
                     <div className="grid cols-2">
                       <div className="field">
                         <label>
-                          T.C. Kimlik Numarası <span style={{ color: "var(--critical)" }}>*</span>
+                          Öğrenci T.C. Kimlik Numarası <span style={{ color: "var(--critical)" }}>*</span>
                         </label>
                         <input value={nationalId} onChange={(e) => setNationalId(e.target.value.replace(/\D/g, ""))} maxLength={11} placeholder="11 haneli" inputMode="numeric" />
                       </div>
                       <div className="field">
-                        <label>Doğum Tarihi</label>
-                        <input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} />
+                        <label>
+                          Veli T.C. Kimlik Numarası <span style={{ color: "var(--critical)" }}>*</span>
+                        </label>
+                        <input value={guardianNationalId} onChange={(e) => setGuardianNationalId(e.target.value.replace(/\D/g, ""))} maxLength={11} placeholder="11 haneli" inputMode="numeric" />
                       </div>
                     </div>
                     <div className="grid cols-2">
+                      <div className="field">
+                        <label>Doğum Tarihi</label>
+                        <input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} />
+                      </div>
                       <div className="field">
                         <label>Cinsiyet</label>
                         <select value={gender} onChange={(e) => setGender(e.target.value)}>
@@ -298,6 +311,8 @@ export function NormalKayitView() {
                           ))}
                         </select>
                       </div>
+                    </div>
+                    <div className="grid cols-2">
                       <div className="field">
                         <label>Servis/Ulaşım (opsiyonel)</label>
                         <select value={busRouteId} onChange={(e) => setBusRouteId(e.target.value)}>
@@ -309,12 +324,12 @@ export function NormalKayitView() {
                           ))}
                         </select>
                       </div>
-                    </div>
-                    <div className="grid cols-2">
                       <div className="field">
                         <label>Telefon Numarası (opsiyonel)</label>
                         <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="05xx xxx xx xx" />
                       </div>
+                    </div>
+                    <div className="grid cols-2">
                       <div className="field">
                         <label>Hedef Sınıf (opsiyonel)</label>
                         <select value={targetClassroomId} onChange={(e) => setTargetClassroomId(e.target.value)}>
@@ -388,7 +403,7 @@ export function NormalKayitView() {
                     </p>
                     <dl style={{ margin: "8px 0 0", display: "flex", flexDirection: "column", gap: 4, fontSize: "var(--text-xs)", color: "var(--strong)" }}>
                       <div style={{ display: "flex", justifyContent: "space-between" }}>
-                        <dt>Kullanıcı adı</dt>
+                        <dt>T.C. Kimlik No (kullanıcı adı)</dt>
                         <dd style={{ margin: 0, fontFamily: "monospace" }}>{credentials.username}</dd>
                       </div>
                       <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -403,7 +418,7 @@ export function NormalKayitView() {
                     )}
                     {lastCompleted?.parentLinkedExisting && (
                       <p style={{ margin: "8px 0 0", fontSize: "var(--text-xs)", color: "var(--strong)" }}>
-                        Bu telefon numarasıyla kayıtlı bir veli hesabı zaten vardı — yeni hesap açılmadı, öğrenci mevcut veli hesabına bağlandı (kardeş kaydı).
+                        Bu T.C. Kimlik No ile kayıtlı bir veli hesabı zaten vardı — yeni hesap açılmadı, öğrenci mevcut veli hesabına bağlandı (kardeş kaydı).
                       </p>
                     )}
                     {lastCompleted?.parentCredentials && (
@@ -411,7 +426,7 @@ export function NormalKayitView() {
                         <p style={{ margin: 0, fontSize: "var(--text-xs)", fontWeight: 700, color: "var(--strong)" }}>Veli Portalı Girişi</p>
                         <dl style={{ margin: "6px 0 0", display: "flex", flexDirection: "column", gap: 4, fontSize: "var(--text-xs)", color: "var(--strong)" }}>
                           <div style={{ display: "flex", justifyContent: "space-between" }}>
-                            <dt>Kullanıcı adı</dt>
+                            <dt>T.C. Kimlik No (kullanıcı adı)</dt>
                             <dd style={{ margin: 0, fontFamily: "monospace" }}>{lastCompleted.parentCredentials.username}</dd>
                           </div>
                           <div style={{ display: "flex", justifyContent: "space-between" }}>

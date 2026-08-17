@@ -107,7 +107,10 @@ export interface CompleteEnrollmentInput {
   installmentCount: number;
   installmentAmount: number;
   firstDueDate: string;
-  nationalId?: string;
+  // Giriş artık yalnızca T.C. Kimlik No + şifre ile yapıldığından (bkz.
+  // app/api/auth/login) her ikisi de zorunludur (11 hane).
+  nationalId: string;
+  guardianNationalId: string;
   birthDate?: string;
   gender?: string;
   busRouteId?: string;

@@ -22,10 +22,12 @@ export interface MeResponse {
   actingTenantName?: string | null;
 }
 
-export function login(email: string, password: string) {
+// identifier: personel için e-posta/kullanıcı adı, Öğrenci/Veli için T.C.
+// Kimlik No (11 haneli) — bkz. app/api/auth/login/route.ts.
+export function login(identifier: string, password: string) {
   return apiFetch<{ user: { id: string; email: string; role: UserRole; firstName: string; lastName: string } }>(
     "/api/auth/login",
-    { method: "POST", body: JSON.stringify({ email, password }) },
+    { method: "POST", body: JSON.stringify({ identifier, password }) },
   );
 }
 
