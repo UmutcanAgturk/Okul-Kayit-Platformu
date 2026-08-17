@@ -180,6 +180,14 @@ export interface ExamAchievementBreakdownRow {
   masteryLevel: "CRITICAL" | "WEAK" | "STRONG";
 }
 
+export interface ExamQuestionResultRow {
+  questionNo: number;
+  subject: string;
+  achievementLabel: string;
+  correctAnswer: string | null;
+  isCorrect: boolean | null;
+}
+
 export interface StudentExamHistoryRow {
   examId: string;
   examName: string;
@@ -191,6 +199,7 @@ export interface StudentExamHistoryRow {
   wrongCount: number;
   emptyCount: number;
   achievementBreakdown: ExamAchievementBreakdownRow[];
+  questionBreakdown: ExamQuestionResultRow[];
 }
 
 export interface AchievementTrendRow {

@@ -208,6 +208,43 @@ export function ExamResultsView() {
             </div>
           </div>
 
+          {selectedExam.questionBreakdown.length > 0 && (
+            <div className="card card-pad">
+              <div className="card-head">
+                <h3>Soru Bazlı Değerlendirme</h3>
+                <span className="hint">{selectedExam.questionBreakdown.length} soru</span>
+              </div>
+              <div className="table-wrap" style={{ maxHeight: 320, overflowY: "auto" }}>
+                <table className="data">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Ders</th>
+                      <th>Kazanım</th>
+                      <th>Doğru Cevap</th>
+                      <th>Sonuç</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedExam.questionBreakdown.map((q) => (
+                      <tr key={q.questionNo}>
+                        <td>{q.questionNo}</td>
+                        <td>{q.subject}</td>
+                        <td>{q.achievementLabel}</td>
+                        <td>{q.correctAnswer ?? "—"}</td>
+                        <td>
+                          <span className={`chip ${q.isCorrect === true ? "strong" : q.isCorrect === false ? "critical" : "weak"}`}>
+                            {q.isCorrect === true ? "Doğru" : q.isCorrect === false ? "Yanlış" : "Boş"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {achievementTrend.length > 0 && (
             <div className="card card-pad">
               <div className="card-head">

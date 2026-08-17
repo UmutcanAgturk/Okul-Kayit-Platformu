@@ -710,6 +710,8 @@ model ExamQuestion {
   irtDifficulty     Float? // b parametresi
   irtDiscrimination Float? // a parametresi
 
+  answers ExamResultAnswer[]
+
   @@unique([examId, orderIndex])
   @@index([achievementId])
 }
@@ -735,11 +737,34 @@ model ExamResult {
   percentile   Float?
 
   achievementResults StudentAchievementResult[]
+  answers            ExamResultAnswer[]
 
   createdAt DateTime @default(now())
 
   @@unique([examId, studentId])
   @@index([tenantId, examId])
+}
+
+// Öğrencinin sınavdaki HER sorusu için Doğru/Yanlış/Boş sonucu — demo'daki
+// "Soru Bazlı Değerlendirme" tablosunun (renderAiResultHtml, bkz.
+// app/api/students/[studentId]/exam-results) gerçek veri kaynağı. Demo'nun
+// kendisi bunu (given: öğrencinin işaretlediği şık) RASTGELE üretiyordu
+// (bkz. simulateAnswerSheet) — kamera/OCR bazlı otomatik okuma bu depoda
+// kasıtlı olarak kapsam dışı olduğundan, burada UYDURMA bir "given" alanı
+// YOKTUR; yalnızca Sonuç Girişi'nde gerçekten elle işaretlenen isCorrect
+// (Doğru/Yanlış/Boş) ve ExamQuestion.correctAnswer (gerçek cevap anahtarı,
+// referans olarak) saklanır.
+model ExamResultAnswer {
+  id           String       @id @default(cuid())
+  examResultId String
+  examResult   ExamResult   @relation(fields: [examResultId], references: [id], onDelete: Cascade)
+  questionId   String
+  question     ExamQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  isCorrect Boolean? // true=Doğru, false=Yanlış, null=Boş
+
+  @@unique([examResultId, questionId])
+  @@index([examResultId])
 }
 
 // Öğrencinin sınavdaki her kazanım için başarı durumu — "AI Sınıf Röntgeni" ısı

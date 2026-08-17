@@ -60,6 +60,7 @@ async function main() {
     typeof seedExam?.correctCount === "number" && typeof seedExam?.wrongCount === "number" && typeof seedExam?.emptyCount === "number",
     seedExam,
   );
+  check("questionBreakdown alanı mevcut (seed sonucunda soru-bazlı cevap kaydı yok, boş dizi)", Array.isArray(seedExam?.questionBreakdown), seedExam?.questionBreakdown);
   const matAch = seedExam?.achievementBreakdown?.find((a) => a.subject === "Matematik" && a.correctRatio === 0.6);
   check(
     "Kazanım kırılımı: Matematik 0.6 correctRatio'lu kayıt WEAK olarak işaretli",
@@ -122,6 +123,19 @@ async function main() {
 
       const afterRes = await fetch(`${BASE}/api/students/${elif.id}/exam-results`, { headers: { Cookie: studentCookie } });
       const afterBody = await afterRes.json();
+
+      // ===== questionBreakdown (task #75: Soru Bazlı Değerlendirme) =====
+      const secondExamRow = afterBody.examHistory?.find((e) => e.examId === secondExam.id);
+      check(
+        "questionBreakdown: yeni girilen sınav sonucu soru bazında dönüyor (1 soru)",
+        secondExamRow?.questionBreakdown?.length === 1,
+        secondExamRow?.questionBreakdown,
+      );
+      const qRow = secondExamRow?.questionBreakdown?.[0];
+      check("questionBreakdown: questionNo/subject/isCorrect doğru", qRow?.questionNo === 1 && qRow?.subject === "Matematik" && qRow?.isCorrect === true, qRow);
+      const dbAnswerRow = await prisma.examResultAnswer.findFirst({ where: { examResult: { examId: secondExam.id } } });
+      check("DB: ExamResultAnswer gerçekten kalıcı olarak yazıldı", dbAnswerRow?.isCorrect === true, dbAnswerRow);
+
       const trendRow = afterBody.achievementTrend?.find((t) => t.achievementId === matAchievement.id);
       check(
         "achievementTrend: MAT.9.2.1.1 artık 2 sınavda soruldu, trend'de 2 nokta var",

@@ -13,14 +13,18 @@ const STAFF_ROLES: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.GUIDANCE_COORDI
  * Karne (report-card) TÜM sınavlar üzerinden birleştirilmiş bir özet
  * gösterir; bu route ise demo'daki gibi TEK bir sınava odaklanabilen
  * (doğru/yanlış/boş + kazanım kırılımı) ve kazanım bazlı çok-sınavlı bir
- * trend (sparkline) sunan, Karne'den ayrı bir görünüm sağlar. Soru bazlı
- * cevap detayı (demo'daki "Soru Bazlı Değerlendirme") kasıtlı olarak dışarıda
- * bırakıldı — gerçek şemada per-soru cevap kaydı tutulmuyor (bkz.
- * app/api/branch/exams/[examId]/results POST, yalnızca kazanım bazında
- * agregasyon yapılıp ham cevaplar atılıyor); bunu eklemek yeni bir
- * model/migration gerektirir. Sınıf/şube ortalamasıyla karşılaştırma da
- * demo'nun kendisinde öğrenciye asla gerçekten gösterilmiyor (bkz. görev
- * notu) — bu yüzden burada da yok. Yetki kontrolü Karne ile birebir aynıdır.
+ * trend (sparkline) sunan, Karne'den ayrı bir görünüm sağlar.
+ *
+ * questionBreakdown: demo'daki "Soru Bazlı Değerlendirme" tablosunun
+ * karşılığı (ExamResultAnswer, bkz. app/api/branch/exams/[examId]/results
+ * POST) — demo'nun kendisinden TEK farkla: demo, öğrencinin işaretlediği
+ * şıkkı ("given") RASTGELE üretiyordu (bkz. simulateAnswerSheet); kamera/OCR
+ * bazlı otomatik okuma bu depoda kasıtlı olarak kapsam dışı olduğundan burada
+ * UYDURMA bir "given" alanı YOKTUR — yalnızca gerçekten elle girilen
+ * Doğru/Yanlış/Boş sonucu ve gerçek cevap anahtarı (ExamQuestion.correctAnswer)
+ * gösterilir. Sınıf/şube ortalamasıyla karşılaştırma da demo'nun kendisinde
+ * öğrenciye asla gerçekten gösterilmiyor (bkz. görev notu) — bu yüzden
+ * burada da yok. Yetki kontrolü Karne ile birebir aynıdır.
  */
 export async function GET(request: NextRequest, { params }: { params: { studentId: string } }) {
   const actor = await getSessionActor(request);
@@ -49,7 +53,11 @@ export async function GET(request: NextRequest, { params }: { params: { studentI
 
     const examResults = await tx.examResult.findMany({
       where: { studentId: student.id },
-      include: { exam: true, achievementResults: { include: { achievement: true } } },
+      include: {
+        exam: true,
+        achievementResults: { include: { achievement: true } },
+        answers: { include: { question: { include: { achievement: true } } } },
+      },
       orderBy: { exam: { examDate: "desc" } },
     });
 
@@ -73,6 +81,15 @@ export async function GET(request: NextRequest, { params }: { params: { studentI
           masteryLevel: ratioToMastery(a.correctRatio),
         }))
         .sort((a, b) => a.correctRatio - b.correctRatio),
+      questionBreakdown: r.answers
+        .map((a) => ({
+          questionNo: a.question.orderIndex,
+          subject: subjectFromCode(a.question.achievement.code),
+          achievementLabel: a.question.achievement.label,
+          correctAnswer: a.question.correctAnswer,
+          isCorrect: a.isCorrect,
+        }))
+        .sort((a, b) => a.questionNo - b.questionNo),
     }));
 
     // Kazanım bazlı çok-sınavlı trend (demo'daki achievementTrend/sparkline) —

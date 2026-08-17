@@ -150,6 +150,14 @@ export async function POST(request: NextRequest, { params }: { params: { examId:
       })),
     });
 
+    // Soru bazlı Doğru/Yanlış/Boş sonucu — demo'daki "Soru Bazlı Değerlendirme"
+    // tablosunun (bkz. app/api/students/[studentId]/exam-results) gerçek veri
+    // kaynağı. Önceden yalnızca kazanım bazında agrege edilip atılıyordu.
+    await tx.examResultAnswer.deleteMany({ where: { examResultId: examResult.id } });
+    await tx.examResultAnswer.createMany({
+      data: answers.map((a) => ({ examResultId: examResult.id, questionId: a.questionId, isCorrect: a.isCorrect })),
+    });
+
     await logActivity(tx, {
       tenantId: effectiveTenantId(actor),
       actorUserId: actor.id,
