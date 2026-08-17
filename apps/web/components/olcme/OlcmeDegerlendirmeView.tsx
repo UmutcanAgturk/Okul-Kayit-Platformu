@@ -9,6 +9,7 @@ import { fetchBranchClassrooms } from "@/lib/api/students-roster";
 import { fetchMyClasses } from "@/lib/api/my-classes";
 import {
   createBranchExam,
+  EXAM_ANSWER_KEY_OPTIONS,
   examKeys,
   fetchAchievementSummary,
   fetchAtRiskStudents,
@@ -18,11 +19,16 @@ import {
   fetchExamResultRoster,
   submitExamResult,
 } from "@/lib/api/exams";
+import { GRADE_LEVEL_LABEL } from "@/lib/api/enrollments";
 import { Icon } from "@/components/ui/icons";
 import { LineChart } from "@/components/ui/charts/LineChart";
 import { HBarChart } from "@/components/ui/charts/HBarChart";
 import { CompositionBar } from "@/components/ui/charts/CompositionBar";
 import { KazanimYuklemeTab } from "./KazanimYuklemeTab";
+
+// demo'daki EXAM_ELIGIBLE_GRADES (Ortaokul + Lise) ile birebir aynı — HQ'nun
+// Genel Sınav Merkezi'ndeki (app/api/hq/exams) sabit listeyle tutarlı.
+const EXAM_ELIGIBLE_GRADES = ["SINIF_5", "SINIF_6", "SINIF_7", "SINIF_8", "SINIF_9", "SINIF_10", "SINIF_11", "SINIF_12"];
 
 const VIEW_ROLES = ["BRANCH_ADMIN", "GUIDANCE_COORDINATOR", "TEACHER"];
 const CREATE_ROLES = ["BRANCH_ADMIN"];
@@ -234,6 +240,8 @@ function DurumTab() {
                 <tr>
                   <th>Sınav</th>
                   <th>Tarih</th>
+                  <th>Kitapçık</th>
+                  <th>Ücret</th>
                   <th>Katılım</th>
                   <th>Ort. Net</th>
                   <th>Doğru Oranı</th>
@@ -244,6 +252,8 @@ function DurumTab() {
                   <tr key={e.id}>
                     <td style={{ fontWeight: 600 }}>{e.name}</td>
                     <td>{new Date(e.examDate).toLocaleDateString("tr-TR")}</td>
+                    <td>{e.bookletTypes.length} ({e.bookletTypes.join("/")})</td>
+                    <td>{e.feePerStudent === null ? "—" : `₺${e.feePerStudent}`}</td>
                     <td>
                       {e.participationPct === null ? (
                         "—"
@@ -463,6 +473,11 @@ function KazanimTab() {
   );
 }
 
+interface DraftQuestion {
+  achievementId: string;
+  correctAnswer: string;
+}
+
 function UygulamaTab() {
   const queryClient = useQueryClient();
   const achievementsQuery = useQuery({ queryKey: examKeys.curriculum(), queryFn: fetchCurriculumAchievements });
@@ -470,36 +485,59 @@ function UygulamaTab() {
 
   const [name, setName] = useState("");
   const [examDate, setExamDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [questionAchievementIds, setQuestionAchievementIds] = useState<string[]>([]);
+  const [questions, setQuestions] = useState<DraftQuestion[]>([]);
+  const [bookletCount, setBookletCount] = useState<2 | 4>(4);
+  const [feePerStudent, setFeePerStudent] = useState("");
+  const [eligibleGrades, setEligibleGrades] = useState<string[]>([]);
   const [formError, setFormError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const createMutation = useMutation({
     mutationFn: createBranchExam,
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: examKeys.list() });
       setName("");
-      setQuestionAchievementIds([]);
+      setQuestions([]);
+      setFeePerStudent("");
+      setEligibleGrades([]);
       setFormError(null);
+      setSuccessMsg(`"${result.exam.name}" oluşturuldu — ${result.studentCount} öğrenci kapsamda.`);
     },
     onError: (err) => setFormError(err instanceof ApiError ? err.message : "Sınav oluşturulamadı."),
   });
 
   function addQuestion(achievementId: string) {
     if (!achievementId) return;
-    setQuestionAchievementIds((prev) => [...prev, achievementId]);
+    setQuestions((prev) => [...prev, { achievementId, correctAnswer: "" }]);
   }
 
   function removeQuestion(index: number) {
-    setQuestionAchievementIds((prev) => prev.filter((_, i) => i !== index));
+    setQuestions((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function setQuestionAnswer(index: number, correctAnswer: string) {
+    setQuestions((prev) => prev.map((q, i) => (i === index ? { ...q, correctAnswer } : q)));
+  }
+
+  function toggleGrade(grade: string) {
+    setEligibleGrades((prev) => (prev.includes(grade) ? prev.filter((g) => g !== grade) : [...prev, grade]));
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim() || questionAchievementIds.length === 0) {
+    setSuccessMsg(null);
+    if (!name.trim() || questions.length === 0) {
       setFormError("Sınav adı ve en az bir soru zorunludur.");
       return;
     }
-    createMutation.mutate({ name: name.trim(), examDate, questions: questionAchievementIds.map((achievementId) => ({ achievementId })) });
+    createMutation.mutate({
+      name: name.trim(),
+      examDate,
+      bookletCount,
+      feePerStudent: feePerStudent.trim() ? Number(feePerStudent) : null,
+      eligibleGradeLevels: eligibleGrades,
+      questions: questions.map((q) => ({ achievementId: q.achievementId, correctAnswer: q.correctAnswer || null })),
+    });
   }
 
   return (
@@ -509,7 +547,8 @@ function UygulamaTab() {
       </div>
       <p style={{ margin: "0 0 14px", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
         Her soru bir kazanıma (MEB müfredatından) bağlanır — bu eşleme, Sonuç Girişi&apos;nde girilen doğru/yanlış/boş
-        işaretlemesinden Kazanım Analizi&apos;ni otomatik hesaplar.
+        işaretlemesinden Kazanım Analizi&apos;ni otomatik hesaplar. Cevap anahtarı (doğru şık) opsiyoneldir, Sonuç
+        Girişi&apos;nde referans olarak gösterilir.
       </p>
       <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div className="grid cols-2">
@@ -525,23 +564,31 @@ function UygulamaTab() {
 
         <div>
           <label style={{ display: "block", fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--ink-muted)", marginBottom: 6 }}>
-            Sorular ({questionAchievementIds.length})
+            Sorular ({questions.length})
           </label>
           <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 280, overflowY: "auto", marginBottom: 10 }}>
-            {questionAchievementIds.map((achId, i) => {
-              const ach = achievements.find((a) => a.id === achId);
+            {questions.map((q, i) => {
+              const ach = achievements.find((a) => a.id === q.achievementId);
               return (
-                <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "6px 10px", fontSize: "var(--text-xs)" }}>
-                  <span>
-                    <b>Soru {i + 1}</b> — {ach ? `${ach.code} · ${ach.label}` : achId}
+                <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "6px 10px", fontSize: "var(--text-xs)" }}>
+                  <span style={{ flex: 1 }}>
+                    <b>Soru {i + 1}</b> — {ach ? `${ach.code} · ${ach.label}` : q.achievementId}
                   </span>
+                  <select value={q.correctAnswer} onChange={(e) => setQuestionAnswer(i, e.target.value)} style={{ padding: "3px 6px", fontSize: "var(--text-xs)" }}>
+                    <option value="">Doğru Cevap: —</option>
+                    {EXAM_ANSWER_KEY_OPTIONS.map((o) => (
+                      <option key={o} value={o}>
+                        Doğru Cevap: {o}
+                      </option>
+                    ))}
+                  </select>
                   <button type="button" className="btn xs" onClick={() => removeQuestion(i)}>
                     Sil
                   </button>
                 </div>
               );
             })}
-            {questionAchievementIds.length === 0 && <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>Henüz soru eklenmedi.</p>}
+            {questions.length === 0 && <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>Henüz soru eklenmedi.</p>}
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <select id="add-question-achievement" style={{ flex: 1 }}>
@@ -565,7 +612,38 @@ function UygulamaTab() {
           </div>
         </div>
 
+        <div style={{ borderTop: "1px solid var(--border)", paddingTop: 12 }}>
+          <label style={{ display: "block", fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--ink-muted)", marginBottom: 6 }}>
+            Sınav Kapsamı
+          </label>
+          <div className="grid cols-2" style={{ marginBottom: 12 }}>
+            <div className="field">
+              <label>Kitapçık Sayısı</label>
+              <select value={bookletCount} onChange={(e) => setBookletCount(Number(e.target.value) === 2 ? 2 : 4)}>
+                <option value={4}>4 (A/B/C/D)</option>
+                <option value={2}>2 (A/B)</option>
+              </select>
+            </div>
+            <div className="field">
+              <label>Öğrenci Başına Sınav Ücreti (₺)</label>
+              <input type="number" min="0" value={feePerStudent} onChange={(e) => setFeePerStudent(e.target.value)} placeholder="Örn. 45" />
+            </div>
+          </div>
+          <div className="field">
+            <label>Sınıf Düzeyi Kapsamı (boş = Tümü)</label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: 8, border: "1px solid var(--border-strong)", borderRadius: 8 }}>
+              {EXAM_ELIGIBLE_GRADES.map((g) => (
+                <label key={g} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "var(--text-xs)" }}>
+                  <input type="checkbox" checked={eligibleGrades.includes(g)} onChange={() => toggleGrade(g)} />
+                  {GRADE_LEVEL_LABEL[g] ?? g}
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+
         {formError && <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--critical)" }}>{formError}</p>}
+        {successMsg && <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--strong)" }}>{successMsg}</p>}
         <button type="submit" disabled={createMutation.isPending} className="btn primary" style={{ alignSelf: "flex-start" }}>
           {createMutation.isPending ? "Oluşturuluyor…" : "Sınavı Oluştur"}
         </button>
@@ -589,6 +667,7 @@ function SonucTab({ isTeacher }: { isTeacher: boolean }) {
   const [classroomId, setClassroomId] = useState("");
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [answers, setAnswers] = useState<AnswerState>({});
+  const [bookletType, setBookletType] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<{ netScore: number; correctCount: number; wrongCount: number; emptyCount: number } | null>(null);
 
@@ -600,7 +679,8 @@ function SonucTab({ isTeacher }: { isTeacher: boolean }) {
   });
 
   const submitMutation = useMutation({
-    mutationFn: (input: { studentId: string; answers: { questionId: string; isCorrect: boolean | null }[] }) => submitExamResult(examId, input),
+    mutationFn: (input: { studentId: string; answers: { questionId: string; isCorrect: boolean | null }[]; bookletType?: string | null }) =>
+      submitExamResult(examId, input),
     onSuccess: (result) => {
       setLastResult(result);
       setSubmitError(null);
@@ -616,12 +696,14 @@ function SonucTab({ isTeacher }: { isTeacher: boolean }) {
     : (branchClassroomsQuery.data?.classrooms ?? []);
   const roster = rosterQuery.data?.roster ?? [];
   const questions = examDetailQuery.data?.exam.questions ?? [];
+  const bookletTypes = examDetailQuery.data?.exam.bookletTypes ?? [];
 
   function selectStudent(studentId: string) {
     setSelectedStudentId(studentId);
     setLastResult(null);
     setSubmitError(null);
     setAnswers({});
+    setBookletType("");
   }
 
   function handleSubmit() {
@@ -633,6 +715,7 @@ function SonucTab({ isTeacher }: { isTeacher: boolean }) {
     submitMutation.mutate({
       studentId: selectedStudentId,
       answers: questions.map((q) => ({ questionId: q.id, isCorrect: answers[q.id] ?? null })),
+      bookletType: bookletType || null,
     });
   }
 
@@ -712,11 +795,25 @@ function SonucTab({ isTeacher }: { isTeacher: boolean }) {
                 <div className="card-head">
                   <h3>Soru Bazlı İşaretleme</h3>
                 </div>
+                {bookletTypes.length > 0 && (
+                  <div className="field" style={{ marginBottom: 10 }}>
+                    <label>Kitapçık Türü (opsiyonel)</label>
+                    <select value={bookletType} onChange={(e) => setBookletType(e.target.value)}>
+                      <option value="">— Seçilmedi —</option>
+                      {bookletTypes.map((b) => (
+                        <option key={b} value={b}>
+                          {b} Kitapçığı
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 360, overflowY: "auto", marginBottom: 12 }}>
                   {questions.map((q) => (
                     <div key={q.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, fontSize: "var(--text-xs)", borderBottom: "1px solid var(--border)", paddingBottom: 6 }}>
                       <span>
                         <b>Soru {q.orderIndex}</b> — {q.achievementCode}
+                        {q.correctAnswer && <span style={{ color: "var(--ink-faint)" }}> · Doğru: {q.correctAnswer}</span>}
                       </span>
                       <div style={{ display: "flex", gap: 4 }}>
                         {([

@@ -655,13 +655,17 @@ model Exam {
   bookletTypes String[]  @default(["A", "B", "C", "D"])
   examDate     DateTime
 
-  // Yalnızca NETWORK kapsamlı sınavlarda kullanılır (bkz. app/api/hq/exams —
-  // "Genel Sınav Merkezi"). Öğrenci başına ücret ve hedeflenen sınıf
-  // düzeyleri (Ortaokul+Lise) burada saklanır ki optik form ihtiyacı/toplam
-  // fatura tutarı her görüntülemede TÜM hedeflenen şubelerdeki canlı
-  // StudentProfile sayısına göre yeniden hesaplanabilsin. Hangi şubelerin
-  // "davet edildiği" (demo'daki branchIds) branchDispatches üzerinden
-  // saklanır — her hedeflenen şube için bir ExamBranchDispatch satırı vardır.
+  // NETWORK sınavlarında (bkz. app/api/hq/exams — "Genel Sınav Merkezi")
+  // öğrenci başına ücret ve hedeflenen sınıf düzeyleri (Ortaokul+Lise) burada
+  // saklanır ki optik form ihtiyacı/toplam fatura tutarı her görüntülemede
+  // TÜM hedeflenen şubelerdeki canlı StudentProfile sayısına göre yeniden
+  // hesaplanabilsin. Hangi şubelerin "davet edildiği" (demo'daki branchIds)
+  // branchDispatches üzerinden saklanır — her hedeflenen şube için bir
+  // ExamBranchDispatch satırı vardır.
+  // BRANCH sınavlarında (bkz. app/api/branch/exams — "Sınav Uygulaması") aynı
+  // iki alan öğrenci başına ücret ve sınavın uygulanacağı sınıf düzeyi
+  // kapsamı için kullanılır — branchDispatches yoktur (tek tenant zaten
+  // sabit), eligibleGradeLevels boşsa (varsayılan) TÜM sınıf düzeyleri dahildir.
   feePerStudent       Decimal?     @db.Decimal(10, 2)
   eligibleGradeLevels GradeLevel[] @default([])
 
@@ -682,6 +686,12 @@ model ExamQuestion {
   orderIndex    Int
   achievementId String
   achievement   CurriculumNode @relation(fields: [achievementId], references: [id])
+
+  // Cevap anahtarı — demo'daki ANSWER_KEY_OPTIONS ("A".."E") ile birebir aynı.
+  // Sonuç Girişi'nde referans olarak gösterilir; doğru/yanlış/boş işaretlemesi
+  // (bkz. app/api/branch/exams/[examId]/results) yine elle girilir — kamera/
+  // OCR bazlı otomatik okuma bu depoda kasıtlı olarak kapsam dışıdır.
+  correctAnswer String?
 
   // IRT (Madde Tepki Kuramı) parametreleri
   irtDifficulty     Float? // b parametresi

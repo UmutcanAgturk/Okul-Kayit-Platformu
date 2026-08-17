@@ -86,6 +86,7 @@ export async function POST(request: NextRequest, { params }: { params: { examId:
           ((a as { isCorrect?: unknown }).isCorrect === true || (a as { isCorrect?: unknown }).isCorrect === false || (a as { isCorrect?: unknown }).isCorrect === null),
       )
     : null;
+  const bookletType = typeof body.bookletType === "string" && body.bookletType.trim() ? body.bookletType.trim() : null;
 
   if (!studentId || !answers) {
     return NextResponse.json({ message: "studentId ve answers (questionId + isCorrect) zorunludur" }, { status: 400 });
@@ -95,8 +96,16 @@ export async function POST(request: NextRequest, { params }: { params: { examId:
     const exam = await tx.exam.findUnique({ where: { id: params.examId }, include: { questions: true } });
     if (!exam) return { kind: "exam_not_found" as const };
 
+    if (bookletType && !exam.bookletTypes.includes(bookletType)) {
+      return { kind: "bad_booklet_type" as const };
+    }
+
     const student = await tx.studentProfile.findUnique({ where: { id: studentId } });
     if (!student) return { kind: "student_not_found" as const };
+
+    if (exam.eligibleGradeLevels.length > 0 && !exam.eligibleGradeLevels.includes(student.gradeLevel)) {
+      return { kind: "grade_not_eligible" as const };
+    }
 
     if (actor.role === UserRole.TEACHER) {
       const ownsClassroom = student.classroomId && (await teacherOwnsClassroom(tx, actor.id, student.classroomId));
@@ -125,8 +134,8 @@ export async function POST(request: NextRequest, { params }: { params: { examId:
 
     const examResult = await tx.examResult.upsert({
       where: { examId_studentId: { examId: exam.id, studentId } },
-      create: { examId: exam.id, tenantId: effectiveTenantId(actor), studentId, correctCount, wrongCount, emptyCount, rawScore, netScore },
-      update: { correctCount, wrongCount, emptyCount, rawScore, netScore },
+      create: { examId: exam.id, tenantId: effectiveTenantId(actor), studentId, correctCount, wrongCount, emptyCount, rawScore, netScore, bookletType },
+      update: { correctCount, wrongCount, emptyCount, rawScore, netScore, bookletType },
     });
 
     await tx.studentAchievementResult.deleteMany({ where: { examResultId: examResult.id } });
@@ -155,8 +164,14 @@ export async function POST(request: NextRequest, { params }: { params: { examId:
   if (outcome.kind === "exam_not_found") {
     return NextResponse.json({ message: "Sınav bulunamadı" }, { status: 404 });
   }
+  if (outcome.kind === "bad_booklet_type") {
+    return NextResponse.json({ message: "Geçersiz kitapçık türü" }, { status: 400 });
+  }
   if (outcome.kind === "student_not_found") {
     return NextResponse.json({ message: "Öğrenci bulunamadı" }, { status: 404 });
+  }
+  if (outcome.kind === "grade_not_eligible") {
+    return NextResponse.json({ message: "Bu öğrencinin sınıf düzeyi sınav kapsamında değil" }, { status: 400 });
   }
   if (outcome.kind === "not_own_classroom") {
     return NextResponse.json({ message: "Yalnızca kendi Ders Programınızda yer alan sınıflar için sonuç girebilirsiniz" }, { status: 403 });

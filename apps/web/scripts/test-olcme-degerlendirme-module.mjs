@@ -64,20 +64,45 @@ async function main() {
   const createRes = await fetch(`${BASE}/api/branch/exams`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Cookie: branchCookie },
-    body: JSON.stringify({ name: uniqueName, examDate: "2026-02-01", questions: [{ achievementId: ach1.id }, { achievementId: ach2.id }] }),
+    body: JSON.stringify({
+      name: uniqueName,
+      examDate: "2026-02-01",
+      bookletCount: 2,
+      feePerStudent: 45,
+      eligibleGradeLevels: ["SINIF_9"],
+      questions: [{ achievementId: ach1.id, correctAnswer: "A" }, { achievementId: ach2.id, correctAnswer: "C" }],
+    }),
   });
   const createBody = await createRes.json();
   check("POST exams: 201 ve 2 soru", createRes.status === 201 && createBody.exam?.questionCount === 2, createBody);
+  check(
+    "POST exams: kitapçık/ücret/kapsam kaydedildi (2 (A/B), ₺45, [SINIF_9])",
+    JSON.stringify(createBody.exam?.bookletTypes) === JSON.stringify(["A", "B"]) &&
+      createBody.exam?.feePerStudent === 45 &&
+      JSON.stringify(createBody.exam?.eligibleGradeLevels) === JSON.stringify(["SINIF_9"]),
+    createBody.exam,
+  );
+  check("POST exams: studentCount döndü (SINIF_9 kapsamında en az 1 öğrenci)", createBody.studentCount >= 1, createBody.studentCount);
   const examId = createBody.exam.id;
 
   const listRes = await fetch(`${BASE}/api/branch/exams`, { headers: { Cookie: branchCookie } });
   const listBody = await listRes.json();
   const listedExam = listBody.exams?.find((e) => e.id === examId);
   check("GET exams: yeni sınav listede, resultCount=0, avgNet=null", listedExam?.resultCount === 0 && listedExam?.avgNet === null, listedExam);
+  check(
+    "GET exams: bookletTypes/feePerStudent/eligibleGradeLevels alanları mevcut",
+    JSON.stringify(listedExam?.bookletTypes) === JSON.stringify(["A", "B"]) && listedExam?.feePerStudent === 45,
+    listedExam,
+  );
 
   const detailRes = await fetch(`${BASE}/api/branch/exams/${examId}`, { headers: { Cookie: branchCookie } });
   const detailBody = await detailRes.json();
   check("GET exam detail: 2 soru, kazanım kodlarıyla birlikte", detailBody.exam?.questions?.length === 2 && !!detailBody.exam.questions[0].achievementCode, detailBody.exam?.questions);
+  check(
+    "GET exam detail: cevap anahtarı (correctAnswer) sorularla birlikte döndü",
+    detailBody.exam?.questions?.[0]?.correctAnswer === "A" && detailBody.exam?.questions?.[1]?.correctAnswer === "C",
+    detailBody.exam?.questions,
+  );
   const [q1, q2] = detailBody.exam.questions;
 
   const rosterRes = await fetch(`${BASE}/api/branch/exams/${examId}/results?classroomId=${elif.classroomId}`, { headers: { Cookie: branchCookie } });
@@ -91,6 +116,13 @@ async function main() {
     body: JSON.stringify({ studentId: elif.id, answers: [{ questionId: q1.id, isCorrect: true }] }),
   });
   check("POST results: eksik cevap sayısı reddediliyor (400)", mismatchRes.status === 400, mismatchRes.status);
+
+  const badBookletRes = await fetch(`${BASE}/api/branch/exams/${examId}/results`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: branchCookie },
+    body: JSON.stringify({ studentId: elif.id, bookletType: "Z", answers: [{ questionId: q1.id, isCorrect: true }, { questionId: q2.id, isCorrect: true }] }),
+  });
+  check("POST results: geçersiz kitapçık türü reddediliyor (400)", badBookletRes.status === 400, badBookletRes.status);
 
   // Henüz Ders Programı'nda kaydı yokken TEACHER, Elif'in sınıfı için sonuç GİREMEMELİ.
   const teacherEnterNoSlotRes = await fetch(`${BASE}/api/branch/exams/${examId}/results`, {
@@ -115,7 +147,7 @@ async function main() {
   const submitRes = await fetch(`${BASE}/api/branch/exams/${examId}/results`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Cookie: branchCookie },
-    body: JSON.stringify({ studentId: elif.id, answers: [{ questionId: q1.id, isCorrect: true }, { questionId: q2.id, isCorrect: false }] }),
+    body: JSON.stringify({ studentId: elif.id, bookletType: "B", answers: [{ questionId: q1.id, isCorrect: true }, { questionId: q2.id, isCorrect: false }] }),
   });
   const submitBody = await submitRes.json();
   check(
@@ -129,6 +161,7 @@ async function main() {
     include: { achievementResults: true },
   });
   check("DB: ExamResult gerçek tenantId ile oluştu", dbResult1?.tenantId === elif.tenantId, dbResult1?.tenantId);
+  check("DB: ExamResult.bookletType kaydedildi (B)", dbResult1?.bookletType === "B", dbResult1?.bookletType);
   check("DB: 2 StudentAchievementResult (her soru için bir kazanım)", dbResult1?.achievementResults.length === 2, dbResult1?.achievementResults.length);
   const correctAch = dbResult1?.achievementResults.find((r) => r.achievementId === ach1.id);
   const wrongAch = dbResult1?.achievementResults.find((r) => r.achievementId === ach2.id);
@@ -230,6 +263,30 @@ async function main() {
   check("GET at-risk-students: oturumsuz 401", noSessionAtRisk.status === 401, noSessionAtRisk.status);
   const teacherAtRisk = await fetch(`${BASE}/api/branch/exams/at-risk-students`, { headers: { Cookie: teacherCookie } });
   check("Yetki: TEACHER at-risk-students'ı görüntüleyebilir (200)", teacherAtRisk.status === 200, teacherAtRisk.status);
+
+  // ===== Sınıf düzeyi kapsamı dışı öğrenci için sonuç girişi reddedilir =====
+  const scopedExamRes = await fetch(`${BASE}/api/branch/exams`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: branchCookie },
+    body: JSON.stringify({ name: `Kapsam Testi ${Date.now()}`, examDate: "2026-02-01", eligibleGradeLevels: ["SINIF_10"], questions: [{ achievementId: ach1.id }] }),
+  });
+  const scopedExamBody = await scopedExamRes.json();
+  const scopedExamId = scopedExamBody.exam.id;
+  const scopedDetailRes = await fetch(`${BASE}/api/branch/exams/${scopedExamId}`, { headers: { Cookie: branchCookie } });
+  const scopedDetailBody = await scopedDetailRes.json();
+  const scopedQ1 = scopedDetailBody.exam.questions[0];
+  const scopeRejectRes = await fetch(`${BASE}/api/branch/exams/${scopedExamId}/results`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: branchCookie },
+    body: JSON.stringify({ studentId: elif.id, answers: [{ questionId: scopedQ1.id, isCorrect: true }] }),
+  });
+  check(
+    "POST results: sınıf düzeyi kapsam dışı öğrenci (SINIF_9 öğrenci, SINIF_10 kapsamlı sınav) 400 ile reddediliyor",
+    scopeRejectRes.status === 400,
+    scopeRejectRes.status,
+  );
+  await prisma.examQuestion.deleteMany({ where: { examId: scopedExamId } });
+  await prisma.exam.delete({ where: { id: scopedExamId } });
 
   // ===== Temizlik =====
   await prisma.studentAchievementResult.deleteMany({ where: { examResultId: dbResult2.id } });

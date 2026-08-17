@@ -1,10 +1,15 @@
 import { apiFetch } from "./client";
 
+export const EXAM_ANSWER_KEY_OPTIONS = ["A", "B", "C", "D", "E"];
+
 export interface BranchExam {
   id: string;
   name: string;
   type: string;
   examDate: string;
+  bookletTypes: string[];
+  feePerStudent: number | null;
+  eligibleGradeLevels: string[];
   questionCount: number;
   resultCount: number;
   avgNet: number | null;
@@ -19,8 +24,16 @@ export function fetchBranchExams() {
   return apiFetch<{ exams: BranchExam[] }>("/api/branch/exams", { cache: "no-store" });
 }
 
-export function createBranchExam(input: { name: string; examDate: string; type?: string; questions: { achievementId: string }[] }) {
-  return apiFetch<{ exam: BranchExam }>("/api/branch/exams", { method: "POST", body: JSON.stringify(input) });
+export function createBranchExam(input: {
+  name: string;
+  examDate: string;
+  type?: string;
+  bookletCount?: 2 | 4;
+  feePerStudent?: number | null;
+  eligibleGradeLevels?: string[];
+  questions: { achievementId: string; correctAnswer?: string | null }[];
+}) {
+  return apiFetch<{ exam: BranchExam; studentCount: number }>("/api/branch/exams", { method: "POST", body: JSON.stringify(input) });
 }
 
 export interface ExamQuestionDetail {
@@ -30,13 +43,22 @@ export interface ExamQuestionDetail {
   achievementCode: string;
   achievementLabel: string;
   subject: string;
+  correctAnswer: string | null;
 }
 
 export function fetchBranchExamDetail(examId: string) {
-  return apiFetch<{ exam: { id: string; name: string; type: string; examDate: string; questions: ExamQuestionDetail[] } }>(
-    `/api/branch/exams/${examId}`,
-    { cache: "no-store" },
-  );
+  return apiFetch<{
+    exam: {
+      id: string;
+      name: string;
+      type: string;
+      examDate: string;
+      bookletTypes: string[];
+      feePerStudent: number | null;
+      eligibleGradeLevels: string[];
+      questions: ExamQuestionDetail[];
+    };
+  }>(`/api/branch/exams/${examId}`, { cache: "no-store" });
 }
 
 export interface ExamResultRosterRow {
@@ -54,7 +76,10 @@ export function fetchExamResultRoster(examId: string, classroomId: string) {
   );
 }
 
-export function submitExamResult(examId: string, input: { studentId: string; answers: { questionId: string; isCorrect: boolean | null }[] }) {
+export function submitExamResult(
+  examId: string,
+  input: { studentId: string; answers: { questionId: string; isCorrect: boolean | null }[]; bookletType?: string | null },
+) {
   return apiFetch<{ correctCount: number; wrongCount: number; emptyCount: number; netScore: number }>(
     `/api/branch/exams/${examId}/results`,
     { method: "POST", body: JSON.stringify(input) },

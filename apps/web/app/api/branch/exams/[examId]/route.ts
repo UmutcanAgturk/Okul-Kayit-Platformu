@@ -32,6 +32,9 @@ export async function GET(request: NextRequest, { params }: { params: { examId: 
       name: exam.name,
       type: exam.type,
       examDate: exam.examDate.toISOString().slice(0, 10),
+      bookletTypes: exam.bookletTypes,
+      feePerStudent: exam.feePerStudent ? Number(exam.feePerStudent) : null,
+      eligibleGradeLevels: exam.eligibleGradeLevels,
       questions: exam.questions.map((q) => ({
         id: q.id,
         orderIndex: q.orderIndex,
@@ -39,6 +42,7 @@ export async function GET(request: NextRequest, { params }: { params: { examId: 
         achievementCode: q.achievement.code,
         achievementLabel: q.achievement.label,
         subject: subjectFromCode(q.achievement.code),
+        correctAnswer: q.correctAnswer,
       })),
     },
   });
