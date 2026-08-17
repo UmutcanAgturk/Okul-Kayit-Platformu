@@ -9,6 +9,7 @@ import { fetchBranchClassrooms } from "@/lib/api/students-roster";
 import { fetchMyClasses } from "@/lib/api/my-classes";
 import {
   createBranchExam,
+  deleteBranchExam,
   EXAM_ANSWER_KEY_OPTIONS,
   EXAM_TYPE_LABEL,
   EXAM_TYPE_OPTIONS,
@@ -22,6 +23,8 @@ import {
   fetchExamQuestionStats,
   fetchExamResultRoster,
   submitExamResult,
+  updateBranchExam,
+  type BranchExam,
   type CurriculumAchievement,
 } from "@/lib/api/exams";
 import { parseCsv } from "@/lib/csv";
@@ -573,6 +576,201 @@ function KazanimTab() {
   );
 }
 
+/**
+ * Sınav düzenle/sil + geçmiş/yaklaşan ayrımı (task #92) — demo'daki
+ * eksikliğin karşılığı. Sorular/cevap anahtarı burada DÜZENLENEMEZ (bkz.
+ * PATCH /api/branch/exams/[examId] yorumu); yalnızca ad/tarih/tür/kitapçık/
+ * ücret/sınıf kapsamı. Sonucu girilmiş bir sınav silinemez (409).
+ */
+function ExistingExamsPanel() {
+  const queryClient = useQueryClient();
+  const examsQuery = useQuery({ queryKey: examKeys.list(), queryFn: fetchBranchExams });
+  const exams = examsQuery.data?.exams ?? [];
+  const today = new Date().toISOString().slice(0, 10);
+  const upcoming = exams.filter((e) => e.examDate >= today).sort((a, b) => a.examDate.localeCompare(b.examDate));
+  const past = exams.filter((e) => e.examDate < today).sort((a, b) => b.examDate.localeCompare(a.examDate));
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editDate, setEditDate] = useState("");
+  const [editBooklet, setEditBooklet] = useState<2 | 4>(4);
+  const [editFee, setEditFee] = useState("");
+  const [editGrades, setEditGrades] = useState<string[]>([]);
+  const [rowError, setRowError] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  function startEdit(e: BranchExam) {
+    setEditingId(e.id);
+    setEditName(e.name);
+    setEditDate(e.examDate);
+    setEditBooklet(e.bookletTypes.length === 2 ? 2 : 4);
+    setEditFee(e.feePerStudent != null ? String(e.feePerStudent) : "");
+    setEditGrades(e.eligibleGradeLevels);
+    setRowError(null);
+    setConfirmDeleteId(null);
+  }
+
+  const updateMutation = useMutation({
+    mutationFn: (vars: { id: string; input: Parameters<typeof updateBranchExam>[1] }) => updateBranchExam(vars.id, vars.input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: examKeys.list() });
+      setEditingId(null);
+      setRowError(null);
+    },
+    onError: (err) => setRowError(err instanceof ApiError ? err.message : "Sınav güncellenemedi."),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteBranchExam(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: examKeys.list() });
+      setConfirmDeleteId(null);
+    },
+    onError: (err) => {
+      setRowError(err instanceof ApiError ? err.message : "Sınav silinemedi.");
+      setConfirmDeleteId(null);
+    },
+  });
+
+  function toggleEditGrade(g: string) {
+    setEditGrades((prev) => (prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g]));
+  }
+
+  function saveEdit() {
+    if (!editName.trim() || !editDate) {
+      setRowError("Sınav adı ve tarihi zorunludur.");
+      return;
+    }
+    updateMutation.mutate({
+      id: editingId!,
+      input: {
+        name: editName.trim(),
+        examDate: editDate,
+        bookletCount: editBooklet,
+        feePerStudent: editFee.trim() ? Number(editFee) : null,
+        eligibleGradeLevels: editGrades,
+      },
+    });
+  }
+
+  function ExamRow({ e }: { e: BranchExam }) {
+    if (editingId === e.id) {
+      return (
+        <div className="card card-pad" style={{ marginBottom: 8 }}>
+          <div className="grid cols-2">
+            <div className="field">
+              <label>Sınav Adı</label>
+              <input value={editName} onChange={(ev) => setEditName(ev.target.value)} />
+            </div>
+            <div className="field">
+              <label>Tarih</label>
+              <input type="date" value={editDate} onChange={(ev) => setEditDate(ev.target.value)} />
+            </div>
+          </div>
+          <div className="grid cols-2" style={{ marginTop: 8 }}>
+            <div className="field">
+              <label>Kitapçık Sayısı</label>
+              <select value={editBooklet} onChange={(ev) => setEditBooklet(Number(ev.target.value) === 2 ? 2 : 4)}>
+                <option value={4}>4 (A/B/C/D)</option>
+                <option value={2}>2 (A/B)</option>
+              </select>
+            </div>
+            <div className="field">
+              <label>Ücret (₺)</label>
+              <input type="number" min="0" value={editFee} onChange={(ev) => setEditFee(ev.target.value)} />
+            </div>
+          </div>
+          <div className="field" style={{ marginTop: 8 }}>
+            <label>Sınıf Düzeyi Kapsamı (boş = Tümü)</label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {EXAM_ELIGIBLE_GRADES.map((g) => (
+                <label key={g} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: "var(--text-2xs)" }}>
+                  <input type="checkbox" checked={editGrades.includes(g)} onChange={() => toggleEditGrade(g)} />
+                  {GRADE_LEVEL_LABEL[g] ?? g}
+                </label>
+              ))}
+            </div>
+          </div>
+          {rowError && <p style={{ margin: "8px 0 0", fontSize: "var(--text-xs)", color: "var(--critical)" }}>{rowError}</p>}
+          <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+            <button type="button" className="btn primary xs" disabled={updateMutation.isPending} onClick={saveEdit}>
+              {updateMutation.isPending ? "Kaydediliyor…" : "Kaydet"}
+            </button>
+            <button type="button" className="btn xs" onClick={() => setEditingId(null)}>
+              Vazgeç
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
+        <div>
+          <span style={{ fontWeight: 600, fontSize: "var(--text-sm)" }}>{e.name}</span>
+          <span style={{ marginLeft: 8, fontSize: "var(--text-2xs)", color: "var(--ink-faint)" }}>
+            {new Date(e.examDate).toLocaleDateString("tr-TR")} · {EXAM_TYPE_LABEL[e.type] ?? e.type} · {e.resultCount} sonuç
+          </span>
+        </div>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          {confirmDeleteId === e.id ? (
+            <>
+              <span style={{ fontSize: "var(--text-2xs)", color: "var(--critical)" }}>Emin misiniz?</span>
+              <button type="button" className="btn xs danger" disabled={deleteMutation.isPending} onClick={() => deleteMutation.mutate(e.id)}>
+                {deleteMutation.isPending ? "Siliniyor…" : "Evet, Sil"}
+              </button>
+              <button type="button" className="btn xs" onClick={() => setConfirmDeleteId(null)}>
+                Vazgeç
+              </button>
+            </>
+          ) : (
+            <>
+              <button type="button" className="btn xs" onClick={() => startEdit(e)}>
+                Düzenle
+              </button>
+              <button type="button" className="btn xs danger" onClick={() => setConfirmDeleteId(e.id)}>
+                Sil
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (examsQuery.isLoading) {
+    return <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>;
+  }
+  if (exams.length === 0) return null;
+
+  return (
+    <div className="card card-pad" style={{ marginBottom: 14 }}>
+      <div className="card-head">
+        <h3>Sınavlarım ({exams.length})</h3>
+      </div>
+      {upcoming.length > 0 && (
+        <div style={{ marginBottom: 10 }}>
+          <p style={{ margin: "0 0 4px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--ink-faint)" }}>
+            Yaklaşan ({upcoming.length})
+          </p>
+          {upcoming.map((e) => (
+            <ExamRow key={e.id} e={e} />
+          ))}
+        </div>
+      )}
+      {past.length > 0 && (
+        <div>
+          <p style={{ margin: "0 0 4px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--ink-faint)" }}>
+            Geçmiş ({past.length})
+          </p>
+          {past.map((e) => (
+            <ExamRow key={e.id} e={e} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface DraftQuestion {
   achievementId: string;
   correctAnswer: string;
@@ -745,6 +943,7 @@ function UygulamaTab() {
 
   if (stage === "config") {
     return (
+      <>
       <div className="card card-pad">
         <div className="card-head">
           <h3>Yeni Sınav Uygulaması</h3>
@@ -810,6 +1009,8 @@ function UygulamaTab() {
           Devam Et: Soru-Kazanım Eşleştirmesi
         </button>
       </div>
+      <ExistingExamsPanel />
+      </>
     );
   }
 

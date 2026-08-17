@@ -308,8 +308,71 @@ async function main() {
     scopeRejectRes.status === 400,
     scopeRejectRes.status,
   );
-  await prisma.examQuestion.deleteMany({ where: { examId: scopedExamId } });
-  await prisma.exam.delete({ where: { id: scopedExamId } });
+
+  // ===== task #92: sınav düzenleme/silme =====
+  const patchNoAuthRes = await fetch(`${BASE}/api/branch/exams/${examId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: "X" }),
+  });
+  check("PATCH exam: oturumsuz 401", patchNoAuthRes.status === 401, patchNoAuthRes.status);
+
+  const patchTeacherRes = await fetch(`${BASE}/api/branch/exams/${examId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: teacherCookie },
+    body: JSON.stringify({ name: "X" }),
+  });
+  check("PATCH exam: TEACHER düzenleyemez (403)", patchTeacherRes.status === 403, patchTeacherRes.status);
+
+  const newExamName = `Güncellenmiş Sınav Adı ${Date.now()}`;
+  const patchRes = await fetch(`${BASE}/api/branch/exams/${examId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: branchCookie },
+    body: JSON.stringify({ name: newExamName, examDate: "2026-03-15", bookletCount: 2, feePerStudent: 60, eligibleGradeLevels: ["SINIF_10"] }),
+  });
+  const patchBody = await patchRes.json();
+  check(
+    "PATCH exam: ad/tarih/kitapçık/ücret/kapsam güncellenebiliyor (200)",
+    patchRes.status === 200 &&
+      patchBody.exam?.name === newExamName &&
+      patchBody.exam?.examDate === "2026-03-15" &&
+      patchBody.exam?.bookletTypes?.length === 2 &&
+      patchBody.exam?.feePerStudent === 60 &&
+      JSON.stringify(patchBody.exam?.eligibleGradeLevels) === JSON.stringify(["SINIF_10"]),
+    patchBody,
+  );
+  const dbExamAfterPatch = await prisma.exam.findUnique({ where: { id: examId } });
+  check("DB: sınav gerçekten güncellendi", dbExamAfterPatch?.name === newExamName, dbExamAfterPatch?.name);
+
+  const patchCrossTenantRes = await fetch(`${BASE}/api/branch/exams/${examId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: cankayaCookie },
+    body: JSON.stringify({ name: "Çankaya'dan Değiştirilmeye Çalışıldı" }),
+  });
+  check("PATCH exam: Çankaya admin Mezitli sınavını düzenleyemez (404)", patchCrossTenantRes.status === 404, patchCrossTenantRes.status);
+
+  const deleteHasResultsRes = await fetch(`${BASE}/api/branch/exams/${examId}`, { method: "DELETE", headers: { Cookie: branchCookie } });
+  check("DELETE exam: sonuç girilmiş sınav silinemez (409)", deleteHasResultsRes.status === 409, deleteHasResultsRes.status);
+  const examStillExists = await prisma.exam.findUnique({ where: { id: examId } });
+  check("DB: sonuçlu sınav gerçekten SİLİNMEDİ", !!examStillExists);
+
+  const deleteTeacherRes = await fetch(`${BASE}/api/branch/exams/${scopedExamId}`, { method: "DELETE", headers: { Cookie: teacherCookie } });
+  check("DELETE exam: TEACHER silemez (403)", deleteTeacherRes.status === 403, deleteTeacherRes.status);
+
+  const deleteCrossTenantRes = await fetch(`${BASE}/api/branch/exams/${scopedExamId}`, { method: "DELETE", headers: { Cookie: cankayaCookie } });
+  check("DELETE exam: Çankaya admin Mezitli'nin sonuçsuz sınavını silemez (404)", deleteCrossTenantRes.status === 404, deleteCrossTenantRes.status);
+
+  const deleteOkRes = await fetch(`${BASE}/api/branch/exams/${scopedExamId}`, { method: "DELETE", headers: { Cookie: branchCookie } });
+  const deleteOkBody = await deleteOkRes.json();
+  check("DELETE exam: sonuçsuz sınav silinebiliyor (200)", deleteOkRes.status === 200 && deleteOkBody.ok === true, deleteOkRes.status);
+  const scopedExamGone = await prisma.exam.findUnique({ where: { id: scopedExamId } });
+  check("DB: sonuçsuz sınav gerçekten silindi", scopedExamGone === null);
+
+  const deleteNotFoundRes = await fetch(`${BASE}/api/branch/exams/does-not-exist`, { method: "DELETE", headers: { Cookie: branchCookie } });
+  check("DELETE exam: olmayan sınav için 404", deleteNotFoundRes.status === 404, deleteNotFoundRes.status);
+
+  const editLog = await prisma.auditLogEntry.findFirst({ where: { tenantId: elif.tenantId, action: "Sınav uygulaması düzenlendi" }, orderBy: { createdAt: "desc" } });
+  check("Aktivite Akışı: sınav düzenleme loglandı", !!editLog && editLog.detail === newExamName, editLog?.detail);
 
   // ===== Temizlik =====
   await prisma.studentAchievementResult.deleteMany({ where: { examResultId: dbResult2.id } });

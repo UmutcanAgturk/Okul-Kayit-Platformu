@@ -56,6 +56,17 @@ export interface ExamQuestionDetail {
   correctAnswer: string | null;
 }
 
+export function updateBranchExam(
+  examId: string,
+  input: Partial<{ name: string; examDate: string; bookletCount: 2 | 4; feePerStudent: number | null; eligibleGradeLevels: string[] }>,
+) {
+  return apiFetch<{ exam: BranchExam }>(`/api/branch/exams/${examId}`, { method: "PATCH", body: JSON.stringify(input) });
+}
+
+export function deleteBranchExam(examId: string) {
+  return apiFetch<{ ok: true }>(`/api/branch/exams/${examId}`, { method: "DELETE" });
+}
+
 export function fetchBranchExamDetail(examId: string) {
   return apiFetch<{
     exam: {
