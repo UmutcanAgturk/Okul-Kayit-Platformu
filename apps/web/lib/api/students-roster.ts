@@ -70,3 +70,7 @@ export function updateStudentGuardianContact(studentId: string, input: { guardia
     { method: "PATCH", body: JSON.stringify(input) },
   );
 }
+
+export function deleteStudentPermanently(studentId: string) {
+  return apiFetch<{ ok: true }>(`/api/branch/students/${studentId}?permanent=true`, { method: "DELETE" });
+}

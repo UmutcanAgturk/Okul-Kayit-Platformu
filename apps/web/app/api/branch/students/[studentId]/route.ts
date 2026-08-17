@@ -148,3 +148,96 @@ export async function PATCH(request: NextRequest, { params }: { params: { studen
     guardianPhone: outcome.guardianPhone,
   });
 }
+
+/**
+ * DELETE ?permanent=true — demo'daki "Öğrenci Kaydını Sil" (kalıcı silme,
+ * geri alınamaz) eyleminin gerçek karşılığı. `permanent=true` ZORUNLUDUR
+ * (staff route'unun aksine öğrenciler için bir "devre dışı bırak" ara
+ * durumu yoktur — bu route yalnızca kalıcı silmeyi destekler).
+ *
+ * StudentProfile'a bağlı BİRÇOK tablo (taksit, devamsızlık, sınav sonucu,
+ * disiplin notu, vb. — bkz. prisma/schema.prisma) `onDelete: Cascade`
+ * DEĞİLDİR (yalnızca StudentGuardian ve ClubMembership cascade'dir) —
+ * bu yüzden staff route'undaki payrollCount deseniyle aynı mantıkla,
+ * silmeden ÖNCE tüm bu tablolar açıkça sayılır; herhangi birinde kayıt
+ * varsa 409 döner. Pratikte bu, yalnızca hiç geçmişi olmayan (örn. hatalı
+ * toplu içe aktarımla eklenmiş) bir öğrenci için kalıcı silmeyi mümkün kılar.
+ */
+const ROLES_DELETE_ALLOWED: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.GUIDANCE_COORDINATOR];
+
+export async function DELETE(request: NextRequest, { params }: { params: { studentId: string } }) {
+  const actor = await getSessionActor(request);
+  if (!actor) {
+    return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
+  }
+  if (!ROLES_DELETE_ALLOWED.includes(actor.role) && !(actor.role === UserRole.SUPERADMIN && actor.actingTenantId)) {
+    return NextResponse.json({ message: "Bu rol öğrenci kaydını silemez" }, { status: 403 });
+  }
+  if (request.nextUrl.searchParams.get("permanent") !== "true") {
+    return NextResponse.json({ message: "Kalıcı silme için ?permanent=true zorunludur" }, { status: 400 });
+  }
+
+  const outcome = await withBranchTenantContext(actor, async (tx) => {
+    const student = await tx.studentProfile.findUnique({ where: { id: params.studentId }, include: { user: true } });
+    if (!student) return { kind: "not_found" as const };
+
+    const [
+      attendance,
+      discipline,
+      pta,
+      enrollment,
+      examResults,
+      achievements,
+      quizAttempts,
+      studySessions,
+      installments,
+      paymentMethods,
+      paymentReceipts,
+      promissoryNotes,
+      mentorRequests,
+    ] = await Promise.all([
+      tx.attendanceRecord.count({ where: { studentId: student.id } }),
+      tx.disciplineRecord.count({ where: { studentId: student.id } }),
+      tx.ptaMeetingRequest.count({ where: { studentId: student.id } }),
+      tx.enrollment.count({ where: { studentId: student.id } }),
+      tx.examResult.count({ where: { studentId: student.id } }),
+      tx.studentAchievementResult.count({ where: { studentId: student.id } }),
+      tx.quizAttempt.count({ where: { studentId: student.id } }),
+      tx.studySession.count({ where: { studentId: student.id } }),
+      tx.paymentInstallment.count({ where: { studentId: student.id } }),
+      tx.paymentMethod.count({ where: { studentId: student.id } }),
+      tx.paymentReceipt.count({ where: { studentId: student.id } }),
+      tx.promissoryNote.count({ where: { studentId: student.id } }),
+      tx.mentorRequest.count({ where: { studentId: student.id } }),
+    ]);
+    const total =
+      attendance + discipline + pta + enrollment + examResults + achievements + quizAttempts + studySessions + installments + paymentMethods + paymentReceipts + promissoryNotes + mentorRequests;
+    if (total > 0) {
+      return { kind: "has_history" as const };
+    }
+
+    await tx.studentProfile.delete({ where: { id: student.id } });
+    await tx.user.delete({ where: { id: student.userId } });
+
+    await logActivity(tx, {
+      tenantId: effectiveTenantId(actor),
+      actorUserId: actor.id,
+      actorLabel: actorLabel(actor),
+      action: "Öğrenci kaydı kalıcı olarak silindi",
+      detail: `${student.user.firstName} ${student.user.lastName} (${student.studentNo})`,
+    });
+
+    return { kind: "deleted" as const };
+  });
+
+  if (outcome.kind === "not_found") {
+    return NextResponse.json({ message: "Öğrenci bulunamadı" }, { status: 404 });
+  }
+  if (outcome.kind === "has_history") {
+    return NextResponse.json(
+      { message: "Bu öğrencinin taksit/devamsızlık/sınav vb. geçmiş kayıtları olduğu için kalıcı olarak silinemez." },
+      { status: 409 },
+    );
+  }
+  return NextResponse.json({ ok: true });
+}

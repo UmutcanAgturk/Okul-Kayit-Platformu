@@ -8,6 +8,7 @@
 // yanlış tenant'a ait classroomId'nin reddedilmesi, sınıf seviyesi
 // uyuşmazlığının reddedilmesi, ve Aktivite Akışı'na yansıma.
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient({
   datasources: { db: { url: "postgresql://seviye360:seviye360dev@localhost:5432/seviye360?schema=public" } },
@@ -206,6 +207,46 @@ async function main() {
     guardianUserRestored.firstName === originalFirstName && guardianUserRestored.phone === originalPhone,
     guardianUserRestored,
   );
+
+  // ===== Öğrenci Detay Çekmecesi: kalıcı silme (task #74) =====
+  const noPermanentRes = await fetch(`${BASE}/api/branch/students/${elif.id}`, { method: "DELETE", headers: { Cookie: branchCookie } });
+  check("DELETE: ?permanent=true olmadan 400", noPermanentRes.status === 400, noPermanentRes.status);
+
+  const teacherDeleteRes = await fetch(`${BASE}/api/branch/students/${elif.id}?permanent=true`, { method: "DELETE", headers: { Cookie: teacherCookie } });
+  check("DELETE: TEACHER kalıcı silemez (403)", teacherDeleteRes.status === 403, teacherDeleteRes.status);
+
+  const crossTenantDeleteRes = await fetch(`${BASE}/api/branch/students/${elif.id}?permanent=true`, { method: "DELETE", headers: { Cookie: cankayaCookie } });
+  check("DELETE: Çankaya admin Mezitli öğrencisini silemez (404)", crossTenantDeleteRes.status === 404, crossTenantDeleteRes.status);
+
+  const hasHistoryRes = await fetch(`${BASE}/api/branch/students/${elif.id}?permanent=true`, { method: "DELETE", headers: { Cookie: branchCookie } });
+  check("DELETE: geçmişi olan öğrenci (taksit vb.) 409 ile reddediliyor", hasHistoryRes.status === 409, hasHistoryRes.status);
+  const elifStillExists = await prisma.studentProfile.findUnique({ where: { id: elif.id } });
+  check("DB: geçmişi olan öğrenci gerçekten SİLİNMEDİ", !!elifStillExists);
+
+  // Hiç geçmişi olmayan, tek kullanımlık bir öğrenci fixture'ı — gerçekten silinebilmeli.
+  const freshEmail = `test-delete-${Date.now()}@seviye360.com`;
+  const freshUser = await prisma.user.create({
+    data: { tenantId: elif.tenantId, email: freshEmail, passwordHash: bcrypt.hashSync(SEED_DEV_PASSWORD, 10), role: "STUDENT", firstName: "Test", lastName: "Silinecek" },
+  });
+  const freshStudent = await prisma.studentProfile.create({
+    data: { tenantId: elif.tenantId, userId: freshUser.id, gradeLevel: "SINIF_9", studentNo: `TEST-DEL-${Date.now()}` },
+  });
+  const freshDeleteRes = await fetch(`${BASE}/api/branch/students/${freshStudent.id}?permanent=true`, { method: "DELETE", headers: { Cookie: branchCookie } });
+  const freshDeleteBody = await freshDeleteRes.json();
+  check("DELETE: geçmişi olmayan öğrenci kalıcı olarak silinebiliyor (200)", freshDeleteRes.status === 200 && freshDeleteBody.ok === true, freshDeleteRes.status);
+  const freshStudentAfter = await prisma.studentProfile.findUnique({ where: { id: freshStudent.id } });
+  const freshUserAfter = await prisma.user.findUnique({ where: { id: freshUser.id } });
+  check("DB: StudentProfile gerçekten silindi", !freshStudentAfter);
+  check("DB: bağlı User da gerçekten silindi", !freshUserAfter);
+
+  const notFoundDeleteRes = await fetch(`${BASE}/api/branch/students/does-not-exist?permanent=true`, { method: "DELETE", headers: { Cookie: branchCookie } });
+  check("DELETE: olmayan öğrenci için 404", notFoundDeleteRes.status === 404, notFoundDeleteRes.status);
+
+  const deleteLog = await prisma.auditLogEntry.findFirst({
+    where: { tenantId: elif.tenantId, action: "Öğrenci kaydı kalıcı olarak silindi" },
+    orderBy: { createdAt: "desc" },
+  });
+  check("Aktivite Akışı: kalıcı silme işlemi loglandı", !!deleteLog && deleteLog.detail?.includes("Test Silinecek"), deleteLog?.detail);
 
   console.log("\n=== ÖZET ===");
   const fails = results.filter((r) => !r.ok);

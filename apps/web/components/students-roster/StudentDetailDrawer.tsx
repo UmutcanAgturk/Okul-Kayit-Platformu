@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/lib/api/client";
-import { updateStudentGuardianContact, studentsRosterKeys, type BranchStudentRow } from "@/lib/api/students-roster";
+import { deleteStudentPermanently, updateStudentGuardianContact, studentsRosterKeys, type BranchStudentRow } from "@/lib/api/students-roster";
 import { GRADE_LEVEL_LABEL } from "@/lib/api/enrollments";
 import { Icon } from "@/components/ui/icons";
 
@@ -27,10 +27,14 @@ export function StudentDetailDrawer({
   const [guardianFullName, setGuardianFullName] = useState("");
   const [guardianPhone, setGuardianPhone] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
+  const [deleteArmed, setDeleteArmed] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     setEditing(false);
     setFormError(null);
+    setDeleteArmed(false);
+    setDeleteError(null);
     if (student) {
       setGuardianFullName(student.guardianName ?? "");
       setGuardianPhone(student.guardianPhone ?? "");
@@ -46,6 +50,17 @@ export function StudentDetailDrawer({
       setFormError(null);
     },
     onError: (err) => setFormError(err instanceof ApiError ? err.message : "Güncellenemedi."),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteStudentPermanently(student!.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: studentsRosterKeys.all() });
+      setDeleteArmed(false);
+      setDeleteError(null);
+      onClose();
+    },
+    onError: (err) => setDeleteError(err instanceof ApiError ? err.message : "Öğrenci kaydı silinemedi."),
   });
 
   const open = !!student;
@@ -142,6 +157,31 @@ export function StudentDetailDrawer({
                 </div>
               )}
             </div>
+
+            {!readOnly && (
+              <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
+                {deleteArmed ? (
+                  <>
+                    <p style={{ margin: "0 0 8px", fontSize: "var(--text-xs)", color: "var(--critical)" }}>
+                      Bu öğrenci kaydı kalıcı olarak silinsin mi? Bu işlem geri alınamaz.
+                    </p>
+                    {deleteError && <p style={{ margin: "0 0 8px", fontSize: "var(--text-xs)", color: "var(--critical)" }}>{deleteError}</p>}
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button type="button" className="btn sm danger solid" disabled={deleteMutation.isPending} onClick={() => deleteMutation.mutate()}>
+                        {deleteMutation.isPending ? "Siliniyor…" : "Evet, Kaydı Sil"}
+                      </button>
+                      <button type="button" className="btn sm" onClick={() => setDeleteArmed(false)}>
+                        Vazgeç
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <button type="button" className="btn sm danger" onClick={() => setDeleteArmed(true)}>
+                    Öğrenci Kaydını Sil
+                  </button>
+                )}
+              </div>
+            )}
           </>
         )}
       </div>
