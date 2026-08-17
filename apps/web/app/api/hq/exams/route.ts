@@ -22,6 +22,16 @@ import { EXAM_ELIGIBLE_GRADE_LEVELS, opticFormsPerStudent } from "@/lib/grade-ti
  * işaret eder — SUPERADMIN'in kendisi hiçbir tenant'a bağlı olmadığından
  * (User.tenantId=null, bkz. seed.ts notu) bu, actor.tenantId DEĞİL, ayrıca
  * sorgulanan GENEL_MERKEZ tenant satırıdır.
+ *
+ * GET, NETWORK'ün YANINDA BRANCH kapsamlı sınavları da (Sınav Uygulaması'ndan
+ * — bkz. app/api/branch/exams) listeye dahil eder — demo'da EXAMS tek bir
+ * global liste olduğundan bir şubenin oluşturduğu her sınav otomatik olarak
+ * "Genel Sınav Merkezi"nde de görünür (bkz. seviye360-app.html EXAMS.unshift
+ * çağrıları, hem hq hem branch tarafında AYNI diziye yazıyor). BRANCH
+ * sınavlarının ExamBranchDispatch'i yoktur (tek tenant zaten sabit) — bu
+ * yüzden salt-okunurdur: PATCH/DELETE/branch-breakdown uç noktaları hâlâ
+ * yalnızca NETWORK'ü kabul eder (bkz. o dosyalardaki scope kontrolü),
+ * düzenleme/silme o sınavı oluşturan şubenin kendi ekranından yapılır.
  */
 const ROLES_ALLOWED: UserRole[] = [UserRole.SUPERADMIN];
 
@@ -36,14 +46,13 @@ export async function GET(request: NextRequest) {
 
   const result = await withTenantContext(actor, async (tx) => {
     const exams = await tx.exam.findMany({
-      where: { scope: ExamScope.NETWORK },
-      include: { branchDispatches: true },
+      include: { branchDispatches: true, tenant: true },
       orderBy: { examDate: "desc" },
     });
 
     return Promise.all(
       exams.map(async (exam) => {
-        const branchIds = exam.branchDispatches.map((d) => d.tenantId);
+        const branchIds = exam.scope === ExamScope.NETWORK ? exam.branchDispatches.map((d) => d.tenantId) : [exam.tenantId];
         const studentCount = await tx.studentProfile.count({
           where: { gradeLevel: { in: exam.eligibleGradeLevels }, tenantId: { in: branchIds } },
         });
@@ -65,6 +74,8 @@ export async function GET(request: NextRequest) {
           studentCount,
           opticFormCount,
           totalFee,
+          scope: exam.scope,
+          tenantName: exam.scope === ExamScope.BRANCH ? exam.tenant.name : null,
         };
       }),
     );

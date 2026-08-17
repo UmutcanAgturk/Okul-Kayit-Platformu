@@ -152,6 +152,11 @@ export interface HqExam {
   studentCount: number;
   opticFormCount: number;
   totalFee: number;
+  // task #110 — Şube Sınav Uygulaması'nda oluşturulan sınavlar da BRANCH
+  // kapsamıyla burada listelenir (demo'daki tek global EXAMS listesinin
+  // karşılığı); yalnızca NETWORK olanlar buradan düzenlenebilir/silinebilir.
+  scope: "BRANCH" | "NETWORK";
+  tenantName: string | null;
 }
 
 export function fetchHqExams() {

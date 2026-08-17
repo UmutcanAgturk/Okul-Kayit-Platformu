@@ -980,9 +980,12 @@ function HqExamsPanel({ branches }: { branches: HqTenant[] }) {
               <ExamEditForm key={exam.id} exam={exam} onDone={() => setEditingId(null)} />
             ) : (
               <div key={exam.id} style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: 10, fontSize: "var(--text-sm)" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <span style={{ fontWeight: 600 }}>{exam.name}</span>
-                  <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>{new Date(exam.examDate).toLocaleDateString("tr-TR")}</span>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                    <span style={{ fontWeight: 600 }}>{exam.name}</span>
+                    {exam.scope === "BRANCH" && <span className="chip neutral">Şube Sınavı — {exam.tenantName}</span>}
+                  </span>
+                  <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)", flexShrink: 0 }}>{new Date(exam.examDate).toLocaleDateString("tr-TR")}</span>
                 </div>
                 <div style={{ marginTop: 4, display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
                   <span>{exam.branchCount} şube</span>
@@ -991,7 +994,11 @@ function HqExamsPanel({ branches }: { branches: HqTenant[] }) {
                   <span>{exam.feePerStudent ? formatTl2(exam.totalFee) : "—"}</span>
                 </div>
 
-                {deletingId === exam.id ? (
+                {exam.scope === "BRANCH" ? (
+                  <p style={{ margin: "8px 0 0", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
+                    Bu sınav {exam.tenantName} tarafından Sınav Uygulaması'nda oluşturuldu — düzenleme/silme yalnızca o şubenin kendi ekranından yapılabilir.
+                  </p>
+                ) : deletingId === exam.id ? (
                   <div style={{ marginTop: 8, border: "1px solid var(--critical)", borderRadius: 9, padding: "8px 10px", fontSize: "var(--text-xs)", color: "var(--critical)" }}>
                     <b>{exam.name}</b> silinsin mi? Bu işlem geri alınamaz.
                     {deleteError && <p style={{ margin: "6px 0 0" }}>{deleteError}</p>}
@@ -1034,7 +1041,7 @@ function HqExamsPanel({ branches }: { branches: HqTenant[] }) {
                   </div>
                 )}
 
-                {expandedId === exam.id && deletingId !== exam.id && <ExamBranchBreakdownTable examId={exam.id} />}
+                {exam.scope === "NETWORK" && expandedId === exam.id && deletingId !== exam.id && <ExamBranchBreakdownTable examId={exam.id} />}
               </div>
             ),
           )}
