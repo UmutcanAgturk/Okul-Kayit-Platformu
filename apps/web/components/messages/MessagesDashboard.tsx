@@ -132,6 +132,8 @@ function ComposeForm({
   }
 
   const classroomsQuery = useQuery({ queryKey: messageKeys.classrooms(), queryFn: fetchClassroomsForMessaging });
+  const templatesQuery = useQuery({ queryKey: messageKeys.templates(), queryFn: fetchTemplates });
+  const templates = templatesQuery.data?.templates ?? [];
   const classroomFilterable = audience === "ALL_STUDENTS" || audience === "ALL_GUARDIANS";
 
   useEffect(() => {
@@ -140,6 +142,14 @@ function ComposeForm({
       setBody(appliedTemplate.body);
     }
   }, [appliedTemplate]);
+
+  function applyTemplate(templateId: string) {
+    const t = templates.find((x) => x.id === templateId);
+    if (t) {
+      setTitle(t.title);
+      setBody(t.body);
+    }
+  }
 
   async function handleSend() {
     setError(null);
@@ -204,6 +214,17 @@ function ComposeForm({
             </select>
           </div>
         )}
+      </div>
+      <div className="field" style={{ marginTop: 12 }}>
+        <label>Hazır Şablon Kullan (opsiyonel)</label>
+        <select value="" onChange={(e) => e.target.value && applyTemplate(e.target.value)}>
+          <option value="">— Şablon seçin —</option>
+          {templates.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.kind === "bildirim" ? "🔔" : "✉️"} {t.category} · {t.title}
+            </option>
+          ))}
+        </select>
       </div>
       <div className="field" style={{ marginTop: 12 }}>
         <label>Başlık</label>
