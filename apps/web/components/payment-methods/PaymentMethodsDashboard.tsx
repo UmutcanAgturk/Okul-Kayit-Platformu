@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { authKeys, fetchMe } from "@/lib/api/auth";
@@ -11,6 +11,7 @@ import {
   deletePaymentMethodCatalogEntry,
   fetchPaymentMethodCatalog,
   fetchPaymentMethodDistribution,
+  fetchPaymentStudentOverview,
   INSTITUTION_PAYMENT_METHOD_EXTRA_LABEL,
   INSTITUTION_PAYMENT_METHOD_TYPE_LABEL,
   PAYMENT_METHOD_TYPE_LABEL,
@@ -25,6 +26,7 @@ import {
   type InstitutionPaymentMethodType,
   type PaymentMethodDistributionKey,
   type PaymentMethodRow,
+  type PaymentStudentOverviewStatus,
 } from "@/lib/api/payment-methods";
 import { fetchLedger } from "@/lib/api/accounting";
 import { Icon } from "@/components/ui/icons";
@@ -428,6 +430,100 @@ function PaymentMethodCatalogPanel() {
   );
 }
 
+const STUDENT_OVERVIEW_STATUS_LABEL: Record<PaymentStudentOverviewStatus, string> = {
+  TAKSIT_YOK: "Taksit Yok",
+  GECIKMIS: "Gecikmiş",
+  PLANLI: "Planlı",
+  GUNCEL: "Güncel",
+};
+const STUDENT_OVERVIEW_STATUS_CHIP: Record<PaymentStudentOverviewStatus, string> = {
+  TAKSIT_YOK: "chip",
+  GECIKMIS: "chip critical",
+  PLANLI: "chip weak",
+  GUNCEL: "chip strong",
+};
+const STUDENT_OVERVIEW_METHOD_LABEL: Record<PaymentMethodDistributionKey, string> = {
+  ...INSTITUTION_PAYMENT_METHOD_TYPE_LABEL,
+  NONE: "Seçilmedi",
+};
+
+/**
+ * Öğrenci Bazında Ödeme Yöntemi — demo'daki renderPaymentStudentTable'ın
+ * gerçek karşılığı (bkz. app/api/branch/payment-methods/student-overview).
+ * Ödeme Yöntemi sütunu SALT-OKUNURDUR: demo'daki inline <select>'in aksine,
+ * düzenleme aşağıdaki tekil-öğrenci panelinde zaten var — burada aynı
+ * mutasyon UI'sini ikinci kez kurmak yerine "Düzenle" bağlantısı o paneli
+ * bu öğrenciyle açar (onSelectStudent).
+ */
+function PaymentStudentOverviewTable({ onSelectStudent }: { onSelectStudent: (studentId: string) => void }) {
+  const [query, setQuery] = useState("");
+  const overviewQuery = useQuery({ queryKey: ["payment-student-overview"], queryFn: fetchPaymentStudentOverview });
+  const students = overviewQuery.data?.students ?? [];
+
+  const q = query.trim().toLocaleLowerCase("tr-TR");
+  const filtered = q
+    ? students.filter((s) => s.name.toLocaleLowerCase("tr-TR").includes(q) || (s.guardianName ?? "").toLocaleLowerCase("tr-TR").includes(q))
+    : students;
+
+  return (
+    <div className="card card-pad" style={{ marginBottom: 14 }}>
+      <div className="card-head">
+        <h3>Öğrenci Bazında Ödeme Yöntemi</h3>
+        <span className="hint">{filtered.length} öğrenci</span>
+      </div>
+      <div className="field" style={{ maxWidth: 320, marginBottom: 10 }}>
+        <input
+          type="search"
+          placeholder="Öğrenci veya veli adına göre ara…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      </div>
+      {overviewQuery.isLoading ? (
+        <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>
+      ) : filtered.length === 0 ? (
+        <p style={{ color: "var(--ink-faint)", fontSize: "var(--text-sm)" }}>Sonuç bulunamadı.</p>
+      ) : (
+        <div className="table-wrap">
+          <table className="data">
+            <thead>
+              <tr>
+                <th>Öğrenci</th>
+                <th>Veli</th>
+                <th>Toplam Ücret</th>
+                <th>Ödeme Durumu</th>
+                <th>Ödeme Yöntemi</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((s) => (
+                <tr key={s.id}>
+                  <td>
+                    <div style={{ fontWeight: 600 }}>{s.name}</div>
+                    <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>{s.studentNo}</div>
+                  </td>
+                  <td>{s.guardianName ?? "—"}</td>
+                  <td>{tl(String(s.totalTuition))}</td>
+                  <td>
+                    <span className={STUDENT_OVERVIEW_STATUS_CHIP[s.paymentStatus]}>{STUDENT_OVERVIEW_STATUS_LABEL[s.paymentStatus]}</span>
+                  </td>
+                  <td>{STUDENT_OVERVIEW_METHOD_LABEL[s.methodType]}</td>
+                  <td>
+                    <button type="button" className="btn xs" onClick={() => onSelectStudent(s.id)}>
+                      Düzenle
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /**
  * Ödeme Yöntemleri — demo/seviye360-app.html'deki "odeme" ekranının gerçek
  * karşılığı. Gerçek bir ödeme sağlayıcısı entegrasyonu YOKTUR — yalnızca
@@ -445,6 +541,12 @@ export function PaymentMethodsDashboard() {
   const [editType, setEditType] = useState<PaymentMethodRow["type"]>("KREDI_KARTI");
   const [editMaskedCardNumber, setEditMaskedCardNumber] = useState("");
   const [editIsDefault, setEditIsDefault] = useState(false);
+  const studentSelectRef = useRef<HTMLDivElement>(null);
+
+  function handleSelectFromOverview(id: string) {
+    setStudentId(id);
+    studentSelectRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   const { data: me, isLoading, isError, error } = useQuery({
     queryKey: authKeys.me(),
@@ -527,7 +629,9 @@ export function PaymentMethodsDashboard() {
         <RecentCollectionsPanel />
       </div>
 
-      <div className="card card-pad" style={{ marginBottom: 14 }}>
+      <PaymentStudentOverviewTable onSelectStudent={handleSelectFromOverview} />
+
+      <div className="card card-pad" style={{ marginBottom: 14 }} ref={studentSelectRef}>
         <div className="field" style={{ maxWidth: 380 }}>
           <label>Öğrenci</label>
           <select value={studentId} onChange={(e) => setStudentId(e.target.value)}>

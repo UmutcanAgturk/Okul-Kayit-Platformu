@@ -30,6 +30,22 @@ export function fetchPaymentMethodDistribution() {
   return apiFetch<PaymentMethodDistribution>("/api/branch/payment-methods/distribution", { cache: "no-store" });
 }
 
+export type PaymentStudentOverviewStatus = "TAKSIT_YOK" | "GECIKMIS" | "PLANLI" | "GUNCEL";
+
+export interface PaymentStudentOverviewRow {
+  id: string;
+  studentNo: string;
+  name: string;
+  guardianName: string | null;
+  totalTuition: number;
+  paymentStatus: PaymentStudentOverviewStatus;
+  methodType: PaymentMethodDistributionKey;
+}
+
+export function fetchPaymentStudentOverview() {
+  return apiFetch<{ students: PaymentStudentOverviewRow[] }>("/api/branch/payment-methods/student-overview", { cache: "no-store" });
+}
+
 export function createPaymentMethod(
   studentId: string,
   input: { type: PaymentMethodRow["type"]; provider?: string; maskedCardNumber?: string; isDefault?: boolean },

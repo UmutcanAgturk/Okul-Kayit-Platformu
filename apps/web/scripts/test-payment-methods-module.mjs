@@ -98,6 +98,21 @@ async function main() {
     distBody,
   );
 
+  // ===== Öğrenci Bazında Ödeme Yöntemi genel tablosu (task #107) =====
+  const overviewNoSession = await fetch(`${BASE}/api/branch/payment-methods/student-overview`);
+  check("GET student-overview: oturumsuz 401", overviewNoSession.status === 401, overviewNoSession.status);
+
+  const overviewTeacherRes = await fetch(`${BASE}/api/branch/payment-methods/student-overview`, { headers: { Cookie: teacherCookie } });
+  check("Yetki: TEACHER genel tabloyu göremez (403)", overviewTeacherRes.status === 403, overviewTeacherRes.status);
+
+  const overviewRes = await fetch(`${BASE}/api/branch/payment-methods/student-overview`, { headers: { Cookie: branchCookie } });
+  const overviewBody = await overviewRes.json();
+  check("GET student-overview: 200 ve students dizisi mevcut", overviewRes.status === 200 && Array.isArray(overviewBody.students), overviewBody);
+
+  const elifOverviewRow = overviewBody.students?.find((s) => s.id === elif.id);
+  check("Genel tablo: Elif satırı mevcut ve veli/tutar/yöntem alanları dolu", !!elifOverviewRow && elifOverviewRow.guardianName === "Hakan Yılmaz" && elifOverviewRow.methodType === "KREDI_KARTI", elifOverviewRow);
+  check("Genel tablo: toplam ücret Elif'in taksitlerinin toplamına eşit", elifOverviewRow?.totalTuition === 90000, elifOverviewRow?.totalTuition);
+
   const badTypeRes = await fetch(base, {
     method: "POST",
     headers: { "Content-Type": "application/json", Cookie: branchCookie },
