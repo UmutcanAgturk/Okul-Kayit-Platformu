@@ -23,6 +23,19 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
+  // 3. denetim bulgusu — demo'daki sidebarCollapsedGroups'un karşılığı: grup
+  // başlıkları tıklanıp katlanabiliyordu, burada yalnızca statik bir div'di.
+  // Demo'daki gibi bellekte tutulur (kalıcı değil) — varsayılan hepsi açık.
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+
+  function toggleGroup(label: string) {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  }
 
   const { data: me } = useQuery({
     queryKey: authKeys.me(),
@@ -66,26 +79,30 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
           <Icon name="grid" />
           <span>Modüller</span>
         </Link>
-        {groups.map((g) => (
-          <div className="nav-group" key={g.label}>
-            <div className="nav-eyebrow-btn">
-              <span className="nav-eyebrow">{g.label}</span>
+        {groups.map((g) => {
+          const collapsed = collapsedGroups.has(g.label);
+          return (
+            <div className="nav-group" key={g.label}>
+              <button type="button" className="nav-eyebrow-btn" onClick={() => toggleGroup(g.label)} aria-expanded={!collapsed}>
+                <span className="nav-eyebrow">{g.label}</span>
+                <Icon name="chevron" className={`nav-chevron ${collapsed ? "collapsed" : ""}`} />
+              </button>
+              <div className="nav-group-items" style={collapsed ? { display: "none" } : undefined}>
+                {g.items.map((m) => (
+                  <Link
+                    key={m.href}
+                    href={m.href}
+                    className={`nav-item ${pathname.startsWith(m.href) ? "active" : ""}`}
+                    onClick={() => setSidebarOpen(false)}
+                  >
+                    <Icon name={m.icon} />
+                    <span>{m.title}</span>
+                  </Link>
+                ))}
+              </div>
             </div>
-            <div className="nav-group-items">
-              {g.items.map((m) => (
-                <Link
-                  key={m.href}
-                  href={m.href}
-                  className={`nav-item ${pathname.startsWith(m.href) ? "active" : ""}`}
-                  onClick={() => setSidebarOpen(false)}
-                >
-                  <Icon name={m.icon} />
-                  <span>{m.title}</span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </nav>
 
       <div className="main">
