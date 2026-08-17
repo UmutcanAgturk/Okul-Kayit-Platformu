@@ -84,7 +84,7 @@ export function MuhasebeDashboard() {
 
       {tab === "genel" && <LedgerPanel />}
       {tab === "istatistik" && <StatistikTab />}
-      {tab === "tahsilat" && <InstallmentsPanel />}
+      {tab === "tahsilat" && <InstallmentsPanel isSuperadmin={me.role === "SUPERADMIN"} />}
       {tab === "beklenti" && <BeklentiTab />}
       {tab === "bordro" && <PayrollPanel />}
       {tab === "belgeler" && <BelgelerPanel />}

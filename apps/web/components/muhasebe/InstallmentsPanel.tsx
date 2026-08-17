@@ -2,8 +2,12 @@
 
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { accountingKeys, collectInstallment, fetchAging, fetchInstallments } from "@/lib/api/accounting";
+import { accountingKeys, collectInstallment, fetchAging, fetchBranchCollectionRates, fetchInstallments } from "@/lib/api/accounting";
 import { Icon } from "@/components/ui/icons";
+import { CompositionBar } from "@/components/ui/charts/CompositionBar";
+import { HBarChart } from "@/components/ui/charts/HBarChart";
+
+const UPCOMING_DUE_WINDOW_DAYS = 7;
 
 function tl(n: number) {
   return "₺" + Math.round(n).toLocaleString("tr-TR");
@@ -16,7 +20,7 @@ const STATUS_LABEL: Record<string, string> = {
   CANCELLED: "İptal",
 };
 
-export function InstallmentsPanel() {
+export function InstallmentsPanel({ isSuperadmin = false }: { isSuperadmin?: boolean }) {
   const queryClient = useQueryClient();
   const pendingQuery = useQuery({
     queryKey: accountingKeys.installments("PENDING"),
@@ -27,6 +31,11 @@ export function InstallmentsPanel() {
     queryFn: () => fetchInstallments(),
   });
   const agingQuery = useQuery({ queryKey: accountingKeys.aging(), queryFn: fetchAging });
+  const collectionRateQuery = useQuery({
+    queryKey: ["branch-collection-rates"],
+    queryFn: fetchBranchCollectionRates,
+    enabled: isSuperadmin,
+  });
 
   const collectMutation = useMutation({
     mutationFn: collectInstallment,
@@ -68,6 +77,40 @@ export function InstallmentsPanel() {
     return { paidCount, paidAmount, pendingCount, pendingAmount, overdueCount, overdueAmount, collectionRate };
   }, [allInstallments]);
 
+  // Ödeme Durumu Dağılımı — demo'daki öğrenci bazlı statik paymentStatus
+  // alanının (Güncel/1 taksit yaklaşıyor/Gecikmiş ödeme var) gerçek, DİNAMİK
+  // karşılığı: her öğrencinin taksitlerinden GERÇEKTEN türetilir (Gecikmiş >
+  // Yaklaşan > Güncel önceliğiyle, tek bir gecikmiş taksit öğrenciyi
+  // "Gecikmiş" yapar).
+  const studentStatusDistribution = useMemo(() => {
+    const now = Date.now();
+    const upcomingWindowMs = UPCOMING_DUE_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+    const byStudent = new Map<string, "overdue" | "upcoming" | "guncel">();
+    for (const i of allInstallments) {
+      if (i.status !== "PENDING" && i.status !== "OVERDUE") continue;
+      const dueMs = new Date(i.dueDate).getTime();
+      const isOverdue = i.status === "OVERDUE" || dueMs < now;
+      const isUpcoming = !isOverdue && dueMs - now <= upcomingWindowMs;
+      const current = byStudent.get(i.studentId);
+      if (isOverdue) byStudent.set(i.studentId, "overdue");
+      else if (isUpcoming && current !== "overdue") byStudent.set(i.studentId, "upcoming");
+      else if (!current) byStudent.set(i.studentId, "guncel");
+    }
+    // Hiç PENDING/OVERDUE taksidi olmayan (tamamı ödenmiş veya hiç taksidi
+    // olmayan) öğrenciler de "Güncel" sayılır — demo'daki gibi.
+    const studentIds = new Set(allInstallments.map((i) => i.studentId));
+    let overdue = 0;
+    let upcoming = 0;
+    let guncel = 0;
+    for (const id of studentIds) {
+      const s = byStudent.get(id) ?? "guncel";
+      if (s === "overdue") overdue++;
+      else if (s === "upcoming") upcoming++;
+      else guncel++;
+    }
+    return { overdue, upcoming, guncel, total: studentIds.size };
+  }, [allInstallments]);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div className="grid cols-4">
@@ -90,6 +133,24 @@ export function InstallmentsPanel() {
           <div style={{ fontSize: "var(--text-2xs)", color: "var(--ink-faint)" }}>Tahsilat Oranı</div>
           <div style={{ fontSize: "var(--text-lg)", fontWeight: 700 }}>%{summary.collectionRate}</div>
         </div>
+      </div>
+
+      <div className="card card-pad">
+        <div className="card-head">
+          <h3>Ödeme Durumu Dağılımı</h3>
+          <span className="hint">{studentStatusDistribution.total} öğrenci</span>
+        </div>
+        {studentStatusDistribution.total === 0 ? (
+          <p style={{ color: "var(--ink-faint)", fontSize: "var(--text-sm)", margin: 0 }}>Kapsamda kayıtlı öğrenci yok.</p>
+        ) : (
+          <CompositionBar
+            segments={[
+              { label: "Güncel", value: studentStatusDistribution.guncel, color: "var(--strong)" },
+              { label: "Yaklaşan Taksit", value: studentStatusDistribution.upcoming, color: "var(--weak)" },
+              { label: "Gecikmiş", value: studentStatusDistribution.overdue, color: "var(--critical)" },
+            ]}
+          />
+        )}
       </div>
 
       <div className="grid cols-2">
@@ -227,6 +288,31 @@ export function InstallmentsPanel() {
           </div>
         )}
       </div>
+
+      {isSuperadmin && (
+        <div className="card card-pad">
+          <div className="card-head">
+            <h3>Kurum Bazlı Tahsilat Oranı</h3>
+            <span className="hint">{collectionRateQuery.data?.branches.length ?? 0} kurum</span>
+          </div>
+          {collectionRateQuery.isLoading ? (
+            <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>
+          ) : !collectionRateQuery.data?.branches.length ? (
+            <p style={{ color: "var(--ink-faint)", fontSize: "var(--text-sm)", margin: 0 }}>Kurum yok.</p>
+          ) : (
+            <HBarChart
+              max={100}
+              unit="%"
+              rows={collectionRateQuery.data.branches.map((b) => ({
+                label: b.tenantName,
+                sub: b.city,
+                value: b.collectionRate ?? 0,
+                tone: (b.collectionRate ?? 0) >= 90 ? "strong" : (b.collectionRate ?? 0) >= 75 ? "weak" : "critical",
+              }))}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }

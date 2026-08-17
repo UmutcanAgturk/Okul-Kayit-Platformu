@@ -156,6 +156,29 @@ async function main() {
     check("Yetki: STUDENT rolü tahsilat işleyemiyor (403)", asStudentRes.status === 403, asStudentRes.status);
   }
 
+  // ===== 8) Kurum Bazlı Tahsilat Oranı (task #82) =====
+  const collectionRateNoSession = await fetch(`${BASE}/api/hq/payment-installments/collection-rate`);
+  check("GET collection-rate: oturumsuz 401", collectionRateNoSession.status === 401, collectionRateNoSession.status);
+
+  const collectionRateBranchAdminRes = await fetch(`${BASE}/api/hq/payment-installments/collection-rate`, { headers: { Cookie: adminCookie } });
+  check("Yetki: BRANCH_ADMIN kurum bazlı tahsilat oranını göremez (403)", collectionRateBranchAdminRes.status === 403, collectionRateBranchAdminRes.status);
+
+  const { cookie: superadminCookie } = await loginAs("admin@seviye360.com", SEED_DEV_PASSWORD);
+  const collectionRateRes = await fetch(`${BASE}/api/hq/payment-installments/collection-rate`, { headers: { Cookie: superadminCookie } });
+  const collectionRateBody = await collectionRateRes.json();
+  check("GET collection-rate: 200 ve branches[] dizisi mevcut", collectionRateRes.status === 200 && Array.isArray(collectionRateBody.branches), collectionRateBody);
+  const mezitliRow = collectionRateBody.branches?.find((b) => b.tenantName.includes("Mezitli"));
+  check(
+    "collection-rate: Mezitli şubesi listede, collectionRate 0-100 arası",
+    !!mezitliRow && typeof mezitliRow.collectionRate === "number" && mezitliRow.collectionRate >= 0 && mezitliRow.collectionRate <= 100,
+    mezitliRow,
+  );
+  check(
+    "collection-rate: sonuç collectionRate'e göre artan sıralı dönüyor",
+    collectionRateBody.branches?.every((b, i, arr) => i === 0 || (arr[i - 1].collectionRate ?? 0) <= (b.collectionRate ?? 0)),
+    collectionRateBody.branches,
+  );
+
   console.log("\n=== ÖZET ===");
   const fails = results.filter((r) => !r.ok);
   console.log(`Toplam: ${results.length} | Başarılı: ${results.length - fails.length} | Başarısız: ${fails.length}`);

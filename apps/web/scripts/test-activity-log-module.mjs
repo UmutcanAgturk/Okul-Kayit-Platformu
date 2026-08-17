@@ -64,7 +64,10 @@ async function main() {
 
   const afterRes = await fetch(`${BASE}/api/branch/activity-log`, { headers: { Cookie: branchAdminCookie } });
   const afterBody = await afterRes.json();
-  check("GET activity-log: disiplin kaydından sonra bir kayıt daha var", (afterBody.entries?.length ?? 0) === countBefore + 1, afterBody.entries?.length);
+  // Uç nokta en fazla 100 kayıt döndürür (bkz. route.ts take:100) — liste zaten
+  // doymuşsa (>=100) yeni kayıt eklense de dönen uzunluk artmaz, en yenisi
+  // listenin başında görünür (aşağıdaki "en yeni kayıt" kontrolüyle doğrulanır).
+  check("GET activity-log: disiplin kaydından sonra bir kayıt daha var", (afterBody.entries?.length ?? 0) === Math.min(countBefore + 1, 100), afterBody.entries?.length);
 
   const newest = afterBody.entries?.[0];
   check("GET activity-log: en yeni kayıt 'Disiplin kaydı eklendi' aksiyonu", newest?.action === "Disiplin kaydı eklendi", newest?.action);

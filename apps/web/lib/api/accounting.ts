@@ -111,6 +111,20 @@ export function fetchAging() {
   return apiFetch<{ buckets: AgingBucket[]; rows: AgingRow[] }>("/api/branch/payment-installments/aging", { cache: "no-store" });
 }
 
+export interface BranchCollectionRateRow {
+  tenantId: string;
+  tenantName: string;
+  city: string;
+  collectionRate: number | null;
+  paidAmount: number;
+  pendingAmount: number;
+  overdueAmount: number;
+}
+
+export function fetchBranchCollectionRates() {
+  return apiFetch<{ branches: BranchCollectionRateRow[] }>("/api/hq/payment-installments/collection-rate", { cache: "no-store" });
+}
+
 export interface PayrollRecord {
   id: string;
   period: string;
