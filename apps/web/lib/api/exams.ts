@@ -77,6 +77,19 @@ export function fetchExamQuestionStats(examId: string) {
   return apiFetch<{ questions: ExamQuestionStatRow[] }>(`/api/branch/exams/${examId}/question-stats`, { cache: "no-store" });
 }
 
+export interface BranchExamComparisonRow {
+  tenantId: string;
+  tenantName: string;
+  city: string;
+  avgNet: number | null;
+  avgKatilim: number | null;
+  examTakers: number;
+}
+
+export function fetchExamBranchComparison() {
+  return apiFetch<{ branches: BranchExamComparisonRow[] }>("/api/hq/exams/branch-comparison", { cache: "no-store" });
+}
+
 export interface ExamResultRosterRow {
   studentId: string;
   studentNo: string;

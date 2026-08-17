@@ -234,6 +234,33 @@ async function main() {
   check("Sonucu olan sınav silinemez: 409", busyExamDeleteRes.status === 409, busyExamDeleteRes.status);
   await prisma.examResult.delete({ where: { id: fakeResult.id } });
 
+  // ===== Şubeler Arası Karşılaştırma (task #80) =====
+  const comparisonNoSession = await fetch(`${BASE}/api/hq/exams/branch-comparison`);
+  check("GET branch-comparison: oturumsuz 401", comparisonNoSession.status === 401, comparisonNoSession.status);
+
+  const comparisonBranchAdminRes = await fetch(`${BASE}/api/hq/exams/branch-comparison`, { headers: { Cookie: branchAdminCookie } });
+  check("Yetki: BRANCH_ADMIN şubeler arası karşılaştırmayı göremez (403)", comparisonBranchAdminRes.status === 403, comparisonBranchAdminRes.status);
+
+  const comparisonRes = await fetch(`${BASE}/api/hq/exams/branch-comparison`, { headers: { Cookie: superadminCookie } });
+  const comparisonBody = await comparisonRes.json();
+  check("GET branch-comparison: 200 ve branches[] dizisi mevcut", comparisonRes.status === 200 && Array.isArray(comparisonBody.branches), comparisonBody);
+  check(
+    "branch-comparison: Mezitli şubesi (seed'deki ExamResult'lardan) listede ve avgNet dolu",
+    comparisonBody.branches?.some((b) => b.tenantName.includes("Mezitli") && typeof b.avgNet === "number"),
+    comparisonBody.branches,
+  );
+  const sorted = [...(comparisonBody.branches ?? [])].sort((a, b) => (b.avgNet ?? 0) - (a.avgNet ?? 0));
+  check(
+    "branch-comparison: sonuç avgNet'e göre azalan sıralı dönüyor",
+    JSON.stringify(sorted.map((b) => b.tenantId)) === JSON.stringify(comparisonBody.branches?.map((b) => b.tenantId)),
+    comparisonBody.branches,
+  );
+  check(
+    "branch-comparison: sonuç yoksa hiçbir şube (avgNet=null olan) listede DEĞİL",
+    !comparisonBody.branches?.some((b) => b.avgNet === null),
+    comparisonBody.branches,
+  );
+
   // Temizlik — yalnızca bu testin oluşturduğu Exam ve Audit Log kaydı.
   await prisma.auditLogEntry.deleteMany({ where: { tenantId: genelMerkez.id, action: "Genel Sınav tanımlandı", detail: { contains: uniqueName } } });
   await prisma.exam.delete({ where: { id: createBody.exam.id } });

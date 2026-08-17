@@ -16,6 +16,7 @@ import {
   fetchBranchExamDetail,
   fetchBranchExams,
   fetchCurriculumAchievements,
+  fetchExamBranchComparison,
   fetchExamQuestionStats,
   fetchExamResultRoster,
   submitExamResult,
@@ -72,13 +73,15 @@ export function OlcmeDegerlendirmeView() {
     if (isError && error instanceof ApiError && error.status === 401) router.replace("/login");
   }, [isError, error, router]);
 
-  // Kazanım Yükleme, tenant'a özgü olmayan (RLS taşımayan) tek sekme —
-  // bare SUPERADMIN (henüz bir şubeyi "acting" seçmemiş) bu ekrana yalnızca
-  // o sekmeyi kullanmak için girebilir; diğer sekmeler şube verisine ihtiyaç
-  // duyduğundan gizli kalır.
+  // Kazanım Yükleme, tenant'a özgü olmayan (RLS taşımayan) tek sekmeydi —
+  // bare SUPERADMIN (henüz bir şubeyi "acting" seçmemiş) artık "Durum"
+  // sekmesine de girebilir (bkz. DurumTab: bareSuperadmin iken yalnızca
+  // "Şubeler Arası Karşılaştırma" kartı, demo'daki isHq görünümünün gerçek
+  // karşılığı — app/api/hq/exams/branch-comparison), diğer sekmeler hâlâ
+  // şube verisine ihtiyaç duyduğundan gizli kalır.
   const bareSuperadmin = me?.role === "SUPERADMIN" && !me.actingTenantId;
   useEffect(() => {
-    if (bareSuperadmin) setTab("kazanimYukle");
+    if (bareSuperadmin) setTab("durum");
   }, [bareSuperadmin]);
 
   if (isLoading) return <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>;
@@ -99,6 +102,7 @@ export function OlcmeDegerlendirmeView() {
   const hasTenantScope = VIEW_ROLES.includes(me.role) || (me.role === "SUPERADMIN" && !!me.actingTenantId);
   const visibleTabs = TABS.filter((t) => {
     if (t.id === "kazanimYukle") return canManageCurriculum;
+    if (t.id === "durum") return hasTenantScope || bareSuperadmin;
     if (!hasTenantScope) return false;
     if (t.id === "uygulama") return canCreate;
     if (t.id === "sonuc") return canEnterResults;
@@ -118,7 +122,7 @@ export function OlcmeDegerlendirmeView() {
         ))}
       </div>
 
-      {tab === "durum" && <DurumTab />}
+      {tab === "durum" && <DurumTab isSuperadmin={me.role === "SUPERADMIN"} bareSuperadmin={bareSuperadmin} />}
       {tab === "kazanim" && <KazanimTab />}
       {tab === "uygulama" && canCreate && <UygulamaTab />}
       {tab === "sonuc" && canEnterResults && <SonucTab isTeacher={me.role === "TEACHER"} />}
@@ -127,10 +131,49 @@ export function OlcmeDegerlendirmeView() {
   );
 }
 
-function DurumTab() {
-  const examsQuery = useQuery({ queryKey: examKeys.list(), queryFn: fetchBranchExams });
-  const achievementQuery = useQuery({ queryKey: examKeys.achievementSummary(), queryFn: fetchAchievementSummary });
+function BranchComparisonCard() {
+  const comparisonQuery = useQuery({ queryKey: ["exam-branch-comparison"], queryFn: fetchExamBranchComparison });
+  const branches = comparisonQuery.data?.branches ?? [];
+  const maxNet = Math.max(1, ...branches.map((b) => b.avgNet ?? 0));
+
+  return (
+    <div className="card card-pad">
+      <div className="card-head">
+        <h3>Şubeler Arası Karşılaştırmalı Net Sıralaması</h3>
+        <span className="hint">{branches.length} şube</span>
+      </div>
+      {comparisonQuery.isLoading ? (
+        <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>
+      ) : branches.length === 0 ? (
+        <p style={{ color: "var(--ink-faint)", fontSize: "var(--text-sm)", margin: 0 }}>Henüz hiçbir şubede sınav sonucu yok.</p>
+      ) : (
+        <HBarChart
+          max={maxNet}
+          unit=" net"
+          rows={branches.map((b) => ({
+            label: b.tenantName,
+            sub: `${b.examTakers} öğrenci${b.avgKatilim !== null ? ` · %${b.avgKatilim} katılım` : ""}`,
+            value: b.avgNet ?? 0,
+            tone: (b.avgNet ?? 0) / maxNet >= 0.7 ? "strong" : (b.avgNet ?? 0) / maxNet >= 0.4 ? "weak" : "critical",
+          }))}
+        />
+      )}
+    </div>
+  );
+}
+
+function DurumTab({ isSuperadmin, bareSuperadmin }: { isSuperadmin: boolean; bareSuperadmin: boolean }) {
+  const examsQuery = useQuery({ queryKey: examKeys.list(), queryFn: fetchBranchExams, enabled: !bareSuperadmin });
+  const achievementQuery = useQuery({ queryKey: examKeys.achievementSummary(), queryFn: fetchAchievementSummary, enabled: !bareSuperadmin });
   const exams = examsQuery.data?.exams ?? [];
+
+  if (bareSuperadmin) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <BranchComparisonCard />
+      </div>
+    );
+  }
 
   const [selectedExamId, setSelectedExamId] = useState<string | null>(null);
   useEffect(() => {
@@ -343,6 +386,8 @@ function DurumTab() {
           />
         )}
       </div>
+
+      {isSuperadmin && <BranchComparisonCard />}
     </div>
   );
 }
