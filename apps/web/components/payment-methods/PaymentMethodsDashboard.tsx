@@ -10,6 +10,7 @@ import {
   createPaymentMethodCatalogEntry,
   deletePaymentMethodCatalogEntry,
   fetchPaymentMethodCatalog,
+  fetchPaymentMethodDistribution,
   INSTITUTION_PAYMENT_METHOD_EXTRA_LABEL,
   INSTITUTION_PAYMENT_METHOD_TYPE_LABEL,
   PAYMENT_METHOD_TYPE_LABEL,
@@ -21,14 +22,114 @@ import {
   updatePaymentMethodCatalogEntry,
   type InstitutionPaymentMethodRow,
   type InstitutionPaymentMethodType,
+  type PaymentMethodDistributionKey,
   type PaymentMethodRow,
 } from "@/lib/api/payment-methods";
+import { fetchLedger } from "@/lib/api/accounting";
 import { Icon } from "@/components/ui/icons";
 
 const ALLOWED_ROLES = ["BRANCH_ADMIN", "ACCOUNTING"];
 
 function tl(amount: string) {
   return "₺" + Math.round(Number(amount)).toLocaleString("tr-TR");
+}
+
+const DISTRIBUTION_ROWS: { key: PaymentMethodDistributionKey; label: string; color: string }[] = [
+  { key: "KREDI_KARTI", label: "Kredi Kartı (ParamPOS)", color: "var(--brand)" },
+  { key: "BANKA_HAVALESI", label: "Banka Havalesi", color: "var(--strong)" },
+  { key: "NAKIT", label: "Nakit", color: "var(--weak)" },
+  { key: "SENET", label: "Senet", color: "var(--accent)" },
+  { key: "NONE", label: "Yöntem Seçilmemiş", color: "var(--ink-faint)" },
+];
+
+/**
+ * Yöntem Dağılımı — demo'daki renderPaymentMethodDistribution panelinin
+ * gerçek karşılığı (bkz. app/api/branch/payment-methods/distribution).
+ */
+function PaymentMethodDistributionPanel() {
+  const distributionQuery = useQuery({ queryKey: ["payment-method-distribution"], queryFn: fetchPaymentMethodDistribution });
+  const counts = distributionQuery.data?.counts;
+  const total = distributionQuery.data?.total ?? 0;
+
+  return (
+    <div className="card card-pad">
+      <div className="card-head">
+        <h3>Yöntem Dağılımı</h3>
+        <span className="hint">öğrenci bazında</span>
+      </div>
+      {distributionQuery.isLoading ? (
+        <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>
+      ) : !total ? (
+        <p style={{ color: "var(--ink-faint)", fontSize: "var(--text-sm)" }}>Bu kurumda henüz öğrenci yok.</p>
+      ) : (
+        DISTRIBUTION_ROWS.map((r) => {
+          const count = counts?.[r.key] ?? 0;
+          const pct = total ? Math.round((count / total) * 100) : 0;
+          return (
+            <div key={r.key} style={{ marginBottom: 10 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "var(--text-xs)", marginBottom: 4 }}>
+                <span>{r.label}</span>
+                <span style={{ color: "var(--ink-faint)" }}>{count} öğrenci · %{pct}</span>
+              </div>
+              <div className="progress-track">
+                <div className="progress-fill" style={{ width: `${pct}%`, background: r.color }} />
+              </div>
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
+/**
+ * Son Tahsilat Hareketleri — demo'daki renderRecentCollections panelinin
+ * gerçek karşılığı. Kayıt Defteri'ndeki GELIR türü ve kategorisi "Taksit"
+ * veya "Kayıt Ücreti" içeren son 10 kaydı gösterir (bkz. lib/api/accounting
+ * fetchLedger — aynı uç nokta Muhasebe > Genel Bakış'ta da kullanılıyor).
+ */
+function RecentCollectionsPanel() {
+  const ledgerQuery = useQuery({ queryKey: ["accounting", "ledger", "GELIR", ""], queryFn: () => fetchLedger({ type: "GELIR" }) });
+  const entries = (ledgerQuery.data?.entries ?? [])
+    .filter((e) => e.category.includes("Taksit") || e.category.includes("Kayıt Ücreti"))
+    .slice(0, 10);
+
+  return (
+    <div className="card card-pad">
+      <div className="card-head">
+        <h3>Son Tahsilat Hareketleri</h3>
+        <span className="hint">Son 10 kayıt</span>
+      </div>
+      {ledgerQuery.isLoading ? (
+        <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>
+      ) : entries.length === 0 ? (
+        <p style={{ color: "var(--ink-faint)", fontSize: "var(--text-sm)" }}>Henüz tahsilat hareketi yok.</p>
+      ) : (
+        <div className="table-wrap">
+          <table className="data">
+            <thead>
+              <tr>
+                <th>Tarih</th>
+                <th>Kategori</th>
+                <th>Tutar</th>
+              </tr>
+            </thead>
+            <tbody>
+              {entries.map((e) => (
+                <tr key={e.id}>
+                  <td>{new Date(e.entryDate).toLocaleDateString("tr-TR")}</td>
+                  <td>{e.category}</td>
+                  <td>
+                    <span className="chip strong">+{tl(e.amount)}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
 }
 
 /**
@@ -406,6 +507,11 @@ export function PaymentMethodsDashboard() {
       <PendingReceiptsPanel />
 
       <PaymentMethodCatalogPanel />
+
+      <div className="grid cols-2" style={{ marginBottom: 14 }}>
+        <PaymentMethodDistributionPanel />
+        <RecentCollectionsPanel />
+      </div>
 
       <div className="card card-pad" style={{ marginBottom: 14 }}>
         <div className="field" style={{ maxWidth: 380 }}>

@@ -77,6 +77,27 @@ async function main() {
   const listBody = await listRes.json();
   check("GET: iki kayıt listeleniyor", listBody.methods.length === 2, listBody.methods.length);
 
+  // ===== Yöntem Dağılımı (task #78) =====
+  const distNoSession = await fetch(`${BASE}/api/branch/payment-methods/distribution`);
+  check("GET distribution: oturumsuz 401", distNoSession.status === 401, distNoSession.status);
+
+  const distTeacherRes = await fetch(`${BASE}/api/branch/payment-methods/distribution`, { headers: { Cookie: teacherCookie } });
+  check("Yetki: TEACHER dağılımı göremez (403)", distTeacherRes.status === 403, distTeacherRes.status);
+
+  const distRes = await fetch(`${BASE}/api/branch/payment-methods/distribution`, { headers: { Cookie: branchCookie } });
+  const distBody = await distRes.json();
+  check("GET distribution: 200 ve counts/total alanları mevcut", distRes.status === 200 && typeof distBody.total === "number" && !!distBody.counts, distBody);
+  check(
+    "Yöntem Dağılımı: Elif'in varsayılanı KREDI_KARTI olduğundan KREDI_KARTI sayacında en az 1",
+    distBody.counts?.KREDI_KARTI >= 1,
+    distBody.counts,
+  );
+  check(
+    "Yöntem Dağılımı: counts toplamı total'e eşit",
+    Object.values(distBody.counts).reduce((a, b) => a + b, 0) === distBody.total,
+    distBody,
+  );
+
   const badTypeRes = await fetch(base, {
     method: "POST",
     headers: { "Content-Type": "application/json", Cookie: branchCookie },
@@ -100,6 +121,14 @@ async function main() {
   await fetch(`${base}/${cardMethod.id}`, { method: "DELETE", headers: { Cookie: branchCookie } });
   const remaining = await prisma.paymentMethod.count({ where: { studentId: elif.id } });
   check("Temizlik: öğrencinin ödeme yöntemi kalmadı", remaining === 0, remaining);
+
+  const distAfterCleanupRes = await fetch(`${BASE}/api/branch/payment-methods/distribution`, { headers: { Cookie: branchCookie } });
+  const distAfterCleanupBody = await distAfterCleanupRes.json();
+  check(
+    "Yöntem Dağılımı: temizlik sonrası KREDI_KARTI sayacı bir azaldı (Elif artık NONE)",
+    distAfterCleanupBody.counts?.KREDI_KARTI === distBody.counts.KREDI_KARTI - 1,
+    { before: distBody.counts.KREDI_KARTI, after: distAfterCleanupBody.counts?.KREDI_KARTI },
+  );
 
   console.log("\n=== ÖZET ===");
   const fails = results.filter((r) => !r.ok);

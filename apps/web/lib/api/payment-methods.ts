@@ -19,6 +19,17 @@ export function fetchPaymentMethods(studentId: string) {
   return apiFetch<{ methods: PaymentMethodRow[] }>(`/api/branch/students/${studentId}/payment-methods`, { cache: "no-store" });
 }
 
+export type PaymentMethodDistributionKey = "KREDI_KARTI" | "BANKA_HAVALESI" | "NAKIT" | "SENET" | "NONE";
+
+export interface PaymentMethodDistribution {
+  counts: Record<PaymentMethodDistributionKey, number>;
+  total: number;
+}
+
+export function fetchPaymentMethodDistribution() {
+  return apiFetch<PaymentMethodDistribution>("/api/branch/payment-methods/distribution", { cache: "no-store" });
+}
+
 export function createPaymentMethod(
   studentId: string,
   input: { type: PaymentMethodRow["type"]; provider?: string; maskedCardNumber?: string; isDefault?: boolean },
