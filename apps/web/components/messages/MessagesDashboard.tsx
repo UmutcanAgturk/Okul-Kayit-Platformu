@@ -15,6 +15,7 @@ import {
   fetchTemplates,
   markMessageRead,
   messageKeys,
+  recallMessage,
   sendMessage,
   updateTemplate,
   type MessageAttachmentRow,
@@ -260,8 +261,23 @@ function ComposeForm({
 }
 
 function SentList() {
+  const queryClient = useQueryClient();
   const sentQuery = useQuery({ queryKey: messageKeys.sent(), queryFn: fetchSentMessages });
   const messages = sentQuery.data?.messages ?? [];
+  const [recallingId, setRecallingId] = useState<string | null>(null);
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+
+  async function handleRecall(id: string) {
+    setRecallingId(id);
+    try {
+      await recallMessage(id);
+      queryClient.invalidateQueries({ queryKey: messageKeys.sent() });
+    } finally {
+      setRecallingId(null);
+      setConfirmId(null);
+    }
+  }
+
   return (
     <div className="card card-pad">
       <div className="card-head">
@@ -292,6 +308,23 @@ function SentList() {
               )}
             </p>
             <AttachmentList attachments={m.attachments} />
+            <div style={{ marginTop: 6 }}>
+              {confirmId === m.id ? (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: "var(--text-xs)", color: "var(--critical)" }}>Bu mesaj tüm alıcılardan silinecek. Emin misiniz?</span>
+                  <button type="button" className="btn xs danger" disabled={recallingId === m.id} onClick={() => handleRecall(m.id)}>
+                    {recallingId === m.id ? "Geri çekiliyor…" : "Evet, Geri Çek"}
+                  </button>
+                  <button type="button" className="btn xs" onClick={() => setConfirmId(null)}>
+                    Vazgeç
+                  </button>
+                </span>
+              ) : (
+                <button type="button" className="btn xs" onClick={() => setConfirmId(m.id)}>
+                  Geri Çek
+                </button>
+              )}
+            </div>
           </div>
         ))}
       </div>

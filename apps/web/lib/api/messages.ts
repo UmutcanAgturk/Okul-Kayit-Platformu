@@ -33,6 +33,10 @@ export function sendMessage(input: {
   return apiFetch<{ message: SentMessage }>("/api/branch/messages", { method: "POST", body: JSON.stringify(input) });
 }
 
+export function recallMessage(messageId: string) {
+  return apiFetch<{ ok: true }>(`/api/branch/messages/${messageId}`, { method: "DELETE" });
+}
+
 export interface InboxMessage {
   id: string;
   senderLabel: string;

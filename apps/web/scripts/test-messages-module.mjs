@@ -21,6 +21,9 @@
 //      dataUrl'in geri döndüğü, bir mesajın BİRDEN FAZLA eki olabildiği),
 //      desteklenmeyen MIME türünün ve boyut limitini aşan bir dosyanın 400
 //      ile reddedildiği.
+//   9. task #89: gönderenin kendi mesajını geri çekebildiği (mesaj TÜM
+//      alıcılardan siliniyor), gönderen olmayanın 403 aldığı, zaten geri
+//      çekilmiş bir mesajı tekrar geri çekmenin 404 döndürdüğü.
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient({
@@ -199,6 +202,49 @@ async function main() {
     studentInboxBody.messages?.some((m) => m.id === teacherSendBody.message.id),
   );
 
+  // ===== task #89: mesaj geri çekme =====
+  const notSenderRecallRes = await fetch(`${BASE}/api/branch/messages/${teacherSendBody.message.id}`, {
+    method: "DELETE",
+    headers: { Cookie: branchAdminCookie },
+  });
+  check("Gönderen olmayan geri çekemez: 403", notSenderRecallRes.status === 403, notSenderRecallRes.status);
+
+  const studentInboxBeforeRecallRes = await fetch(`${BASE}/api/messages/inbox`, { headers: { Cookie: studentCookie } });
+  const studentInboxBeforeRecallBody = await studentInboxBeforeRecallRes.json();
+  check(
+    "Geri çekmeden önce öğrenci gelen kutusunda mesaj hâlâ var",
+    studentInboxBeforeRecallBody.messages?.some((m) => m.id === teacherSendBody.message.id),
+  );
+
+  const recallRes = await fetch(`${BASE}/api/branch/messages/${teacherSendBody.message.id}`, {
+    method: "DELETE",
+    headers: { Cookie: teacherCookie },
+  });
+  check("Gönderen kendi mesajını geri çekebilir: 200", recallRes.status === 200, recallRes.status);
+
+  const studentInboxAfterRecallRes = await fetch(`${BASE}/api/messages/inbox`, { headers: { Cookie: studentCookie } });
+  const studentInboxAfterRecallBody = await studentInboxAfterRecallRes.json();
+  check(
+    "Geri çektikten sonra öğrenci gelen kutusunda mesaj YOK",
+    !studentInboxAfterRecallBody.messages?.some((m) => m.id === teacherSendBody.message.id),
+  );
+
+  const teacherSentAfterRecallRes = await fetch(`${BASE}/api/branch/messages`, { headers: { Cookie: teacherCookie } });
+  const teacherSentAfterRecallBody = await teacherSentAfterRecallRes.json();
+  check(
+    "Geri çektikten sonra gönderenin gönderilenler listesinde de YOK",
+    !teacherSentAfterRecallBody.messages?.some((m) => m.id === teacherSendBody.message.id),
+  );
+
+  const doubleRecallRes = await fetch(`${BASE}/api/branch/messages/${teacherSendBody.message.id}`, {
+    method: "DELETE",
+    headers: { Cookie: teacherCookie },
+  });
+  check("Zaten geri çekilmiş mesajı tekrar geri çekmek: 404", doubleRecallRes.status === 404, doubleRecallRes.status);
+
+  const recallNoAuthRes = await fetch(`${BASE}/api/branch/messages/${sentMessageId}`, { method: "DELETE" });
+  check("Geri çekme: oturumsuz 401", recallNoAuthRes.status === 401, recallNoAuthRes.status);
+
   // ===== Aktivite Akışı yansıması =====
   const activityRes = await fetch(`${BASE}/api/branch/activity-log`, { headers: { Cookie: branchAdminCookie } });
   const activityBody = await activityRes.json();
@@ -210,7 +256,7 @@ async function main() {
   // Temizlik
   await prisma.messageRecipient.deleteMany({ where: { messageId: { in: [sentMessageId, otherSendBody.message.id, teacherSendBody.message.id] } } });
   await prisma.message.deleteMany({ where: { id: { in: [sentMessageId, otherSendBody.message.id, teacherSendBody.message.id] } } });
-  await prisma.auditLogEntry.deleteMany({ where: { action: "Mesaj gönderildi" } });
+  await prisma.auditLogEntry.deleteMany({ where: { action: { in: ["Mesaj gönderildi", "Mesaj geri çekildi"] } } });
 
   console.log("\n=== ÖZET ===");
   const fails = results.filter((r) => !r.ok);
