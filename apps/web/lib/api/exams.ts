@@ -238,6 +238,12 @@ export interface ExamQuestionResultRow {
   isCorrect: boolean | null;
 }
 
+export interface ExamPeerComparison {
+  peerAvgNet: number;
+  diff: number;
+  peerCount: number;
+}
+
 export interface StudentExamHistoryRow {
   examId: string;
   examName: string;
@@ -248,6 +254,7 @@ export interface StudentExamHistoryRow {
   correctCount: number;
   wrongCount: number;
   emptyCount: number;
+  peerComparison: ExamPeerComparison | null;
   achievementBreakdown: ExamAchievementBreakdownRow[];
   questionBreakdown: ExamQuestionResultRow[];
 }

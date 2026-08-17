@@ -22,9 +22,19 @@ const STAFF_ROLES: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.GUIDANCE_COORDI
  * bazlı otomatik okuma bu depoda kasıtlı olarak kapsam dışı olduğundan burada
  * UYDURMA bir "given" alanı YOKTUR — yalnızca gerçekten elle girilen
  * Doğru/Yanlış/Boş sonucu ve gerçek cevap anahtarı (ExamQuestion.correctAnswer)
- * gösterilir. Sınıf/şube ortalamasıyla karşılaştırma da demo'nun kendisinde
- * öğrenciye asla gerçekten gösterilmiyor (bkz. görev notu) — bu yüzden
- * burada da yok. Yetki kontrolü Karne ile birebir aynıdır.
+ * gösterilir. Yetki kontrolü Karne ile birebir aynıdır.
+ *
+ * peerComparison (task #111): demo'daki buildStudentAiProfile'ın comparison
+ * hesabıyla AYNI fikir (kendi sınıfındaki AYNI sınava giren akranlarının
+ * ortalama neti) — demo'nun kendisi bunu yalnızca şube/öğretmen tarafındaki
+ * öğrenci çekmecesinde gösteriyordu, öğrencinin KENDİ "Sınav Sonuçlarım"
+ * self-servis görünümünde hiç yoktu; bu, o eksikliği kapatır. Öğrenci RLS
+ * altında başka öğrencilerin ExamResult'una asla doğrudan erişemeyeceğinden
+ * bu hesap MUTLAKA backend'de yapılmalı — istemci tarafı yalnızca anlatı
+ * (narrative) metnini üretir (bkz. ExamResultsView.tsx, task #102'deki
+ * DurumAiSummaryCard ile aynı "yeni endpoint gerektirmeyen kural-tabanlı
+ * metin" deseni). classroomId'si olmayan (henüz sınıfa atanmamış) veya
+ * sınıfında aynı sınava giren başka kimse olmayan öğrenciler için null döner.
  */
 export async function GET(request: NextRequest, { params }: { params: { studentId: string } }) {
   const actor = await getSessionActor(request);
@@ -61,36 +71,53 @@ export async function GET(request: NextRequest, { params }: { params: { studentI
       orderBy: { exam: { examDate: "desc" } },
     });
 
-    const examHistory = examResults.map((r) => ({
-      examId: r.examId,
-      examName: r.exam.name,
-      examType: r.exam.type,
-      examDate: r.exam.examDate.toISOString().slice(0, 10),
-      netScore: r.netScore,
-      rawScore: r.rawScore,
-      correctCount: r.correctCount,
-      wrongCount: r.wrongCount,
-      emptyCount: r.emptyCount,
-      achievementBreakdown: r.achievementResults
-        .map((a) => ({
-          achievementId: a.achievementId,
-          code: a.achievement.code,
-          label: a.achievement.label,
-          subject: subjectFromCode(a.achievement.code),
-          correctRatio: a.correctRatio,
-          masteryLevel: ratioToMastery(a.correctRatio),
-        }))
-        .sort((a, b) => a.correctRatio - b.correctRatio),
-      questionBreakdown: r.answers
-        .map((a) => ({
-          questionNo: a.question.orderIndex,
-          subject: subjectFromCode(a.question.achievement.code),
-          achievementLabel: a.question.achievement.label,
-          correctAnswer: a.question.correctAnswer,
-          isCorrect: a.isCorrect,
-        }))
-        .sort((a, b) => a.questionNo - b.questionNo),
-    }));
+    const examHistory = await Promise.all(
+      examResults.map(async (r) => {
+        let peerComparison: { peerAvgNet: number; diff: number; peerCount: number } | null = null;
+        if (student.classroomId) {
+          const peers = await tx.examResult.findMany({
+            where: { examId: r.examId, studentId: { not: student.id }, student: { classroomId: student.classroomId } },
+            select: { netScore: true },
+          });
+          if (peers.length > 0) {
+            const peerAvgNet = Number((peers.reduce((sum, p) => sum + p.netScore, 0) / peers.length).toFixed(2));
+            peerComparison = { peerAvgNet, diff: Number((r.netScore - peerAvgNet).toFixed(2)), peerCount: peers.length };
+          }
+        }
+
+        return {
+          examId: r.examId,
+          examName: r.exam.name,
+          examType: r.exam.type,
+          examDate: r.exam.examDate.toISOString().slice(0, 10),
+          netScore: r.netScore,
+          rawScore: r.rawScore,
+          correctCount: r.correctCount,
+          wrongCount: r.wrongCount,
+          emptyCount: r.emptyCount,
+          peerComparison,
+          achievementBreakdown: r.achievementResults
+            .map((a) => ({
+              achievementId: a.achievementId,
+              code: a.achievement.code,
+              label: a.achievement.label,
+              subject: subjectFromCode(a.achievement.code),
+              correctRatio: a.correctRatio,
+              masteryLevel: ratioToMastery(a.correctRatio),
+            }))
+            .sort((a, b) => a.correctRatio - b.correctRatio),
+          questionBreakdown: r.answers
+            .map((a) => ({
+              questionNo: a.question.orderIndex,
+              subject: subjectFromCode(a.question.achievement.code),
+              achievementLabel: a.question.achievement.label,
+              correctAnswer: a.question.correctAnswer,
+              isCorrect: a.isCorrect,
+            }))
+            .sort((a, b) => a.questionNo - b.questionNo),
+        };
+      }),
+    );
 
     // Kazanım bazlı çok-sınavlı trend (demo'daki achievementTrend/sparkline) —
     // her kazanım için, o kazanımın sorulduğu sınavlar boyunca (kronolojik)

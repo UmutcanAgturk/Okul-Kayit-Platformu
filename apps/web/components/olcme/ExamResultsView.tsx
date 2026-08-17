@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
-import { fetchStudentExamResults } from "@/lib/api/exams";
+import { fetchStudentExamResults, type StudentExamHistoryRow } from "@/lib/api/exams";
 import { Icon } from "@/components/ui/icons";
 import { HBarChart } from "@/components/ui/charts/HBarChart";
 import { LineChart } from "@/components/ui/charts/LineChart";
@@ -15,6 +15,81 @@ const SELF_SERVICE_ROLES = ["STUDENT", "PARENT"];
 
 function tl(n: number) {
   return Math.round(n * 10) / 10;
+}
+
+/**
+ * "Kişiye Özel Yapay Zeka Analizi" — demo'daki buildStudentAiProfile/
+ * renderStudentAiProfileCard'ın karşılığı (task #111). task #102'deki
+ * DurumAiSummaryCard ile AYNI desen: kural-tabanlı, yeni bir backend
+ * endpoint'i gerektirmez — yalnızca zaten çekilmiş examHistory/
+ * achievementBreakdown verisinden birkaç Türkçe cümle üretir. Tek istisna
+ * peerComparison alanıdır: RLS altında öğrenci başka bir öğrencinin
+ * ExamResult'una asla erişemeyeceğinden bu SAYI backend'de hesaplanmıştır
+ * (bkz. route.ts) — burada yalnızca metne çevrilir.
+ */
+function buildExamAiSummary(selectedExam: StudentExamHistoryRow, previousExam: StudentExamHistoryRow | null): string[] {
+  const lines: string[] = [];
+
+  if (previousExam) {
+    const delta = Number((selectedExam.netScore - previousExam.netScore).toFixed(2));
+    if (delta > 0.5) lines.push(`Bir önceki sınava (${previousExam.examName}) göre net ${delta} puan arttı — olumlu bir ivme yakalanmış.`);
+    else if (delta < -0.5) lines.push(`Bir önceki sınava (${previousExam.examName}) göre net ${Math.abs(delta)} puan düştü — bu düşüşün nedenine odaklanılmalı.`);
+    else lines.push(`Net, bir önceki sınava (${previousExam.examName}) göre stabil seyrediyor (${selectedExam.netScore}).`);
+  } else {
+    lines.push(`İlk sınav sonucu işlendi — net: ${selectedExam.netScore}. Trend yorumu için en az bir sınav daha gerekiyor.`);
+  }
+
+  const bySubject = new Map<string, { sum: number; count: number }>();
+  for (const a of selectedExam.achievementBreakdown) {
+    const bucket = bySubject.get(a.subject) ?? { sum: 0, count: 0 };
+    bucket.sum += a.correctRatio;
+    bucket.count += 1;
+    bySubject.set(a.subject, bucket);
+  }
+  const subjectAverages = [...bySubject.entries()].map(([subject, b]) => ({ subject, avg: b.sum / b.count })).sort((a, b) => a.avg - b.avg);
+  const weakest = subjectAverages[0];
+  const strongest = subjectAverages[subjectAverages.length - 1];
+  if (weakest && strongest && weakest.subject !== strongest.subject) {
+    lines.push(`En çok gelişime açık ders ${weakest.subject} (%${Math.round(weakest.avg * 100)}), en güçlü ders ise ${strongest.subject} (%${Math.round(strongest.avg * 100)}).`);
+  } else if (weakest) {
+    lines.push(`Bu sınavdaki tüm kazanımlar ${weakest.subject} dersinde yoğunlaşıyor.`);
+  }
+
+  const priority = selectedExam.achievementBreakdown.filter((a) => a.masteryLevel !== "STRONG").slice(0, 3);
+  if (priority.length > 0) {
+    lines.push(`Öncelikli çalışılması gereken kazanımlar: ${priority.map((a) => `${a.label} (%${Math.round(a.correctRatio * 100)})`).join(", ")}.`);
+  } else {
+    lines.push("Kritik ya da geliştirilmesi gereken kazanım tespit edilmedi — mevcut seviyeyi korumak için düzenli tekrar önerilir.");
+  }
+
+  if (selectedExam.peerComparison) {
+    const { diff, peerAvgNet, peerCount } = selectedExam.peerComparison;
+    if (diff > 0.5) lines.push(`Aynı sınıftan aynı sınava giren ${peerCount} akranının ortalama netinin (${peerAvgNet}) ${diff} puan üzerinde.`);
+    else if (diff < -0.5) lines.push(`Aynı sınıftan aynı sınava giren ${peerCount} akranının ortalama netinin (${peerAvgNet}) ${Math.abs(diff)} puan altında — ek destek faydalı olabilir.`);
+    else lines.push(`Akran ortalamasına (${peerAvgNet}) yakın bir performans sergiliyor (${peerCount} akran).`);
+  }
+
+  if (priority.length > 0) {
+    lines.push(`Önerilen aksiyon: "${priority[0].label}" konusu için Etüt Modülü'nden randevu talep etmeyi ya da Seviye Mentör'den bir görüşme planlamayı düşünebilirsiniz.`);
+  }
+
+  return lines;
+}
+
+function ExamAiSummaryCard({ selectedExam, previousExam }: { selectedExam: StudentExamHistoryRow; previousExam: StudentExamHistoryRow | null }) {
+  const lines = buildExamAiSummary(selectedExam, previousExam);
+  return (
+    <div className="card card-pad" style={{ borderColor: "var(--brand)" }}>
+      <div className="card-head">
+        <h3>🧠 Kişiye Özel Yapay Zeka Analizi</h3>
+      </div>
+      <ul style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 6, fontSize: "var(--text-sm)", color: "var(--ink-muted)" }}>
+        {lines.map((line, i) => (
+          <li key={i}>{line}</li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 /**
@@ -132,7 +207,12 @@ export function ExamResultsView() {
             </select>
           </div>
 
-          <div className="grid cols-4">
+          <ExamAiSummaryCard
+            selectedExam={selectedExam}
+            previousExam={examHistory[examHistory.findIndex((e) => e.examId === selectedExam.examId) + 1] ?? null}
+          />
+
+          <div className={selectedExam.peerComparison ? "grid cols-5" : "grid cols-4"}>
             <div className="card card-pad" style={{ textAlign: "center" }}>
               <div style={{ fontSize: "var(--text-2xs)", color: "var(--ink-faint)" }}>Doğru</div>
               <div style={{ fontSize: "var(--text-lg)", fontWeight: 700, color: "var(--strong)" }}>{selectedExam.correctCount}</div>
@@ -149,6 +229,20 @@ export function ExamResultsView() {
               <div style={{ fontSize: "var(--text-2xs)", color: "var(--ink-faint)" }}>Net</div>
               <div style={{ fontSize: "var(--text-lg)", fontWeight: 700 }}>{tl(selectedExam.netScore)}</div>
             </div>
+            {selectedExam.peerComparison && (
+              <div className="card card-pad" style={{ textAlign: "center" }}>
+                <div style={{ fontSize: "var(--text-2xs)", color: "var(--ink-faint)" }}>Akran Ort. ({selectedExam.peerComparison.peerCount})</div>
+                <div
+                  style={{
+                    fontSize: "var(--text-lg)",
+                    fontWeight: 700,
+                    color: selectedExam.peerComparison.diff > 0.5 ? "var(--strong)" : selectedExam.peerComparison.diff < -0.5 ? "var(--critical)" : "var(--ink-muted)",
+                  }}
+                >
+                  {selectedExam.peerComparison.peerAvgNet}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="grid cols-2">

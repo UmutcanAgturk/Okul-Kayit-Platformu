@@ -80,6 +80,20 @@ async function main() {
     ownBody.achievementTrend,
   );
 
+  // ===== task #111: akran karşılaştırması (peerComparison) =====
+  // Elif'in sınıfındaki (9-A) diğer 3 öğrenci de bu sınava girmiş (seed):
+  // Ahmet 5, Zeynep 15, Mehmet 5 → ortalama 8.33, Elif'in neti 12.5 → +4.17.
+  check(
+    "peerComparison: 3 sınıf arkadaşının ortalaması doğru hesaplanmış",
+    seedExam?.peerComparison?.peerCount === 3 && seedExam?.peerComparison?.peerAvgNet === 8.33,
+    seedExam?.peerComparison,
+  );
+  check(
+    "peerComparison: diff = kendi neti - akran ortalaması",
+    seedExam?.peerComparison?.diff === Number((seedExam.netScore - seedExam.peerComparison.peerAvgNet).toFixed(2)),
+    { netScore: seedExam?.netScore, peerComparison: seedExam?.peerComparison },
+  );
+
   const otherRes = await fetch(`${BASE}/api/students/${elif.id}/exam-results`, { headers: { Cookie: otherStudentCookie } });
   check("Yetki: başka bir STUDENT Elif'in sonuçlarını GÖREMİYOR (403)", otherRes.status === 403, otherRes.status);
 

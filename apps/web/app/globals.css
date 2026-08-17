@@ -197,7 +197,8 @@ svg.icon { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-w
 .cols-2 { grid-template-columns: 1.3fr 1fr; }
 .cols-3 { grid-template-columns: repeat(3, 1fr); }
 .cols-4 { grid-template-columns: repeat(4, 1fr); }
-@media (max-width: 980px) { .cols-2, .cols-3, .cols-4 { grid-template-columns: 1fr; } }
+.cols-5 { grid-template-columns: repeat(5, 1fr); }
+@media (max-width: 980px) { .cols-2, .cols-3, .cols-4, .cols-5 { grid-template-columns: 1fr; } }
 
 .card {
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow);
