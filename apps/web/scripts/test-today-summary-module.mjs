@@ -12,6 +12,10 @@
 //   4. Bugüne ait BEKLIYOR bir PtaMeetingRequest'in hem pta.today listesinde
 //      hem pendingCount'ta göründüğü.
 //   5. Bir disiplin kaydı eklemenin recentActivity'nin en başında göründüğü.
+//   6. attendance.trend dizisinde bugünkü günün doğru ratePct ile göründüğü.
+//   7. payments.studentComposition'ın vadesi geçmiş taksitli öğrenciyi
+//      overdue'ya sayıp, öğrenci toplamının aktif öğrenci sayısına eşit olduğu.
+//   8. etut.pendingCount alanının sayısal olarak döndüğü.
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient({
@@ -57,6 +61,16 @@ async function main() {
   const overdueBefore = beforeBody.payments?.overdueCount ?? 0;
   const upcomingBefore = beforeBody.payments?.upcomingCount ?? 0;
   const pendingPtaBefore = beforeBody.pta?.pendingCount ?? 0;
+  check("etut.pendingCount sayısal dönüyor", typeof beforeBody.etut?.pendingCount === "number", beforeBody.etut?.pendingCount);
+  const activeStudentTotal = await prisma.studentProfile.count({
+    where: { tenantId: elif.tenantId, user: { isActive: true } },
+  });
+  const compBefore = beforeBody.payments?.studentComposition;
+  check(
+    "payments.studentComposition toplamı aktif öğrenci sayısına eşit",
+    !!compBefore && compBefore.current + compBefore.upcoming + compBefore.overdue === activeStudentTotal,
+    JSON.stringify(compBefore),
+  );
 
   // ===== Fixture: bugün için yoklama =====
   const today = new Date().toISOString().slice(0, 10);
@@ -127,6 +141,17 @@ async function main() {
     "recentActivity: en yeni kayıt disiplin kaydı",
     afterBody.recentActivity?.[0]?.action === "Disiplin kaydı eklendi",
     afterBody.recentActivity?.[0]?.action,
+  );
+  check(
+    "attendance.trend: bugünkü gün %100 oranla listede",
+    afterBody.attendance?.trend?.some((t) => t.date === today && t.ratePct === 100),
+    JSON.stringify(afterBody.attendance?.trend?.find((t) => t.date === today)),
+  );
+  const compAfter = afterBody.payments?.studentComposition;
+  check(
+    "payments.studentComposition.overdue 1 arttı (yaklaşan taksit vadesi geçmişin gölgesinde kalıyor)",
+    !!compAfter && compAfter.overdue === (compBefore?.overdue ?? 0) + 1,
+    JSON.stringify(compAfter),
   );
 
   // Temizlik

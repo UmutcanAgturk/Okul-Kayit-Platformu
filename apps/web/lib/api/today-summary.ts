@@ -18,9 +18,14 @@ export interface TodayActivityRow {
 
 export interface TodaySummary {
   date: string;
-  attendance: { classroomsTotal: number; classroomsTakenToday: number };
-  payments: { overdueCount: number; upcomingCount: number };
+  attendance: { classroomsTotal: number; classroomsTakenToday: number; trend: { date: string; ratePct: number }[] };
+  payments: {
+    overdueCount: number;
+    upcomingCount: number;
+    studentComposition: { current: number; upcoming: number; overdue: number };
+  };
   pta: { pendingCount: number; today: TodayPtaRow[] };
+  etut: { pendingCount: number };
   recentActivity: TodayActivityRow[];
 }
 

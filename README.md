@@ -334,9 +334,13 @@ seviye-360/
     Aktivite Akışı (`AuditLogEntry`) modüllerinin BUGÜNE ait gerçek verisini
     tek bir yanıtta birleştirir: bugün yoklaması alınan sınıf sayısı, vadesi
     geçmiş/yaklaşan (7 gün) taksit sayısı, bugüne ait bekleyen/planlı veli
-    görüşmeleri ve son 6 aktivite akışı kaydı. Demo'daki Lider Tablosu/Etüt
-    doluluk bölümleri kasıtlı olarak dışarıda bırakıldı — bu depoda henüz
-    gerçek bir Gamification (XP/Seviye) modülü yok. Yalnızca `BRANCH_ADMIN`
+    görüşmeleri ve son 6 aktivite akışı kaydı; ayrıca Devam Oranı Trendi (son
+    10 gün) ve Ödeme Durumu Dağılımı (öğrenci bazlı güncel/yaklaşan/gecikmiş
+    sınıflandırması) da bu route'ta hesaplanır. Demo'daki Lider Tablosu/Etüt
+    doluluk bölümleri artık gerçek Gamification (`/api/branch/leaderboard`) ve
+    Günlük Operasyon (`/api/branch/daily-ops`) modülleri var olduğundan
+    doğrudan tüketilir (bkz. görev #66) — Ortalama Net Trendi de aynı şekilde
+    `/api/branch/exams`'tan doğrudan tüketilir. Yalnızca `BRANCH_ADMIN`
     erişebilir (Aktivite Akışı ile aynı kapsam). `apps/web/scripts/test-today-summary-module.mjs`
     (14 kontrol) dört ayrı fixture'ın (yoklama, vadesi geçmiş/yaklaşan taksit,
     PTA talebi, disiplin kaydı) özet sayılarına doğru yansıdığını doğrular.
