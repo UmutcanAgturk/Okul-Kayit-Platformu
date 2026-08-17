@@ -7,6 +7,7 @@ import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { fetchStaff, staffKeys, updateStaffRole, updateStaffUsername, type StaffUserRole } from "@/lib/api/staff";
 import { fetchRoleGuardians, fetchRoleStudents, roleKeys, updateGuardianUsername, updateStudentUsername } from "@/lib/api/roles";
+import { fetchHqRoleGuardians, fetchHqRoleStaff, fetchHqRoleStudents, hqKeys } from "@/lib/api/hq";
 import { Icon } from "@/components/ui/icons";
 
 const ALLOWED_ROLES = ["BRANCH_ADMIN"];
@@ -287,6 +288,161 @@ function VelilerTab({ search }: { search: string }) {
 }
 
 /**
+ * Roller — Tüm Şubeler (task #100) — bare SUPERADMIN (henüz "Bu Şube Olarak
+ * Yönet" ile hiçbir şubeye geçmemiş Genel Merkez kullanıcısı) için salt-okunur
+ * çapraz-şube görünümü. Demo denetimindeki bulgu: Roller ekranı önceden
+ * yalnızca BRANCH_ADMIN'e (veya tek bir şubeye geçmiş SUPERADMIN'e) açıktı —
+ * Genel Merkez'in TÜM şubelerdeki personel/öğrenci/veli kullanıcı adlarını
+ * tek ekrandan görebileceği bir yol yoktu. HQ Öğrenciler panelinin (task #44,
+ * bkz. HqDashboard.tsx HqStudentsPanel) AYNI salt-okunur deseni: rol/kullanıcı
+ * adı DEĞİŞTİRME burada YOK — bunun için hâlâ ilgili şubeye "Bu Şube Olarak
+ * Yönet" ile geçmek gerekir (yanlış şubede değişiklik riskini azaltır).
+ */
+function HqPersonelTab({ search }: { search: string }) {
+  const query = useQuery({ queryKey: hqKeys.roleStaff(), queryFn: fetchHqRoleStaff });
+  const rows = useMemo(() => {
+    const all = (query.data?.staff ?? []).filter((s) => s.isActive);
+    const q = search.trim().toLocaleLowerCase("tr-TR");
+    if (!q) return all;
+    return all.filter(
+      (s) => s.name.toLocaleLowerCase("tr-TR").includes(q) || s.email.toLocaleLowerCase("tr-TR").includes(q) || s.tenantName.toLocaleLowerCase("tr-TR").includes(q),
+    );
+  }, [query.data, search]);
+
+  if (query.isLoading) return <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>;
+  if (rows.length === 0) {
+    return (
+      <div className="empty-state">
+        <Icon name="users" />
+        <p>Aramanızla eşleşen personel yok.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="table-wrap">
+      <table className="data">
+        <thead>
+          <tr>
+            <th>Ad Soyad</th>
+            <th>Şube</th>
+            <th>Ünvan</th>
+            <th>Sistem Rolü</th>
+            <th>Kullanıcı Adı</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((s) => (
+            <tr key={s.id}>
+              <td style={{ fontWeight: 600 }}>{s.name}</td>
+              <td>{s.tenantName}</td>
+              <td>{s.title}</td>
+              <td>{ROLE_LABEL[s.role as StaffUserRole] ?? s.role}</td>
+              <td style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>{s.email}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function HqOgrencilerTab({ search }: { search: string }) {
+  const query = useQuery({ queryKey: hqKeys.roleStudents(), queryFn: fetchHqRoleStudents });
+  const rows = useMemo(() => {
+    const all = query.data?.students ?? [];
+    const q = search.trim().toLocaleLowerCase("tr-TR");
+    if (!q) return all;
+    return all.filter((s) => s.name.toLocaleLowerCase("tr-TR").includes(q) || s.username.toLocaleLowerCase("tr-TR").includes(q) || s.tenantName.toLocaleLowerCase("tr-TR").includes(q));
+  }, [query.data, search]);
+
+  if (query.isLoading) return <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>;
+  if (rows.length === 0) {
+    return (
+      <div className="empty-state">
+        <Icon name="users" />
+        <p>Aramanızla eşleşen öğrenci yok.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="table-wrap">
+      <table className="data">
+        <thead>
+          <tr>
+            <th>Ad Soyad</th>
+            <th>Şube</th>
+            <th>Sınıf</th>
+            <th>Kullanıcı Adı</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((s) => (
+            <tr key={s.id}>
+              <td style={{ fontWeight: 600 }}>{s.name}</td>
+              <td>{s.tenantName}</td>
+              <td>{s.classroomName ?? "—"}</td>
+              <td style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>{s.username}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function HqVelilerTab({ search }: { search: string }) {
+  const query = useQuery({ queryKey: hqKeys.roleGuardians(), queryFn: fetchHqRoleGuardians });
+  const rows = useMemo(() => {
+    const all = query.data?.guardians ?? [];
+    const q = search.trim().toLocaleLowerCase("tr-TR");
+    if (!q) return all;
+    return all.filter(
+      (g) =>
+        g.guardianName.toLocaleLowerCase("tr-TR").includes(q) ||
+        g.studentName.toLocaleLowerCase("tr-TR").includes(q) ||
+        g.username.toLocaleLowerCase("tr-TR").includes(q) ||
+        g.tenantName.toLocaleLowerCase("tr-TR").includes(q),
+    );
+  }, [query.data, search]);
+
+  if (query.isLoading) return <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>;
+  if (rows.length === 0) {
+    return (
+      <div className="empty-state">
+        <Icon name="users" />
+        <p>Aramanızla eşleşen veli yok.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="table-wrap">
+      <table className="data">
+        <thead>
+          <tr>
+            <th>Veli Adı</th>
+            <th>Şube</th>
+            <th>Öğrenci</th>
+            <th>Yakınlık</th>
+            <th>Kullanıcı Adı</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((g) => (
+            <tr key={`${g.parentId}-${g.studentName}-${g.tenantId}`}>
+              <td style={{ fontWeight: 600 }}>{g.guardianName}</td>
+              <td>{g.tenantName}</td>
+              <td>{g.studentName}</td>
+              <td>{g.relation}</td>
+              <td style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>{g.username}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/**
  * Roller — demo/seviye360-app.html'deki "roller" ekranının gerçek karşılığı
  * (branch portalda `restricted: true`, yalnızca Şube Yöneticisi'ne açık).
  * Demo üç sekme sunar (Personel/Öğrenciler/Veliler) — her birinde arama ve
@@ -317,7 +473,8 @@ export function RolesDashboard() {
   if (!me || (isError && error instanceof ApiError && error.status === 401)) {
     return null;
   }
-  if (!ALLOWED_ROLES.includes(me.role) && !(me.role === "SUPERADMIN" && me.actingTenantId)) {
+  const isHqCrossBranch = me.role === "SUPERADMIN" && !me.actingTenantId;
+  if (!ALLOWED_ROLES.includes(me.role) && !(me.role === "SUPERADMIN" && me.actingTenantId) && !isHqCrossBranch) {
     return (
       <div className="card card-pad">
         <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
@@ -329,8 +486,12 @@ export function RolesDashboard() {
 
   return (
     <div className="screen">
-      <h1>Roller</h1>
-      <p className="lede">Personel sistem rolünü ve personel/öğrenci/veli kullanıcı adlarını yönetin.</p>
+      <h1>{isHqCrossBranch ? "Roller — Tüm Şubeler" : "Roller"}</h1>
+      <p className="lede">
+        {isHqCrossBranch
+          ? "Genel Merkez, tüm şubelerdeki personel/öğrenci/veli kullanıcı adlarını salt-okunur olarak görüntüler. Rol veya kullanıcı adı değiştirmek için Kurum Yönetimi'nden ilgili şubeye \"Bu Şube Olarak Yönet\" ile geçin."
+          : "Personel sistem rolünü ve personel/öğrenci/veli kullanıcı adlarını yönetin."}
+      </p>
 
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
         {TABS.map((t) => (
@@ -343,12 +504,27 @@ export function RolesDashboard() {
       <div className="card card-pad">
         <div className="field" style={{ maxWidth: 340, marginBottom: 16 }}>
           <label>Ara</label>
-          <input type="text" placeholder="İsim veya kullanıcı adı…" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <input
+            type="text"
+            placeholder={isHqCrossBranch ? "İsim, kullanıcı adı veya şube…" : "İsim veya kullanıcı adı…"}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
 
-        {tab === "personel" && <PersonelTab search={search} />}
-        {tab === "ogrenciler" && <OgrencilerTab search={search} />}
-        {tab === "veliler" && <VelilerTab search={search} />}
+        {isHqCrossBranch ? (
+          <>
+            {tab === "personel" && <HqPersonelTab search={search} />}
+            {tab === "ogrenciler" && <HqOgrencilerTab search={search} />}
+            {tab === "veliler" && <HqVelilerTab search={search} />}
+          </>
+        ) : (
+          <>
+            {tab === "personel" && <PersonelTab search={search} />}
+            {tab === "ogrenciler" && <OgrencilerTab search={search} />}
+            {tab === "veliler" && <VelilerTab search={search} />}
+          </>
+        )}
       </div>
     </div>
   );

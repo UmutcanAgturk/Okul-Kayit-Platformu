@@ -28,6 +28,10 @@ const ODEME_YONTEMLERI_CARD: ModuleCard = { href: "/odeme-yontemleri", title: "�
 const MUHASEBE_CARD: ModuleCard = { href: "/muhasebe", title: "Muhasebe", description: "Kayıt defteri, tahsilat takibi, bordro, belgeler.", icon: "ledger", group: "Yönetim & Finans" };
 const PERSONEL_CARD: ModuleCard = { href: "/personel", title: "Personel", description: "Öğretmen dışı personel (Şube Müdürü, Ön Büro, Muhasebe, Rehber Öğretmen).", icon: "users", group: "Yönetim & Finans" };
 const ROLLER_CARD: ModuleCard = { href: "/roller", title: "Roller", description: "Personelin sistem rolünü (yetki seviyesini) değiştirin.", icon: "shield", group: "Yönetim & Finans" };
+// Bare SUPERADMIN (henüz bir şubeye "Bu Şube Olarak Yönet" ile geçmemiş Genel
+// Merkez) için AYNI /roller sayfası salt-okunur çapraz-şube moduna geçer (task
+// #100, bkz. RolesDashboard.tsx isHqCrossBranch) — kart metni buna göre farklı.
+const ROLLER_HQ_CARD: ModuleCard = { href: "/roller", title: "Roller", description: "Tüm şubelerdeki personel/öğrenci/veli kullanıcı adlarını salt-okunur görüntüleyin.", icon: "shield", group: "Yönetim & Finans" };
 const OGRETMEN_PERF_CARD: ModuleCard = { href: "/ogretmen-performansi", title: "Öğretmen Performansı", description: "Branş bazında ortalama başarı yüzdesi — gerçek sınav verisinden.", icon: "chart", group: "Yönetim & Finans" };
 const DEVAMSIZLIK_CARD: ModuleCard = { href: "/devamsizlik", title: "Devamsızlık", description: "Sınıf bazlı yoklama alma ve devamsızlık geçmişi.", icon: "calendar", group: "Akademik" };
 const DERS_PROGRAMI_CARD: ModuleCard = { href: "/ders-programi", title: "Ders Programı", description: "Haftalık ders programı.", icon: "clock", group: "Akademik" };
@@ -65,7 +69,7 @@ export const MODULES_BY_ROLE: Record<UserRole, ModuleCard[]> = {
   TEACHER: [SINIFLARIM_CARD, OLCME_CARD, KARNE_CARD, DEVAMSIZLIK_CARD, DERS_PROGRAMI_CARD, DISIPLIN_CARD, VELI_GORUSME_CARD, KULUPLER_CARD, ETUT_ONAYI_CARD, ILETISIM_CARD, MENTOR_CARD, LEADERBOARD_CARD, PROFILIM_CARD],
   STUDENT: [KARNE_CARD, SINAV_SONUCLARIM_CARD, DEVAMSIZLIGIM_CARD, DERS_PROGRAMI_CARD, ROADMAP_CARD, SINAV_BELGESI_CARD, DAVRANIS_NOTLARIM_CARD, KULUPLER_CARD, SERVIS_CARD, QUIZ_CARD, ETUT_RANDEVU_CARD, ILETISIM_CARD, MENTOR_CARD, BASARI_CARD, PROFILIM_CARD],
   PARENT: [KARNE_CARD, SINAV_SONUCLARIM_CARD, DEVAMSIZLIGIM_CARD, DERS_PROGRAMI_CARD, ROADMAP_CARD, SINAV_BELGESI_CARD, DAVRANIS_NOTLARIM_CARD, VELI_GORUSME_CARD, KULUPLER_CARD, SERVIS_CARD, QUIZ_CARD, ETUT_RANDEVU_CARD, ILETISIM_CARD, MENTOR_CARD, BASARI_CARD, ODEME_ISLEMLERIM_CARD, PROFILIM_CARD],
-  SUPERADMIN: [SUBE_HARITASI_CARD, KURUMLAR_CARD, OLCME_CARD, PROFILIM_CARD],
+  SUPERADMIN: [SUBE_HARITASI_CARD, KURUMLAR_CARD, ROLLER_HQ_CARD, OLCME_CARD, PROFILIM_CARD],
 };
 
 /**

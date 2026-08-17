@@ -265,4 +265,51 @@ export const hqKeys = {
   students: (q: string, tenantId: string) => ["hq", "students", q, tenantId] as const,
   exams: () => ["hq", "exams"] as const,
   analytics: () => ["hq", "analytics"] as const,
+  roleStaff: () => ["hq", "roles", "staff"] as const,
+  roleStudents: () => ["hq", "roles", "students"] as const,
+  roleGuardians: () => ["hq", "roles", "guardians"] as const,
 };
+
+// Roller — Tüm Şubeler (task #100) — bkz. app/api/hq/roles/*/route.ts yorumu.
+export interface HqRoleStaffRow {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  title: string;
+  isActive: boolean;
+  tenantId: string;
+  tenantName: string;
+}
+
+export function fetchHqRoleStaff() {
+  return apiFetch<{ staff: HqRoleStaffRow[] }>("/api/hq/roles/staff", { cache: "no-store" });
+}
+
+export interface HqRoleStudentRow {
+  id: string;
+  name: string;
+  studentNo: string;
+  classroomName: string | null;
+  username: string;
+  tenantId: string;
+  tenantName: string;
+}
+
+export function fetchHqRoleStudents() {
+  return apiFetch<{ students: HqRoleStudentRow[] }>("/api/hq/roles/students", { cache: "no-store" });
+}
+
+export interface HqRoleGuardianRow {
+  parentId: string;
+  guardianName: string;
+  studentName: string;
+  relation: string;
+  username: string;
+  tenantId: string;
+  tenantName: string;
+}
+
+export function fetchHqRoleGuardians() {
+  return apiFetch<{ guardians: HqRoleGuardianRow[] }>("/api/hq/roles/guardians", { cache: "no-store" });
+}

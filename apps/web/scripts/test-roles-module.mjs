@@ -245,6 +245,73 @@ async function main() {
     check("Temizlik: veli e-postası orijinaline döndü", restoredGuardian.email === originalGuardianEmail, restoredGuardian.email);
   }
 
+  // ===== task #100: Roller — Tüm Şubeler (bare SUPERADMIN, çapraz-tenant) =====
+  const superadminCookie = await loginAs("admin@seviye360.com", SEED_DEV_PASSWORD);
+  check("Kurulum: SUPERADMIN girişi başarılı", !!superadminCookie);
+
+  const hqStaffNoAuth = await fetch(`${BASE}/api/hq/roles/staff`);
+  check("GET hq/roles/staff: oturumsuz 401", hqStaffNoAuth.status === 401, hqStaffNoAuth.status);
+
+  const hqStaffBranchAdmin = await fetch(`${BASE}/api/hq/roles/staff`, { headers: { Cookie: branchCookie } });
+  check("Yetki: BRANCH_ADMIN çapraz-şube personel listesini göremiyor (403)", hqStaffBranchAdmin.status === 403, hqStaffBranchAdmin.status);
+
+  // Not: seed verisinde kalıcı bir StaffProfile YOK (BRANCH_ADMIN hesapları
+  // doğrudan User, ayrı bir StaffProfile satırı taşımaz — StaffProfile
+  // yalnızca Personel ekranından oluşturulur) — bu yüzden çapraz-şube
+  // görünümünü kendi kendine yeten bir fixture ile doğrularız: taze bir
+  // personel oluşturup listede tenantName ile göründüğünü kontrol ederiz,
+  // sonunda deaktive ederiz (bu dosyanın geri kalanıyla aynı desen).
+  const hqFixtureRes = await fetch(`${BASE}/api/branch/staff`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: branchCookie },
+    body: JSON.stringify({ fullName: "Test HQ Roller Fixture", role: "ACCOUNTING", title: "Muhasebe Görevlisi", startDate: "2026-01-01", salary: 25000 }),
+  });
+  const hqFixtureBody = await hqFixtureRes.json();
+  const hqFixtureStaffId = hqFixtureBody.staff?.id;
+  check("Kurulum: HQ testi için taze personel oluşturuldu (201)", hqFixtureRes.status === 201 && !!hqFixtureStaffId, hqFixtureRes.status);
+
+  try {
+    const hqStaffRes = await fetch(`${BASE}/api/hq/roles/staff`, { headers: { Cookie: superadminCookie } });
+    const hqStaffBody = await hqStaffRes.json();
+    check("GET hq/roles/staff: SUPERADMIN 200", hqStaffRes.status === 200, hqStaffRes.status);
+    check(
+      "GET hq/roles/staff: dolu ve her satırda tenantName var",
+      (hqStaffBody.staff ?? []).length > 0 && hqStaffBody.staff.every((s) => !!s.tenantName),
+      hqStaffBody.staff?.[0],
+    );
+    const fixtureRow = (hqStaffBody.staff ?? []).find((s) => s.id === hqFixtureStaffId);
+    check(
+      "GET hq/roles/staff: taze oluşturulan Mezitli personeli doğru tenantName ile listede",
+      fixtureRow?.tenantName === "Özel Mezitli Seviye Anadolu Lisesi" && fixtureRow?.isActive === true,
+      fixtureRow,
+    );
+  } finally {
+    if (hqFixtureStaffId) {
+      await fetch(`${BASE}/api/branch/staff/${hqFixtureStaffId}`, { method: "DELETE", headers: { Cookie: branchCookie } });
+    }
+  }
+
+  const hqStudentsRes = await fetch(`${BASE}/api/hq/roles/students`, { headers: { Cookie: superadminCookie } });
+  const hqStudentsBody = await hqStudentsRes.json();
+  check("GET hq/roles/students: SUPERADMIN 200", hqStudentsRes.status === 200, hqStudentsRes.status);
+  const studentTenantNames = new Set((hqStudentsBody.students ?? []).map((s) => s.tenantName));
+  check("GET hq/roles/students: BİRDEN FAZLA şubenin öğrencisi tek listede", studentTenantNames.size >= 2, Array.from(studentTenantNames));
+
+  const hqStudentsBranchAdmin = await fetch(`${BASE}/api/hq/roles/students`, { headers: { Cookie: branchCookie } });
+  check("Yetki: BRANCH_ADMIN çapraz-şube öğrenci listesini göremiyor (403)", hqStudentsBranchAdmin.status === 403, hqStudentsBranchAdmin.status);
+
+  const hqGuardiansRes = await fetch(`${BASE}/api/hq/roles/guardians`, { headers: { Cookie: superadminCookie } });
+  const hqGuardiansBody = await hqGuardiansRes.json();
+  check("GET hq/roles/guardians: SUPERADMIN 200", hqGuardiansRes.status === 200, hqGuardiansRes.status);
+  check(
+    "GET hq/roles/guardians: her satırda tenantName dolu",
+    (hqGuardiansBody.guardians ?? []).length > 0 && hqGuardiansBody.guardians.every((g) => !!g.tenantName),
+    hqGuardiansBody.guardians?.[0],
+  );
+
+  const hqGuardiansBranchAdmin = await fetch(`${BASE}/api/hq/roles/guardians`, { headers: { Cookie: branchCookie } });
+  check("Yetki: BRANCH_ADMIN çapraz-şube veli listesini göremiyor (403)", hqGuardiansBranchAdmin.status === 403, hqGuardiansBranchAdmin.status);
+
   console.log("\n=== ÖZET ===");
   const fails = results.filter((r) => !r.ok);
   console.log(`Toplam: ${results.length} | Başarılı: ${results.length - fails.length} | Başarısız: ${fails.length}`);
