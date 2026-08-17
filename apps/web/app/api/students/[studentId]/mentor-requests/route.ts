@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GradeLevel, UserRole } from "@prisma/client";
+import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
 import { withTenantContext } from "@/lib/db-context";
 import { actorLabel, logActivity } from "@/lib/audit-log";
+import { mentorMonthlyQuota } from "@/lib/mentor";
 
 const STAFF_ROLES: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.GUIDANCE_COORDINATOR, UserRole.TEACHER];
-
-function mentorMonthlyQuota(gradeLevel: GradeLevel) {
-  return gradeLevel === GradeLevel.SINIF_8 || gradeLevel === GradeLevel.SINIF_12 || gradeLevel === GradeLevel.MEZUN ? 2 : 1;
-}
 
 /**
  * Seviye Mentör randevu talepleri — bir öğrencinin taleplerini listeler (GET)

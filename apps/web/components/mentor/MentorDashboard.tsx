@@ -6,16 +6,20 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import {
+  autoAssignMentors,
   createMentorRequest,
   fetchBranchMentorRequests,
   fetchBranchTeachers,
+  fetchMentorRoster,
   fetchStudentMentor,
   fetchStudentMentorRequests,
+  fetchTeacherMentees,
   fetchTeacherMentorRequests,
   mentorKeys,
   respondToMentorRequest,
   toggleTeacherMentor,
 } from "@/lib/api/mentor";
+import { GRADE_LEVEL_LABEL } from "@/lib/api/enrollments";
 
 const STATUS_LABEL: Record<string, string> = { BEKLIYOR: "Bekliyor", ONAYLANDI: "Onaylandı", REDDEDILDI: "Reddedildi", TAMAMLANDI: "Tamamlandı" };
 const STATUS_CHIP: Record<string, string> = {
@@ -196,7 +200,9 @@ function StudentOrParentMentorView({
 function TeacherMentorView({ me }: { me: { firstName: string; lastName: string } }) {
   const queryClient = useQueryClient();
   const requestsQuery = useQuery({ queryKey: mentorKeys.teacherRequests(), queryFn: fetchTeacherMentorRequests });
+  const menteesQuery = useQuery({ queryKey: mentorKeys.teacherMentees(), queryFn: fetchTeacherMentees });
   const requests = requestsQuery.data?.requests ?? [];
+  const mentees = menteesQuery.data?.mentees ?? [];
   const pending = requests.filter((r) => r.status === "BEKLIYOR");
   const approved = requests.filter((r) => r.status === "ONAYLANDI");
   const past = requests.filter((r) => r.status === "REDDEDILDI" || r.status === "TAMAMLANDI");
@@ -210,17 +216,52 @@ function TeacherMentorView({ me }: { me: { firstName: string; lastName: string }
     <div className="screen">
       <ScreenHeader title="Seviye Mentör" firstName={me.firstName} lastName={me.lastName} />
 
-      {!requestsQuery.isLoading && requests.length === 0 && (
+      {!menteesQuery.isLoading && mentees.length === 0 && requests.length === 0 && (
         <div className="card card-pad">
           <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--ink-muted)" }}>
-            Henüz size atanmış bir mentör randevu talebi yok. (Mentör havuzunda değilseniz Şube Yöneticisi sizi
-            Personel ekranından ekleyebilir.)
+            Henüz size atanmış bir menti veya mentör randevu talebi yok. (Mentör havuzunda değilseniz Şube Yöneticisi
+            sizi Personel ekranından ekleyebilir.)
           </p>
         </div>
       )}
 
-      {requests.length > 0 && (
+      {(mentees.length > 0 || requests.length > 0) && (
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div className="grid cols-2">
+            <div className="card stat-card">
+              <p className="stat-label">Mentilerim</p>
+              <p className="stat-value">{mentees.length}</p>
+            </div>
+            <div className={`card stat-card ${pending.length ? "tone-weak" : ""}`}>
+              <p className="stat-label">Bekleyen Randevu Talebi</p>
+              <p className="stat-value" style={{ color: pending.length ? "var(--weak)" : "inherit" }}>
+                {pending.length}
+              </p>
+            </div>
+          </div>
+
+          <div className="card card-pad">
+            <div className="card-head">
+              <h3>Mentilerim</h3>
+              <span className="hint">{mentees.length} öğrenci</span>
+            </div>
+            {menteesQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
+            {!menteesQuery.isLoading && mentees.length === 0 && (
+              <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Henüz size atanan öğrenci yok.</p>
+            )}
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              {mentees.map((s) => (
+                <div key={s.id} style={{ padding: "9px 0", borderBottom: "1px solid var(--border)" }}>
+                  <div style={{ fontSize: "var(--text-base)", fontWeight: 600 }}>{s.name}</div>
+                  <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
+                    {GRADE_LEVEL_LABEL[s.gradeLevel] ?? s.gradeLevel}
+                    {s.classroomName ? ` · ${s.classroomName}` : ""} · Ayda {s.quotaLimit} randevu hakkı
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className="card card-pad">
             <div className="card-head">
               <h3>Bekleyen Talepler ({pending.length})</h3>
@@ -296,17 +337,51 @@ function BranchMentorView({ me }: { me: { firstName: string; lastName: string } 
   const queryClient = useQueryClient();
   const requestsQuery = useQuery({ queryKey: mentorKeys.branchRequests(), queryFn: fetchBranchMentorRequests });
   const teachersQuery = useQuery({ queryKey: mentorKeys.branchTeachers(), queryFn: fetchBranchTeachers });
+  const rosterQuery = useQuery({ queryKey: mentorKeys.branchRoster(), queryFn: fetchMentorRoster });
   const requests = requestsQuery.data?.requests ?? [];
   const teachers = teachersQuery.data?.teachers ?? [];
+  const summary = rosterQuery.data?.summary;
+  const students = rosterQuery.data?.students ?? [];
+  const [assignStatusMsg, setAssignStatusMsg] = useState<string | null>(null);
 
   const toggleMutation = useMutation({
     mutationFn: (teacherId: string) => toggleTeacherMentor(teacherId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: mentorKeys.branchTeachers() }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: mentorKeys.branchTeachers() });
+      queryClient.invalidateQueries({ queryKey: mentorKeys.branchRoster() });
+    },
+  });
+
+  const autoAssignMutation = useMutation({
+    mutationFn: autoAssignMentors,
+    onSuccess: ({ assignedCount }) => {
+      setAssignStatusMsg(assignedCount > 0 ? `${assignedCount} öğrenci otomatik olarak mentörlere atandı.` : "Atanacak öğrenci kalmadı.");
+      queryClient.invalidateQueries({ queryKey: mentorKeys.branchRoster() });
+    },
   });
 
   return (
     <div className="screen">
       <ScreenHeader title="Seviye Mentör" firstName={me.firstName} lastName={me.lastName} />
+
+      {summary && (
+        <div className="grid cols-3" style={{ marginBottom: 14 }}>
+          <div className="card stat-card">
+            <p className="stat-label">Mentör Öğretmen</p>
+            <p className="stat-value">{summary.mentorCount}</p>
+          </div>
+          <div className={`card stat-card ${summary.unassignedCount ? "tone-weak" : ""}`}>
+            <p className="stat-label">Atanmamış Öğrenci</p>
+            <p className="stat-value" style={{ color: summary.unassignedCount ? "var(--weak)" : "inherit" }}>
+              {summary.unassignedCount}
+            </p>
+          </div>
+          <div className="card stat-card">
+            <p className="stat-label">Bekleyen Randevu</p>
+            <p className="stat-value">{summary.pendingRequestCount}</p>
+          </div>
+        </div>
+      )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <div className="card card-pad">
@@ -329,6 +404,54 @@ function BranchMentorView({ me }: { me: { firstName: string; lastName: string } 
               </div>
             ))}
           </div>
+        </div>
+
+        <div className="card card-pad">
+          <div className="card-head">
+            <h3>Öğrenci Atamaları</h3>
+            <span className="hint">{students.length} öğrenci</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => autoAssignMutation.mutate()}
+            disabled={autoAssignMutation.isPending || !summary?.mentorCount}
+            className="btn primary sm"
+            style={{ marginBottom: 12 }}
+          >
+            {autoAssignMutation.isPending ? "Atanıyor…" : "Atanmamış Öğrencileri Otomatik Ata"}
+          </button>
+          {assignStatusMsg && <p style={{ margin: "0 0 10px", fontSize: "var(--text-xs)", color: "var(--strong)" }}>{assignStatusMsg}</p>}
+          {rosterQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
+          {!rosterQuery.isLoading && students.length === 0 && (
+            <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Bu şubede öğrenci yok.</p>
+          )}
+          {students.length > 0 && (
+            <div className="table-wrap" style={{ maxHeight: 340, overflowY: "auto" }}>
+              <table className="data">
+                <thead>
+                  <tr>
+                    <th>Öğrenci</th>
+                    <th>Sınıf Düzeyi</th>
+                    <th>Mentör</th>
+                    <th>Kota</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {students.map((s) => (
+                    <tr key={s.id}>
+                      <td>{s.name}</td>
+                      <td>
+                        {GRADE_LEVEL_LABEL[s.gradeLevel] ?? s.gradeLevel}
+                        {s.classroomName ? ` · ${s.classroomName}` : ""}
+                      </td>
+                      <td>{s.mentorName ?? <span className="chip weak">Atanmadı</span>}</td>
+                      <td>Ayda {s.quotaLimit}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         <div className="card card-pad">

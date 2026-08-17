@@ -74,7 +74,72 @@ async function main() {
   const toggleOnBody = await toggleOnRes.json();
   check("BRANCH_ADMIN mentör havuzuna ekler: 200 + isMentor true", toggleOnRes.status === 200 && toggleOnBody.isMentor === true, toggleOnBody.isMentor);
 
-  // ===== Otomatik atama =====
+  // ===== Branch roster: yetki + özet =====
+  const rosterNoAuthRes = await fetch(`${BASE}/api/branch/mentor-roster`);
+  check("GET mentor-roster: oturumsuz 401", rosterNoAuthRes.status === 401, rosterNoAuthRes.status);
+  const rosterStudentRes = await fetch(`${BASE}/api/branch/mentor-roster`, { headers: { Cookie: studentCookie } });
+  check("GET mentor-roster: STUDENT rolü göremiyor (403)", rosterStudentRes.status === 403, rosterStudentRes.status);
+
+  const rosterBeforeRes = await fetch(`${BASE}/api/branch/mentor-roster`, { headers: { Cookie: branchAdminCookie } });
+  const rosterBeforeBody = await rosterBeforeRes.json();
+  check("GET mentor-roster: 200 dönüyor", rosterBeforeRes.status === 200, rosterBeforeRes.status);
+  check("GET mentor-roster: mentorCount 1", rosterBeforeBody.summary?.mentorCount === 1, rosterBeforeBody.summary?.mentorCount);
+  check(
+    "GET mentor-roster: Ayşe Demir 0 mentisiyle listede",
+    rosterBeforeBody.mentors?.some((m) => m.name === "Ayşe Demir" && m.menteeCount === 0),
+    JSON.stringify(rosterBeforeBody.mentors),
+  );
+  const unassignedBefore = rosterBeforeBody.summary?.unassignedCount ?? 0;
+  check(
+    "GET mentor-roster: Elif Yılmaz henüz atanmamış listede",
+    rosterBeforeBody.students?.some((s) => s.name === "Elif Yılmaz" && s.mentorTeacherId === null && s.quotaLimit === 1),
+    JSON.stringify(rosterBeforeBody.students?.find((s) => s.name === "Elif Yılmaz")),
+  );
+
+  // ===== Toplu otomatik atama =====
+  const autoAssignNoAuthRes = await fetch(`${BASE}/api/branch/mentor-roster`, { method: "POST" });
+  check("POST mentor-roster (auto-assign): oturumsuz 401", autoAssignNoAuthRes.status === 401, autoAssignNoAuthRes.status);
+  const autoAssignStudentRes = await fetch(`${BASE}/api/branch/mentor-roster`, { method: "POST", headers: { Cookie: studentCookie } });
+  check("POST mentor-roster (auto-assign): STUDENT yapamaz (403)", autoAssignStudentRes.status === 403, autoAssignStudentRes.status);
+
+  const autoAssignRes = await fetch(`${BASE}/api/branch/mentor-roster`, { method: "POST", headers: { Cookie: branchAdminCookie } });
+  const autoAssignBody = await autoAssignRes.json();
+  check("POST mentor-roster (auto-assign): 200 dönüyor", autoAssignRes.status === 200, autoAssignRes.status);
+  check("POST mentor-roster (auto-assign): assignedCount unassigned sayısına eşit", autoAssignBody.assignedCount === unassignedBefore, autoAssignBody.assignedCount);
+
+  const rosterAfterRes = await fetch(`${BASE}/api/branch/mentor-roster`, { headers: { Cookie: branchAdminCookie } });
+  const rosterAfterBody = await rosterAfterRes.json();
+  check("GET mentor-roster: otomatik atama sonrası unassignedCount 0", rosterAfterBody.summary?.unassignedCount === 0, rosterAfterBody.summary?.unassignedCount);
+  check(
+    "GET mentor-roster: Elif Yılmaz artık Ayşe Demir'e atanmış",
+    rosterAfterBody.students?.find((s) => s.name === "Elif Yılmaz")?.mentorName === "Ayşe Demir",
+    rosterAfterBody.students?.find((s) => s.name === "Elif Yılmaz")?.mentorName,
+  );
+
+  // ===== Öğretmen "Mentilerim" listesi =====
+  const menteesNoAuthRes = await fetch(`${BASE}/api/teacher/mentees`);
+  check("GET teacher/mentees: oturumsuz 401", menteesNoAuthRes.status === 401, menteesNoAuthRes.status);
+  const menteesStudentRes = await fetch(`${BASE}/api/teacher/mentees`, { headers: { Cookie: studentCookie } });
+  check("GET teacher/mentees: STUDENT rolü göremiyor (403)", menteesStudentRes.status === 403, menteesStudentRes.status);
+  const menteesRes = await fetch(`${BASE}/api/teacher/mentees`, { headers: { Cookie: teacherCookie } });
+  const menteesBody = await menteesRes.json();
+  check("GET teacher/mentees: 200 dönüyor", menteesRes.status === 200, menteesRes.status);
+  check(
+    "GET teacher/mentees: Elif Yılmaz mentilerim listesinde",
+    menteesBody.mentees?.some((s) => s.name === "Elif Yılmaz" && s.quotaLimit === 1),
+    JSON.stringify(menteesBody.mentees),
+  );
+
+  // ===== Tenant izolasyonu: Çankaya admin kendi (boş) özetini görüyor =====
+  const otherRosterRes = await fetch(`${BASE}/api/branch/mentor-roster`, { headers: { Cookie: otherBranchAdminCookie } });
+  const otherRosterBody = await otherRosterRes.json();
+  check(
+    "Tenant izolasyonu: Çankaya admin Mezitli'nin mentörünü GÖRMÜYOR",
+    otherRosterBody.summary?.mentorCount === 0,
+    otherRosterBody.summary?.mentorCount,
+  );
+
+  // ===== Otomatik atama (lazy, tekil öğrenci) =====
   const afterRes = await fetch(`${BASE}/api/students/${elif.id}/mentor`, { headers: { Cookie: studentCookie } });
   const afterBody = await afterRes.json();
   check("GET mentor: otomatik atandı", afterBody.mentor?.name === "Ayşe Demir", afterBody.mentor?.name);
@@ -151,16 +216,29 @@ async function main() {
   const activityBody = await activityRes.json();
   const actions = (activityBody.entries || []).map((e) => e.action);
   check("Aktivite Akışı: mentör havuzuna eklendi", actions.includes("Mentör havuzuna eklendi"));
+  check("Aktivite Akışı: mentörler otomatik atandı", actions.includes("Mentörler otomatik atandı"));
   check("Aktivite Akışı: randevu talep edildi", actions.includes("Mentör randevusu talep edildi"));
   check("Aktivite Akışı: randevu onaylandı", actions.includes("Mentör randevusu onaylandı"));
   check("Aktivite Akışı: randevu tamamlandı", actions.includes("Mentör randevusu tamamlandı"));
 
   // Temizlik
   await prisma.mentorRequest.deleteMany({ where: { studentId: elif.id } });
-  await prisma.studentProfile.update({ where: { id: elif.id }, data: { mentorTeacherId: null } });
+  await prisma.studentProfile.updateMany({ where: { tenantId: elif.tenantId }, data: { mentorTeacherId: null } });
   await prisma.teacherProfile.update({ where: { id: ayseTeacher.id }, data: { isMentor: false } });
   await prisma.auditLogEntry.deleteMany({
-    where: { action: { in: ["Mentör havuzuna eklendi", "Mentör havuzundan çıkarıldı", "Mentör randevusu talep edildi", "Mentör randevusu onaylandı", "Mentör randevusu tamamlandı", "Mentör randevusu reddedildi"] } },
+    where: {
+      action: {
+        in: [
+          "Mentör havuzuna eklendi",
+          "Mentör havuzundan çıkarıldı",
+          "Mentörler otomatik atandı",
+          "Mentör randevusu talep edildi",
+          "Mentör randevusu onaylandı",
+          "Mentör randevusu tamamlandı",
+          "Mentör randevusu reddedildi",
+        ],
+      },
+    },
   });
 
   console.log("\n=== ÖZET ===");

@@ -2,6 +2,51 @@ import { apiFetch } from "./client";
 
 export type MentorRequestStatus = "BEKLIYOR" | "ONAYLANDI" | "REDDEDILDI" | "TAMAMLANDI";
 
+export interface MentorRosterSummary {
+  mentorCount: number;
+  unassignedCount: number;
+  pendingRequestCount: number;
+}
+
+export interface MentorRosterMentorRow {
+  id: string;
+  name: string;
+  menteeCount: number;
+}
+
+export interface MentorRosterStudentRow {
+  id: string;
+  name: string;
+  gradeLevel: string;
+  classroomName: string | null;
+  mentorTeacherId: string | null;
+  mentorName: string | null;
+  quotaLimit: number;
+}
+
+export function fetchMentorRoster() {
+  return apiFetch<{ summary: MentorRosterSummary; mentors: MentorRosterMentorRow[]; students: MentorRosterStudentRow[] }>(
+    "/api/branch/mentor-roster",
+    { cache: "no-store" },
+  );
+}
+
+export function autoAssignMentors() {
+  return apiFetch<{ assignedCount: number }>("/api/branch/mentor-roster", { method: "POST" });
+}
+
+export interface TeacherMenteeRow {
+  id: string;
+  name: string;
+  gradeLevel: string;
+  classroomName: string | null;
+  quotaLimit: number;
+}
+
+export function fetchTeacherMentees() {
+  return apiFetch<{ mentees: TeacherMenteeRow[] }>("/api/teacher/mentees", { cache: "no-store" });
+}
+
 export interface StudentMentorInfo {
   mentor: { id: string; name: string; branch: string } | null;
   quota: { used: number; limit: number } | null;
@@ -68,6 +113,8 @@ export const mentorKeys = {
   studentMentor: (studentId: string) => ["mentor", "student", studentId] as const,
   studentRequests: (studentId: string) => ["mentor", "student-requests", studentId] as const,
   teacherRequests: () => ["mentor", "teacher-requests"] as const,
+  teacherMentees: () => ["mentor", "teacher-mentees"] as const,
   branchRequests: () => ["mentor", "branch-requests"] as const,
   branchTeachers: () => ["mentor", "branch-teachers"] as const,
+  branchRoster: () => ["mentor", "branch-roster"] as const,
 };
