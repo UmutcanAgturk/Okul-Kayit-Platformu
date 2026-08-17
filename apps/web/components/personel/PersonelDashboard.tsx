@@ -518,6 +518,7 @@ function TeacherDetailPanel({ teacher, onClose }: { teacher: TeacherFull; onClos
   const [title, setTitle] = useState(teacher.title ?? "");
   const [phone, setPhone] = useState(teacher.phone ?? "");
   const [isMentor, setIsMentor] = useState(teacher.isMentor);
+  const [salary, setSalary] = useState(teacher.salary ?? "");
   const [username, setUsername] = useState(teacher.email);
   const [error, setError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -536,6 +537,7 @@ function TeacherDetailPanel({ teacher, onClose }: { teacher: TeacherFull; onClos
         title: title.trim() || null,
         phone: phone.trim() || null,
         isMentor,
+        salary: salary === "" ? null : Number(salary),
       }),
     onSuccess: () => {
       invalidate();
@@ -608,6 +610,10 @@ function TeacherDetailPanel({ teacher, onClose }: { teacher: TeacherFull; onClos
           <label>Telefon</label>
           <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="05XX XXX XX XX" />
         </div>
+        <div className="field">
+          <label>Maaş (₺, opsiyonel)</label>
+          <input type="number" min="0" value={salary} onChange={(e) => setSalary(e.target.value)} placeholder="Örn. 32000" />
+        </div>
         <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "var(--text-xs)", color: "var(--ink-muted)", alignSelf: "end", paddingBottom: 8 }}>
           <input type="checkbox" checked={isMentor} onChange={(e) => setIsMentor(e.target.checked)} />
           Seviye Mentör havuzunda
@@ -673,6 +679,7 @@ function TeachersPanel() {
   const [title, setTitle] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [salary, setSalary] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [credentials, setCredentials] = useState<{ username: string; password: string } | null>(null);
   const [search, setSearch] = useState("");
@@ -689,6 +696,7 @@ function TeachersPanel() {
       setTitle("");
       setPhone("");
       setEmail("");
+      setSalary("");
       setFormError(null);
       setCredentials(data.credentials);
     },
@@ -707,6 +715,7 @@ function TeachersPanel() {
       title: title.trim() || undefined,
       phone: phone.trim() || undefined,
       email: email.trim() || undefined,
+      salary: salary.trim() ? Number(salary) : undefined,
     });
   }
 
@@ -775,6 +784,10 @@ function TeachersPanel() {
                   <label>E-posta (opsiyonel)</label>
                   <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="ad.soyad@sube.seviye360.com" />
                 </div>
+              </div>
+              <div className="field">
+                <label>Maaş (₺, opsiyonel)</label>
+                <input type="number" min="0" value={salary} onChange={(e) => setSalary(e.target.value)} placeholder="Örn. 32000" />
               </div>
 
               {formError && <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--critical)" }}>{formError}</p>}

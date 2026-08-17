@@ -93,7 +93,22 @@ export function PayrollPanel() {
           </div>
           <div className="field">
             <label>{personKind === "TEACHER" ? "Öğretmen" : "Personel"}</label>
-            <select value={personId} onChange={(e) => setPersonId(e.target.value)}>
+            <select
+              value={personId}
+              onChange={(e) => {
+                const id = e.target.value;
+                setPersonId(id);
+                // Kayıtlı bir maaş varsa brüt alanını otomatik doldur (task #98) —
+                // kullanıcı yine de dilerse elle değiştirebilir.
+                if (personKind === "TEACHER") {
+                  const t = teachers.find((x) => x.id === id);
+                  if (t?.salary) setGrossSalary(String(Number(t.salary)));
+                } else {
+                  const s = staff.find((x) => x.id === id);
+                  if (s) setGrossSalary(String(Number(s.salary)));
+                }
+              }}
+            >
               <option value="">— Seçin —</option>
               {personKind === "TEACHER"
                 ? teachers.map((t) => (
@@ -166,16 +181,17 @@ export function PayrollPanel() {
 }
 
 type SalaryRow =
-  | { kind: "TEACHER"; id: string; name: string; subtitle: string }
+  | { kind: "TEACHER"; id: string; name: string; subtitle: string; salary: number | null }
   | { kind: "STAFF"; id: string; name: string; subtitle: string; salary: number };
 
 /**
  * "Bu ayki durum, tek tıkla öde" akışı (bkz. demo renderMaasOdemeleriCard) —
- * Personel'in (StaffProfile.salary zaten kayıtlı) brüt maaşı otomatik
- * doldurulur; Öğretmen'in ise kayıtlı bir maaş alanı olmadığından (bkz.
- * TeacherProfile) brüt tutar satır içi girilir. Aynı Öde aksiyonu, mevcut
- * "Yeni Bordro Oluştur" formuyla birebir aynı POST /api/branch/payroll uç
- * noktasına gider — ledger'a gider yazma da dahil aynı sunucu mantığı işler.
+ * Personel'in (StaffProfile.salary) ve artık Öğretmen'in de (TeacherProfile.salary,
+ * bkz. task #98) kayıtlı brüt maaşı otomatik doldurulur; Personel bilgileri
+ * ekranından (TeacherDetailPanel) henüz maaş girilmemiş bir öğretmen için brüt
+ * tutar yine satır içi girilebilir. Aynı Öde aksiyonu, mevcut "Yeni Bordro
+ * Oluştur" formuyla birebir aynı POST /api/branch/payroll uç noktasına gider —
+ * ledger'a gider yazma da dahil aynı sunucu mantığı işler.
  */
 function SalaryPaymentsCard({
   teachers,
@@ -197,7 +213,9 @@ function SalaryPaymentsCard({
   const [payingId, setPayingId] = useState<string | null>(null);
 
   const rows: SalaryRow[] = [
-    ...teachers.map((t): SalaryRow => ({ kind: "TEACHER", id: t.id, name: t.name, subtitle: `Öğretmen · ${t.branch}` })),
+    ...teachers.map(
+      (t): SalaryRow => ({ kind: "TEACHER", id: t.id, name: t.name, subtitle: `Öğretmen · ${t.branch}`, salary: t.salary ? Number(t.salary) : null }),
+    ),
     ...staff.map((s): SalaryRow => ({ kind: "STAFF", id: s.id, name: s.name, subtitle: s.title, salary: Number(s.salary) })),
   ];
 
@@ -268,7 +286,8 @@ function SalaryPaymentsCard({
                     </tr>
                   );
                 }
-                const gross = row.kind === "STAFF" ? row.salary : Number(teacherAmounts[row.id] || 0);
+                const hasFixedSalary = row.kind === "STAFF" || row.salary !== null;
+                const gross = row.kind === "STAFF" ? row.salary : row.salary ?? Number(teacherAmounts[row.id] || 0);
                 const preview = gross > 0 ? computePayroll(gross) : null;
                 return (
                   <tr key={row.id} style={{ borderTop: "1px solid var(--border)" }}>
@@ -277,8 +296,8 @@ function SalaryPaymentsCard({
                       <div style={{ color: "var(--ink-faint)", fontSize: "var(--text-2xs)" }}>{row.subtitle}</div>
                     </td>
                     <td style={{ padding: "6px 8px" }}>
-                      {row.kind === "STAFF" ? (
-                        tl(row.salary)
+                      {hasFixedSalary ? (
+                        tl(gross)
                       ) : (
                         <input
                           type="number"

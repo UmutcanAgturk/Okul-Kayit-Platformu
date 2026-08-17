@@ -75,8 +75,11 @@ async function main() {
   const minimalListBody = await minimalList.json();
   check("GET teachers (minimal): 200 dönüyor", minimalList.status === 200, minimalList.status);
   check(
-    "GET teachers (minimal): yalnızca {id,name,branch,isMentor} alanları var (email/isActive YOK)",
-    minimalListBody.teachers?.length > 0 && !("email" in minimalListBody.teachers[0]) && !("isActive" in minimalListBody.teachers[0]),
+    "GET teachers (minimal): {id,name,branch,isMentor,salary} alanları var (email/isActive YOK)",
+    minimalListBody.teachers?.length > 0 &&
+      "salary" in minimalListBody.teachers[0] &&
+      !("email" in minimalListBody.teachers[0]) &&
+      !("isActive" in minimalListBody.teachers[0]),
     minimalListBody.teachers?.[0],
   );
 
@@ -102,7 +105,7 @@ async function main() {
   const createRes = await fetch(`${BASE}/api/branch/teachers`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
-    body: JSON.stringify({ fullName: "Test Kimya Öğretmeni", branch: "Kimya", title: "Zümre Başkanı", phone: "05557778899" }),
+    body: JSON.stringify({ fullName: "Test Kimya Öğretmeni", branch: "Kimya", title: "Zümre Başkanı", phone: "05557778899", salary: 32000 }),
   });
   const createBody = await createRes.json();
   const teacherId = createBody.teacher?.id;
@@ -112,6 +115,9 @@ async function main() {
   const dbTeacher = await prisma.teacherProfile.findUnique({ where: { id: teacherId }, include: { user: true } });
   check("DB: TeacherProfile doğru tenant'ta ve TEACHER rolünde oluşturuldu", dbTeacher?.user.tenantId === mezitli.id && dbTeacher?.user.role === "TEACHER");
   check("DB: branch/title doğru kaydedildi", dbTeacher?.branch === "Kimya" && dbTeacher?.title === "Zümre Başkanı");
+  // ===== task #98: Bordro'da öğretmen maaş alanı =====
+  check("DB: salary (task #98) doğru kaydedildi", Number(dbTeacher?.salary) === 32000, dbTeacher?.salary);
+  check("POST teachers: yanıtta salary alanı döndü", Number(createBody.teacher?.salary) === 32000, createBody.teacher?.salary);
 
   const newTeacherCookie = await loginAs(createBody.credentials.username, createBody.credentials.password);
   check("Yeni öğretmen döndürülen kullanıcı adı/şifresiyle GERÇEKTEN giriş yapabiliyor", !!newTeacherCookie);
@@ -173,6 +179,25 @@ async function main() {
     body: JSON.stringify({ phone: "05551112233" }),
   });
   check("PATCH profil: zaten kayıtlı telefonla çakışma 409 dönüyor", duplicatePhonePatch.status === 409, duplicatePhonePatch.status);
+
+  // ===== task #98: PATCH ile maaş güncelleme/temizleme =====
+  const salaryPatchRes = await fetch(`${BASE}/api/branch/teachers/${teacherId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({ salary: 38500 }),
+  });
+  const salaryPatchBody = await salaryPatchRes.json();
+  check("PATCH salary: 200 ve yeni tutar döndü", salaryPatchRes.status === 200 && Number(salaryPatchBody.teacher?.salary) === 38500, salaryPatchBody.teacher?.salary);
+  const dbAfterSalaryPatch = await prisma.teacherProfile.findUnique({ where: { id: teacherId } });
+  check("DB: salary gerçekten 38500 olarak güncellendi", Number(dbAfterSalaryPatch?.salary) === 38500, dbAfterSalaryPatch?.salary);
+
+  const salaryClearRes = await fetch(`${BASE}/api/branch/teachers/${teacherId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({ salary: 0 }),
+  });
+  const salaryClearBody = await salaryClearRes.json();
+  check("PATCH salary: 0/geçersiz değer null'a temizleniyor", salaryClearRes.status === 200 && salaryClearBody.teacher?.salary === null, salaryClearBody.teacher?.salary);
 
   // ===== 7) PATCH — kullanıcı adı (username) değişimi =====
   const newUsername = `test-ogretmen-${Date.now()}@seviye360.com`;

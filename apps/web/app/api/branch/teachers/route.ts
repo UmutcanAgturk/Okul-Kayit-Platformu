@@ -70,6 +70,7 @@ export async function GET(request: NextRequest) {
         branch: t.branch,
         title: t.title,
         isMentor: t.isMentor,
+        salary: t.salary,
       })),
     });
   }
@@ -80,6 +81,7 @@ export async function GET(request: NextRequest) {
       name: `${t.user.firstName} ${t.user.lastName}`,
       branch: t.branch,
       isMentor: t.isMentor,
+      salary: t.salary,
     })),
   });
 }
@@ -107,6 +109,7 @@ export async function POST(request: NextRequest) {
   if (customEmail && !customEmail.includes("@")) {
     return NextResponse.json({ message: "Geçerli bir e-posta girin" }, { status: 400 });
   }
+  const salary = typeof body.salary === "number" && body.salary > 0 ? body.salary : null;
 
   if (!fullName || !branch) {
     return NextResponse.json({ message: "fullName ve branch (branş/zümre) zorunludur" }, { status: 400 });
@@ -137,7 +140,7 @@ export async function POST(request: NextRequest) {
       });
 
       const teacher = await tx.teacherProfile.create({
-        data: { userId: user.id, branch, title },
+        data: { userId: user.id, branch, title, salary: salary ?? undefined },
         include: { user: true },
       });
 
@@ -165,6 +168,7 @@ export async function POST(request: NextRequest) {
         branch: outcome.teacher.branch,
         title: outcome.teacher.title,
         isMentor: outcome.teacher.isMentor,
+        salary: outcome.teacher.salary,
       },
       credentials: { username: outcome.email, password: outcome.tempPassword },
     },

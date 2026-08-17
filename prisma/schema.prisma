@@ -198,6 +198,14 @@ model TeacherProfile {
   branch String // örn. "Matematik", "Fizik" (zümre)
   title  String? // örn. "Zümre Başkanı"
 
+  // Bordro'nun (bkz. app/api/branch/payroll/route.ts) "Maaş Ödemeleri" tek-tık
+  // akışında StaffProfile.salary ile AYNI otomatik-doldurma deneyimi için —
+  // önceden TeacherProfile'da kayıtlı bir maaş alanı yoktu, brüt tutar her ay
+  // elle giriliyordu (bkz. demo'daki staff listesindeki salary alanı, tüm
+  // personel + öğretmenler tek listede). Nullable: mevcut öğretmenlerde henüz
+  // girilmemiş olabilir, bu durumda eski elle-giriş davranışı korunur.
+  salary Decimal? @db.Decimal(10, 2)
+
   // Seviye Mentör — bu öğretmenin mentör havuzunda olup olmadığı (bkz.
   // app/api/branch/teachers/[teacherId]/mentor). Demo'daki gibi ayrı bir
   // "Mentör Öğretmen" personel rolü değil, mevcut bir öğretmenin ek bir

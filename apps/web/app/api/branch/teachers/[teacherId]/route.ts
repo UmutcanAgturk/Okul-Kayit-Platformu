@@ -48,6 +48,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { teache
   const phone = typeof body.phone === "string" ? body.phone.trim() || null : undefined;
   const isActive = typeof body.isActive === "boolean" ? body.isActive : undefined;
   const isMentor = typeof body.isMentor === "boolean" ? body.isMentor : undefined;
+  const hasSalary = "salary" in body;
+  const salary = hasSalary ? (typeof body.salary === "number" && body.salary > 0 ? body.salary : null) : undefined;
   const hasUsername = "username" in body;
   const username = typeof body.username === "string" ? body.username.trim() : "";
   if (hasUsername && (!username || !username.includes("@"))) {
@@ -66,8 +68,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { teache
           data: { firstName, lastName, phone, isActive, ...(hasUsername ? { email: username } : {}) },
         });
       }
-      if (branch !== undefined || title !== undefined || isMentor !== undefined) {
-        await tx.teacherProfile.update({ where: { id: teacher.id }, data: { branch, title, isMentor } });
+      if (branch !== undefined || title !== undefined || isMentor !== undefined || hasSalary) {
+        await tx.teacherProfile.update({ where: { id: teacher.id }, data: { branch, title, isMentor, ...(hasSalary ? { salary } : {}) } });
       }
       if (hasUsername) {
         await logActivity(tx, {
@@ -106,6 +108,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { teache
       branch: outcome.teacher.branch,
       title: outcome.teacher.title,
       isMentor: outcome.teacher.isMentor,
+      salary: outcome.teacher.salary,
     },
   });
 }

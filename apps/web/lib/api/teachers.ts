@@ -4,6 +4,7 @@ export interface TeacherOption {
   id: string;
   name: string;
   branch: string;
+  salary: string | null;
 }
 
 export function fetchTeachers() {
@@ -27,13 +28,14 @@ export interface TeacherFull {
   branch: string;
   title: string | null;
   isMentor: boolean;
+  salary: string | null;
 }
 
 export function fetchTeachersFull() {
   return apiFetch<{ teachers: TeacherFull[] }>("/api/branch/teachers?full=true", { cache: "no-store" });
 }
 
-export function createTeacher(input: { fullName: string; branch: string; title?: string; phone?: string; email?: string }) {
+export function createTeacher(input: { fullName: string; branch: string; title?: string; phone?: string; email?: string; salary?: number }) {
   return apiFetch<{ teacher: TeacherFull; credentials: { username: string; password: string } }>("/api/branch/teachers", {
     method: "POST",
     body: JSON.stringify(input),
@@ -42,7 +44,16 @@ export function createTeacher(input: { fullName: string; branch: string; title?:
 
 export function updateTeacherProfile(
   teacherId: string,
-  input: Partial<{ firstName: string; lastName: string; branch: string; title: string | null; phone: string | null; isActive: boolean; isMentor: boolean }>,
+  input: Partial<{
+    firstName: string;
+    lastName: string;
+    branch: string;
+    title: string | null;
+    phone: string | null;
+    isActive: boolean;
+    isMentor: boolean;
+    salary: number | null;
+  }>,
 ) {
   return apiFetch<{ teacher: TeacherFull }>(`/api/branch/teachers/${teacherId}`, { method: "PATCH", body: JSON.stringify(input) });
 }
