@@ -46,7 +46,7 @@ export function CrmDashboard() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editDraft, setEditDraft] = useState({ candidateFullName: "", guardianFullName: "", guardianPhone: "", notes: "" });
+  const [editDraft, setEditDraft] = useState({ candidateFullName: "", school: "", guardianFullName: "", guardianPhone: "", guardianEmail: "", notes: "" });
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const createMutation = useMutation({
@@ -100,11 +100,21 @@ export function CrmDashboard() {
   function startEdit(lead: CrmLead) {
     setEditingId(lead.id);
     setDeletingId(null);
-    setEditDraft({ candidateFullName: lead.candidateFullName, guardianFullName: lead.guardianFullName, guardianPhone: lead.guardianPhone, notes: lead.notes ?? "" });
+    setEditDraft({
+      candidateFullName: lead.candidateFullName,
+      school: lead.school ?? "",
+      guardianFullName: lead.guardianFullName,
+      guardianPhone: lead.guardianPhone,
+      guardianEmail: lead.guardianEmail ?? "",
+      notes: lead.notes ?? "",
+    });
   }
 
   function saveEdit(id: string) {
-    updateMutation.mutate({ id, input: { ...editDraft, notes: editDraft.notes || null } });
+    updateMutation.mutate({
+      id,
+      input: { ...editDraft, school: editDraft.school || null, guardianEmail: editDraft.guardianEmail || null, notes: editDraft.notes || null },
+    });
   }
 
   function moveStage(lead: CrmLead, direction: 1 | -1) {
@@ -235,6 +245,11 @@ export function CrmDashboard() {
                         >
                           <input value={editDraft.candidateFullName} onChange={(e) => setEditDraft((d) => ({ ...d, candidateFullName: e.target.value }))} />
                           <input
+                            value={editDraft.school}
+                            onChange={(e) => setEditDraft((d) => ({ ...d, school: e.target.value }))}
+                            placeholder="Öğrencinin okuduğu okul"
+                          />
+                          <input
                             value={editDraft.guardianFullName}
                             onChange={(e) => setEditDraft((d) => ({ ...d, guardianFullName: e.target.value }))}
                             placeholder="Veli adı soyadı"
@@ -243,6 +258,12 @@ export function CrmDashboard() {
                             value={editDraft.guardianPhone}
                             onChange={(e) => setEditDraft((d) => ({ ...d, guardianPhone: e.target.value }))}
                             placeholder="Veli telefonu"
+                          />
+                          <input
+                            value={editDraft.guardianEmail}
+                            onChange={(e) => setEditDraft((d) => ({ ...d, guardianEmail: e.target.value }))}
+                            placeholder="Veli e-postası"
+                            type="email"
                           />
                           <textarea
                             value={editDraft.notes}

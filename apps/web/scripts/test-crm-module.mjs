@@ -99,6 +99,19 @@ async function main() {
   const patchBody = await patchRes.json();
   check("PATCH: 200 + telefon güncellendi", patchRes.status === 200 && patchBody.lead?.guardianPhone === "05559998877", patchBody.lead?.guardianPhone);
 
+  // ===== Düzenleme (PATCH): school + guardianEmail — edit formuna eklendi =====
+  const patchSchoolRes = await fetch(`${BASE}/api/branch/crm-leads/${leadId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({ school: "Yeni Ortaokul", guardianEmail: "yeni.veli@example.com" }),
+  });
+  const patchSchoolBody = await patchSchoolRes.json();
+  check(
+    "PATCH: 200 + school/guardianEmail güncellendi",
+    patchSchoolRes.status === 200 && patchSchoolBody.lead?.school === "Yeni Ortaokul" && patchSchoolBody.lead?.guardianEmail === "yeni.veli@example.com",
+    patchSchoolBody.lead,
+  );
+
   // ===== Aşama ilerletme: ARANDI → GORUSULDU → DENEME_SINAVINA_GIRDI =====
   const stage1Res = await fetch(`${BASE}/api/branch/crm-leads/${leadId}`, {
     method: "PATCH",
