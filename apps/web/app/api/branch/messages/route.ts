@@ -33,11 +33,16 @@ const MAX_ATTACHMENTS_PER_MESSAGE = 5;
  * ama ALL_TEACHERS/ALL_STAFF hedefleyemez (yalnızca BRANCH_ADMIN).
  */
 const ROLES_ALLOWED: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.TEACHER];
-type Audience = "ALL_STUDENTS" | "ALL_GUARDIANS" | "ALL_TEACHERS" | "ALL_STAFF";
-const AUDIENCE_VALUES: Audience[] = ["ALL_STUDENTS", "ALL_GUARDIANS", "ALL_TEACHERS", "ALL_STAFF"];
+type Audience = "ALL_STUDENTS" | "ALL_GUARDIANS" | "STUDENTS_AND_GUARDIANS" | "ALL_TEACHERS" | "ALL_STAFF";
+const AUDIENCE_VALUES: Audience[] = ["ALL_STUDENTS", "ALL_GUARDIANS", "STUDENTS_AND_GUARDIANS", "ALL_TEACHERS", "ALL_STAFF"];
 const AUDIENCE_LABEL: Record<Audience, string> = {
   ALL_STUDENTS: "Öğrenciler",
   ALL_GUARDIANS: "Veliler",
+  // demo'daki öğretmen "Kime" seçicisindeki "Öğrenci + Veli" seçeneğinin
+  // karşılığı (bkz. seviye360-app.html renderIletisimComposeTeacher /
+  // iletisimTeacherTarget "both") — öğrenci ve velisi TEK mesajla, aynı
+  // seçim/sınıf kapsamı üzerinden birlikte hedeflenir.
+  STUDENTS_AND_GUARDIANS: "Öğrenci + Veli",
   ALL_TEACHERS: "Öğretmenler",
   ALL_STAFF: "Personel",
 };
@@ -133,22 +138,34 @@ export async function POST(request: NextRequest) {
     let recipientUserIds: string[] = [];
     let audienceLabel = AUDIENCE_LABEL[audience];
 
-    if (audience === "ALL_STUDENTS" || audience === "ALL_GUARDIANS") {
+    if (audience === "ALL_STUDENTS" || audience === "ALL_GUARDIANS" || audience === "STUDENTS_AND_GUARDIANS") {
       const students = await tx.studentProfile.findMany({
         where: studentIds.length > 0 ? { id: { in: studentIds } } : classroomId ? { classroomId } : {},
         include: { guardians: { include: { parent: true } } },
       });
       if (studentIds.length > 0) {
-        audienceLabel = audience === "ALL_STUDENTS" ? `Seçili ${students.length} Öğrenci` : `Seçili ${students.length} Öğrencinin Velisi`;
+        audienceLabel =
+          audience === "ALL_STUDENTS"
+            ? `Seçili ${students.length} Öğrenci`
+            : audience === "ALL_GUARDIANS"
+              ? `Seçili ${students.length} Öğrencinin Velisi`
+              : `Seçili ${students.length} Öğrenci + Veli`;
       } else if (classroomId) {
         const classroom = await tx.classroom.findUnique({ where: { id: classroomId } });
         audienceLabel = `${classroom!.name} Sınıfı ${audienceLabel}`;
       }
       if (audience === "ALL_STUDENTS") {
         recipientUserIds = students.map((s) => s.userId);
+      } else if (audience === "ALL_GUARDIANS") {
+        const ids = new Set<string>();
+        for (const s of students) {
+          for (const g of s.guardians) ids.add(g.parent.userId);
+        }
+        recipientUserIds = Array.from(ids);
       } else {
         const ids = new Set<string>();
         for (const s of students) {
+          ids.add(s.userId);
           for (const g of s.guardians) ids.add(g.parent.userId);
         }
         recipientUserIds = Array.from(ids);

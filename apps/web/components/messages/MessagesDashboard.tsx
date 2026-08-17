@@ -218,7 +218,7 @@ function ComposeForm({
   const classroomsQuery = useQuery({ queryKey: messageKeys.classrooms(), queryFn: fetchClassroomsForMessaging });
   const templatesQuery = useQuery({ queryKey: messageKeys.templates(), queryFn: fetchTemplates });
   const templates = templatesQuery.data?.templates ?? [];
-  const classroomFilterable = audience === "ALL_STUDENTS" || audience === "ALL_GUARDIANS";
+  const classroomFilterable = audience === "ALL_STUDENTS" || audience === "ALL_GUARDIANS" || audience === "STUDENTS_AND_GUARDIANS";
 
   useEffect(() => {
     if (appliedTemplate) {
@@ -284,6 +284,7 @@ function ComposeForm({
           >
             <option value="ALL_GUARDIANS">Tüm Veliler</option>
             <option value="ALL_STUDENTS">Tüm Öğrenciler</option>
+            <option value="STUDENTS_AND_GUARDIANS">Öğrenci + Veli</option>
             {canTargetStaff && <option value="ALL_TEACHERS">Tüm Öğretmenler</option>}
             {canTargetStaff && <option value="ALL_STAFF">Tüm Personel</option>}
           </select>

@@ -1,6 +1,6 @@
 import { apiFetch } from "./client";
 
-export type MessageAudience = "ALL_STUDENTS" | "ALL_GUARDIANS" | "ALL_TEACHERS" | "ALL_STAFF";
+export type MessageAudience = "ALL_STUDENTS" | "ALL_GUARDIANS" | "STUDENTS_AND_GUARDIANS" | "ALL_TEACHERS" | "ALL_STAFF";
 
 export interface MessageAttachmentRow {
   id: string;

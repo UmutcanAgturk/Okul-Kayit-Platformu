@@ -292,6 +292,34 @@ async function main() {
   const dbRecipient = await prisma.messageRecipient.findFirst({ where: { messageId: studentIdSendBody.message.id } });
   check("DB: tek alıcı gerçekten Elif'in kendi User'ı", dbRecipient?.userId === elif.userId, dbRecipient?.userId);
 
+  // ===== task #108: TEACHER "Öğrenci + Veli" birlikte hedefleme =====
+  const bothSendRes = await fetch(`${BASE}/api/branch/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: teacherCookie },
+    body: JSON.stringify({
+      title: "Öğrenci+Veli Testi",
+      body: "Bu mesaj hem Elif'e hem velisine gitmeli.",
+      audience: "STUDENTS_AND_GUARDIANS",
+      studentIds: [elif.id],
+    }),
+  });
+  const bothSendBody = await bothSendRes.json();
+  check(
+    "POST audience=STUDENTS_AND_GUARDIANS: 201 ve recipientCount=2 (öğrenci + tek velisi)",
+    bothSendRes.status === 201 && bothSendBody.message?.recipientCount === 2,
+    bothSendBody.message,
+  );
+  check("audienceLabel 'Öğrenci + Veli' içeriyor", bothSendBody.message?.audienceLabel?.includes("Öğrenci + Veli"), bothSendBody.message?.audienceLabel);
+
+  const bothRecipients = await prisma.messageRecipient.findMany({ where: { messageId: bothSendBody.message.id } });
+  const bothRecipientIds = new Set(bothRecipients.map((r) => r.userId));
+  const elifGuardian = await prisma.studentGuardian.findFirst({ where: { studentId: elif.id }, include: { parent: true } });
+  check(
+    "DB: alıcılar arasında hem Elif'in kendi User'ı HEM de velisinin User'ı var",
+    bothRecipientIds.has(elif.userId) && bothRecipientIds.has(elifGuardian.parent.userId),
+    Array.from(bothRecipientIds),
+  );
+
   const badStudentIdRes = await fetch(`${BASE}/api/branch/messages`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
@@ -368,7 +396,7 @@ async function main() {
 
   // Temizlik
   const hqMessageIds = (hqSentListBody.messages ?? []).filter((m) => m.title === "Genel Merkez Duyurusu").map((m) => m.id);
-  const allTestMessageIds = [sentMessageId, otherSendBody.message.id, teacherSendBody.message.id, studentIdSendBody.message.id, ...hqMessageIds];
+  const allTestMessageIds = [sentMessageId, otherSendBody.message.id, teacherSendBody.message.id, studentIdSendBody.message.id, bothSendBody.message.id, ...hqMessageIds];
   await prisma.messageRecipient.deleteMany({ where: { messageId: { in: allTestMessageIds } } });
   await prisma.message.deleteMany({ where: { id: { in: allTestMessageIds } } });
   await prisma.auditLogEntry.deleteMany({ where: { action: { in: ["Mesaj gönderildi", "Mesaj geri çekildi", "Genel Merkez yayını alındı"] } } });
