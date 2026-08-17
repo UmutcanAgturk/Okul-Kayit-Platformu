@@ -20,6 +20,7 @@ import {
   ReceiptMethod,
   ReceiptType,
 } from "@/lib/api/documents";
+import { accountingKeys, fetchLedger } from "@/lib/api/accounting";
 import { ApiError } from "@/lib/api/client";
 import { Icon } from "@/components/ui/icons";
 import { PrintDocumentViewer } from "@/components/documents/PrintDocumentViewer";
@@ -275,6 +276,8 @@ function FaturaTab() {
 function DekontTab() {
   const queryClient = useQueryClient();
   const receiptsQuery = useQuery({ queryKey: documentKeys.receipts(), queryFn: fetchReceipts });
+  const ledgerQuery = useQuery({ queryKey: accountingKeys.ledger(), queryFn: () => fetchLedger() });
+  const recentLedger = (ledgerQuery.data?.entries ?? []).slice(0, 15);
 
   const [receiptDate, setReceiptDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [type, setType] = useState<ReceiptType>("TAHSILAT");
@@ -330,6 +333,29 @@ function DekontTab() {
           <h3>Yeni Dekont Oluştur</h3>
         </div>
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {recentLedger.length > 0 && (
+            <div className="field">
+              <label>Kayıt Defterinden Doldur (opsiyonel)</label>
+              <select
+                value=""
+                onChange={(e) => {
+                  const entry = recentLedger.find((x) => x.id === e.target.value);
+                  if (!entry) return;
+                  setType(entry.type === "GELIR" ? "TAHSILAT" : "ODEME");
+                  setReceiptDate(entry.entryDate.slice(0, 10));
+                  setAmount(entry.amount);
+                  setDescription(entry.category);
+                }}
+              >
+                <option value="">— Seçilmedi (manuel gir) —</option>
+                {recentLedger.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.category} · ₺{Number(e.amount).toLocaleString("tr-TR")} · {new Date(e.entryDate).toLocaleDateString("tr-TR")}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div className="field">
               <label>Tür</label>
