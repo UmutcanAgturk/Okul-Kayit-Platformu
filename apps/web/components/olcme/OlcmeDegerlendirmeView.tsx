@@ -169,6 +169,94 @@ function BranchComparisonCard() {
   );
 }
 
+/**
+ * Sınav Genel Durumu — Yapay Zeka Özeti (task #102) — demo'nun genel
+ * "Ölçme-Değerlendirme & Yapay Zeka" konumlandırmasının (bkz. demo'daki hub
+ * kart açıklaması) şube-geneli karşılığı; öğrenci bazlı "AI Profil Özeti"nin
+ * (bkz. StudentDetailDrawer.tsx, task #91) AYNI kural-tabanlı yaklaşımı —
+ * gerçek bir LLM çağrısı YOK, DurumTab'ın zaten çektiği veriden (sınav
+ * listesi/kazanım dağılımı/ders bazlı ustalık/madde analizi) birkaç Türkçe
+ * cümle üretilir. Yeni bir backend endpoint'i GEREKMEZ.
+ */
+function buildDurumAiSummary({
+  withResults,
+  withParticipation,
+  bySubject,
+  distribution,
+  questionStats,
+  selectedExamName,
+}: {
+  withResults: BranchExam[];
+  withParticipation: BranchExam[];
+  bySubject: { subject: string; avgMasteryPct: number }[];
+  distribution: { critical: number; weak: number; strong: number } | undefined;
+  questionStats: { questionNo: number; subject: string; wrongPct: number; achievementLabel: string }[];
+  selectedExamName?: string;
+}): string[] {
+  const lines: string[] = [];
+
+  if (withResults.length >= 2) {
+    const delta = Number((withResults[0].avgNet! - withResults[1].avgNet!).toFixed(1));
+    if (delta > 0) lines.push(`Son sınavda kapsam ortalama neti bir önceki sınava göre ${delta} puan arttı — olumlu bir ivme var.`);
+    else if (delta < 0) lines.push(`Son sınavda kapsam ortalama neti bir önceki sınava göre ${Math.abs(delta)} puan azaldı — yakından takip edilmeli.`);
+    else lines.push("Son iki sınavda kapsam ortalama neti aynı seviyede kaldı.");
+  } else if (withResults.length === 1) {
+    lines.push(`İlk sınav sonucu girildi — trend yorumu için en az bir sınav daha gerekiyor.`);
+  }
+
+  if (withParticipation.length >= 2) {
+    const deltaKatilim = withParticipation[0].participationPct! - withParticipation[1].participationPct!;
+    if (deltaKatilim <= -10) lines.push(`Katılım oranında son sınavda %${Math.abs(deltaKatilim)} düşüş var — devamsızlık nedenleri incelenmeli.`);
+    else if (deltaKatilim >= 10) lines.push(`Katılım oranı son sınavda %${deltaKatilim} yükseldi.`);
+  }
+
+  const total = distribution ? distribution.critical + distribution.weak + distribution.strong : 0;
+  if (total > 0 && distribution) {
+    const criticalPct = Math.round((distribution.critical / total) * 100);
+    const strongPct = Math.round((distribution.strong / total) * 100);
+    if (criticalPct >= 30) lines.push(`Kazanımların %${criticalPct}'i kritik seviyede — öncelikli tekrar planı önerilir.`);
+    else if (strongPct >= 60) lines.push(`Kazanımların %${strongPct}'i kazanılmış seviyede — genel görünüm olumlu.`);
+    else lines.push(`Kazanım dağılımı dengeli görünüyor (kritik %${criticalPct}, kazanılmış %${strongPct}).`);
+  }
+
+  if (bySubject.length > 0) {
+    const weakest = [...bySubject].sort((a, b) => a.avgMasteryPct - b.avgMasteryPct)[0];
+    if (weakest.avgMasteryPct < 60) {
+      lines.push(`En düşük başarı ${weakest.subject} dersinde görülüyor (%${weakest.avgMasteryPct} ustalık) — bu derse ağırlık verilmesi önerilir.`);
+    }
+  }
+
+  if (questionStats.length > 0) {
+    const worst = questionStats[0];
+    if (worst.wrongPct >= 40) {
+      const examRef = selectedExamName ? `"${selectedExamName}" sınavında` : "seçili sınavda";
+      lines.push(`${examRef} en çok yanlışlanan soru: Soru ${worst.questionNo} (${worst.subject}) — %${worst.wrongPct} yanlış oranıyla "${worst.achievementLabel}" kazanımında tekrar önerilir.`);
+    }
+  }
+
+  if (lines.length === 0) {
+    lines.push("Yorum üretmek için henüz yeterli sınav verisi yok — Sınav Uygulaması oluşturup Sonuç Girişi'nden veri girin.");
+  }
+
+  return lines;
+}
+
+function DurumAiSummaryCard(props: Parameters<typeof buildDurumAiSummary>[0]) {
+  const lines = buildDurumAiSummary(props);
+  return (
+    <div className="card card-pad" style={{ borderColor: "var(--brand)" }}>
+      <div className="card-head">
+        <h3>🧠 Yapay Zeka Özeti</h3>
+      </div>
+      <ul style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 6, fontSize: "var(--text-sm)", color: "var(--ink-muted)" }}>
+        {lines.map((line, i) => (
+          <li key={i}>{line}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function DurumTab({ isSuperadmin, bareSuperadmin }: { isSuperadmin: boolean; bareSuperadmin: boolean }) {
   const examsQuery = useQuery({ queryKey: examKeys.list(), queryFn: fetchBranchExams, enabled: !bareSuperadmin });
   const achievementQuery = useQuery({ queryKey: examKeys.achievementSummary(), queryFn: fetchAchievementSummary, enabled: !bareSuperadmin });
@@ -236,6 +324,15 @@ function DurumTab({ isSuperadmin, bareSuperadmin }: { isSuperadmin: boolean; bar
           <div style={{ fontSize: "var(--text-lg)", fontWeight: 700 }}>{lastExam?.resultCount ?? 0}</div>
         </div>
       </div>
+
+      <DurumAiSummaryCard
+        withResults={withResults}
+        withParticipation={withParticipation}
+        bySubject={bySubject}
+        distribution={achievementQuery.data?.distribution}
+        questionStats={questionStats}
+        selectedExamName={exams.find((e) => e.id === selectedExamId)?.name}
+      />
 
       <div className="grid cols-2">
         <div className="card card-pad">
