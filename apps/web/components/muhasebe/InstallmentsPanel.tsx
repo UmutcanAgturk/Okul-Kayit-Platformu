@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { accountingKeys, collectInstallment, fetchAging, fetchBranchCollectionRates, fetchInstallments } from "@/lib/api/accounting";
+import { ApiError } from "@/lib/api/client";
+import { accountingKeys, collectInstallment, createLedgerEntry, fetchAging, fetchBranchCollectionRates, fetchInstallments } from "@/lib/api/accounting";
 import { Icon } from "@/components/ui/icons";
 import { CompositionBar } from "@/components/ui/charts/CompositionBar";
 import { HBarChart } from "@/components/ui/charts/HBarChart";
@@ -22,6 +23,12 @@ const STATUS_LABEL: Record<string, string> = {
 
 export function InstallmentsPanel({ isSuperadmin = false }: { isSuperadmin?: boolean }) {
   const queryClient = useQueryClient();
+  const [search, setSearch] = useState("");
+  const [freeName, setFreeName] = useState("");
+  const [freeAmount, setFreeAmount] = useState("");
+  const [freeNote, setFreeNote] = useState("");
+  const [freeError, setFreeError] = useState<string | null>(null);
+  const [freeSuccess, setFreeSuccess] = useState<string | null>(null);
   const pendingQuery = useQuery({
     queryKey: accountingKeys.installments("PENDING"),
     queryFn: () => fetchInstallments("PENDING"),
@@ -46,8 +53,59 @@ export function InstallmentsPanel({ isSuperadmin = false }: { isSuperadmin?: boo
     },
   });
 
-  const installments = pendingQuery.data?.installments ?? [];
+  // task #95: öğrenci/veli adıyla arama — hem Bekleyen Taksitler hem Tüm
+  // Taksitler tablosunu filtreler (zaten çekilmiş listeler üzerinde,
+  // Roller Yönetimi/HQ Kurumlar'daki aynı istemci-tarafı arama deseni).
+  const searchLower = search.trim().toLocaleLowerCase("tr-TR");
+  const installments = (pendingQuery.data?.installments ?? []).filter((i) => !searchLower || i.studentName.toLocaleLowerCase("tr-TR").includes(searchLower));
+  // Özet kartlar/Ödeme Durumu Dağılımı HER ZAMAN tam veri setinden hesaplanır
+  // (arama yalnızca aşağıdaki listeleri filtreler, genel istatistikleri değil).
   const allInstallments = allQuery.data?.installments ?? [];
+  const filteredAllInstallments = allInstallments.filter((i) => !searchLower || i.studentName.toLocaleLowerCase("tr-TR").includes(searchLower));
+
+  // task #95: serbest tutarla tahsilat — belirli bir takside bağlı olmadan,
+  // öğrenci adı + serbest bir tutar girilerek doğrudan Muhasebe Kayıt
+  // Defteri'ne bir GELIR kaydı düşer (mevcut genel amaçlı
+  // POST /api/branch/accounting-ledger'ı yeniden kullanır — yeni bir rota/
+  // şema alanı GEREKMEZ, PaymentInstallment'ta "kısmi ödeme/kalan tutar"
+  // kavramı hiç yok, bu yüzden belirli bir taksitle eşleştirilmeye
+  // ÇALIŞILMAZ; öğrenci adı `note` alanına yazılır).
+  const freeCollectMutation = useMutation({
+    mutationFn: (input: { name: string; amount: number; note: string }) =>
+      createLedgerEntry({
+        type: "GELIR",
+        category: "Serbest Tahsilat",
+        amount: input.amount,
+        entryDate: new Date().toISOString().slice(0, 10),
+        note: input.note ? `${input.name} — ${input.note}` : input.name,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["accounting", "ledger"] });
+      setFreeSuccess("Tahsilat kaydedildi.");
+      setFreeError(null);
+      setFreeName("");
+      setFreeAmount("");
+      setFreeNote("");
+    },
+    onError: (err) => {
+      setFreeError(err instanceof ApiError ? err.message : "Tahsilat kaydedilemedi.");
+      setFreeSuccess(null);
+    },
+  });
+
+  function handleFreeCollect() {
+    setFreeSuccess(null);
+    if (!freeName.trim()) {
+      setFreeError("Öğrenci/veli adı zorunludur.");
+      return;
+    }
+    const amount = Number(freeAmount);
+    if (!amount || amount <= 0) {
+      setFreeError("Tutar 0'dan büyük olmalıdır.");
+      return;
+    }
+    freeCollectMutation.mutate({ name: freeName.trim(), amount, note: freeNote.trim() });
+  }
 
   const summary = useMemo(() => {
     const now = Date.now();
@@ -154,6 +212,44 @@ export function InstallmentsPanel({ isSuperadmin = false }: { isSuperadmin?: boo
       </div>
 
       <div className="grid cols-2">
+        <div className="card card-pad">
+          <div className="card-head">
+            <h3>Öğrenci/Veli Ara</h3>
+          </div>
+          <div className="field">
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="İsim ile ara… (Bekleyen Taksitler ve Tüm Taksitler'i filtreler)" />
+          </div>
+        </div>
+        <div className="card card-pad">
+          <div className="card-head">
+            <h3>Serbest Tutarla Tahsilat</h3>
+          </div>
+          <p style={{ margin: "0 0 8px", fontSize: "var(--text-2xs)", color: "var(--ink-faint)" }}>
+            Belirli bir taksitle eşleştirmeden, öğrenci/veli adına serbest bir tutar tahsil edip doğrudan Kayıt Defteri'ne işler.
+          </p>
+          <div className="grid cols-2" style={{ gap: 8 }}>
+            <div className="field">
+              <label>Öğrenci/Veli Adı</label>
+              <input value={freeName} onChange={(e) => setFreeName(e.target.value)} placeholder="Örn. Elif Yılmaz" />
+            </div>
+            <div className="field">
+              <label>Tutar (₺)</label>
+              <input type="number" min="0" value={freeAmount} onChange={(e) => setFreeAmount(e.target.value)} />
+            </div>
+          </div>
+          <div className="field" style={{ marginTop: 8 }}>
+            <label>Açıklama (opsiyonel)</label>
+            <input value={freeNote} onChange={(e) => setFreeNote(e.target.value)} placeholder="Örn. Kırtasiye ücreti" />
+          </div>
+          {freeError && <p style={{ margin: "8px 0 0", fontSize: "var(--text-xs)", color: "var(--critical)" }}>{freeError}</p>}
+          {freeSuccess && <p style={{ margin: "8px 0 0", fontSize: "var(--text-xs)", color: "var(--strong)" }}>{freeSuccess}</p>}
+          <button type="button" className="btn primary sm" style={{ marginTop: 10 }} disabled={freeCollectMutation.isPending} onClick={handleFreeCollect}>
+            {freeCollectMutation.isPending ? "Kaydediliyor…" : "Tahsilatı Kaydet"}
+          </button>
+        </div>
+      </div>
+
+      <div className="grid cols-2">
       <div className="card card-pad">
         <div className="card-head">
           <h3>Bekleyen Taksitler</h3>
@@ -232,16 +328,16 @@ export function InstallmentsPanel({ isSuperadmin = false }: { isSuperadmin?: boo
       <div className="card card-pad">
         <div className="card-head">
           <h3>Tüm Taksitler</h3>
-          <span className="hint">{allInstallments.length} kayıt</span>
+          <span className="hint">{filteredAllInstallments.length} / {allInstallments.length} kayıt</span>
         </div>
         {allQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
-        {!allQuery.isLoading && allInstallments.length === 0 && (
+        {!allQuery.isLoading && filteredAllInstallments.length === 0 && (
           <div className="empty-state">
             <Icon name="ledger" />
-            <p>Henüz taksit kaydı yok.</p>
+            <p>{search ? "Aramayla eşleşen taksit yok." : "Henüz taksit kaydı yok."}</p>
           </div>
         )}
-        {allInstallments.length > 0 && (
+        {filteredAllInstallments.length > 0 && (
           <div style={{ maxHeight: 480, overflow: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--text-sm)" }}>
               <thead>
@@ -255,7 +351,7 @@ export function InstallmentsPanel({ isSuperadmin = false }: { isSuperadmin?: boo
                 </tr>
               </thead>
               <tbody>
-                {allInstallments.map((i) => {
+                {filteredAllInstallments.map((i) => {
                   const isOverdue = i.status === "PENDING" && new Date(i.dueDate).getTime() < Date.now();
                   const displayStatus = isOverdue ? "OVERDUE" : i.status;
                   return (

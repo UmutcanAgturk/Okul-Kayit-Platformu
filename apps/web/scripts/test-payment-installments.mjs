@@ -179,6 +179,41 @@ async function main() {
     collectionRateBody.branches,
   );
 
+  // ===== 9: task #95 — Tahsilat Takibi'nde "Serbest Tutarla Tahsilat" =====
+  // Belirli bir taksitle eşleşmeyen serbest bir tahsilat, InstallmentsPanel'in
+  // yeniden kullandığı MEVCUT genel amaçlı POST /api/branch/accounting-ledger
+  // rotasından geçer — burada yalnızca bu akışın gerçekten Kayıt Defteri'nde
+  // (relatedInstallmentId OLMADAN) bir GELIR kaydı bıraktığı doğrulanır;
+  // rotanın kendisinin tüm yetki/doğrulama testleri zaten
+  // test-accounting-ledger.mjs'de var, burada tekrar edilmez.
+  const freeCollectRes = await fetch(`${BASE}/api/branch/accounting-ledger`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: adminCookie },
+    body: JSON.stringify({
+      type: "GELIR",
+      category: "Serbest Tahsilat",
+      amount: 750,
+      entryDate: new Date().toISOString().slice(0, 10),
+      note: "Test Serbest Tahsilat Öğrencisi — kırtasiye ücreti",
+    }),
+  });
+  const freeCollectBody = await freeCollectRes.json();
+  check("POST accounting-ledger (Serbest Tahsilat): 201", freeCollectRes.status === 201, freeCollectRes.status);
+  check(
+    "Serbest Tahsilat: relatedInstallmentId YOK (hiçbir taksitle eşleşmiyor)",
+    !freeCollectBody.entry?.relatedInstallmentId,
+    freeCollectBody.entry?.relatedInstallmentId,
+  );
+  check("Serbest Tahsilat: note öğrenci adını içeriyor", freeCollectBody.entry?.note?.includes("Test Serbest Tahsilat Öğrencisi"), freeCollectBody.entry?.note);
+
+  const dbFreeEntry = await prisma.accountingLedgerEntry.findUnique({ where: { id: freeCollectBody.entry?.id } });
+  check("DB: Serbest Tahsilat kaydı gerçekten oluştu (type GELIR, taksite bağlı değil)", dbFreeEntry?.type === "GELIR" && !dbFreeEntry?.relatedInstallmentId, dbFreeEntry);
+
+  // Temizlik — bu testin ürettiği tek kayıt.
+  if (freeCollectBody.entry?.id) {
+    await prisma.accountingLedgerEntry.delete({ where: { id: freeCollectBody.entry.id } }).catch(() => {});
+  }
+
   console.log("\n=== ÖZET ===");
   const fails = results.filter((r) => !r.ok);
   console.log(`Toplam: ${results.length} | Başarılı: ${results.length - fails.length} | Başarısız: ${fails.length}`);
