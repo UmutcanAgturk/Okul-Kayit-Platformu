@@ -19,6 +19,7 @@ import {
   fetchBranchPaymentReceipts,
   fetchPaymentMethods,
   reviewPaymentReceipt,
+  updatePaymentMethod,
   updatePaymentMethodCatalogEntry,
   type InstitutionPaymentMethodRow,
   type InstitutionPaymentMethodType,
@@ -440,6 +441,10 @@ export function PaymentMethodsDashboard() {
   const [type, setType] = useState<PaymentMethodRow["type"]>("KREDI_KARTI");
   const [maskedCardNumber, setMaskedCardNumber] = useState("");
   const [isDefault, setIsDefault] = useState(false);
+  const [editingMethodId, setEditingMethodId] = useState<string | null>(null);
+  const [editType, setEditType] = useState<PaymentMethodRow["type"]>("KREDI_KARTI");
+  const [editMaskedCardNumber, setEditMaskedCardNumber] = useState("");
+  const [editIsDefault, setEditIsDefault] = useState(false);
 
   const { data: me, isLoading, isError, error } = useQuery({
     queryKey: authKeys.me(),
@@ -472,6 +477,15 @@ export function PaymentMethodsDashboard() {
   const deleteMutation = useMutation({
     mutationFn: (methodId: string) => deletePaymentMethod(studentId, methodId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["payment-methods", studentId] }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (vars: { methodId: string; input: Parameters<typeof updatePaymentMethod>[2] }) =>
+      updatePaymentMethod(studentId, vars.methodId, vars.input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["payment-methods", studentId] });
+      setEditingMethodId(null);
+    },
   });
 
   if (isLoading) {
@@ -579,30 +593,87 @@ export function PaymentMethodsDashboard() {
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column" }}>
-                {methods.map((m) => (
-                  <div
-                    key={m.id}
-                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid var(--border)", padding: "9px 0" }}
-                  >
-                    <div>
-                      <div style={{ fontSize: "var(--text-base)", fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
-                        {PAYMENT_METHOD_TYPE_LABEL[m.type]}
-                        {m.isDefault && <span className="chip strong">Varsayılan</span>}
+                {methods.map((m) =>
+                  editingMethodId === m.id ? (
+                    <div key={m.id} style={{ borderBottom: "1px solid var(--border)", padding: "9px 0", display: "flex", flexDirection: "column", gap: 8 }}>
+                      <div className="field">
+                        <label>Tür</label>
+                        <select value={editType} onChange={(e) => setEditType(e.target.value as PaymentMethodRow["type"])}>
+                          {Object.entries(PAYMENT_METHOD_TYPE_LABEL).map(([value, label]) => (
+                            <option key={value} value={value}>
+                              {label}
+                            </option>
+                          ))}
+                        </select>
                       </div>
-                      {m.maskedCardNumber && (
-                        <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>{m.maskedCardNumber} · {m.provider}</div>
+                      {editType === "KREDI_KARTI" && (
+                        <div className="field">
+                          <label>Maskeli Kart No</label>
+                          <input type="text" placeholder="•••• •••• •••• 4831" value={editMaskedCardNumber} onChange={(e) => setEditMaskedCardNumber(e.target.value)} />
+                        </div>
                       )}
+                      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "var(--text-sm)", color: "var(--ink-muted)" }}>
+                        <input type="checkbox" checked={editIsDefault} onChange={(e) => setEditIsDefault(e.target.checked)} />
+                        Varsayılan ödeme yöntemi yap
+                      </label>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button
+                          type="button"
+                          className="btn primary xs"
+                          disabled={updateMutation.isPending}
+                          onClick={() =>
+                            updateMutation.mutate({
+                              methodId: m.id,
+                              input: { type: editType, maskedCardNumber: editType === "KREDI_KARTI" ? editMaskedCardNumber || null : null, isDefault: editIsDefault },
+                            })
+                          }
+                        >
+                          {updateMutation.isPending ? "Kaydediliyor…" : "Kaydet"}
+                        </button>
+                        <button type="button" className="btn xs" onClick={() => setEditingMethodId(null)}>
+                          Vazgeç
+                        </button>
+                      </div>
                     </div>
-                    <button
-                      type="button"
-                      className="btn danger xs"
-                      disabled={deleteMutation.isPending}
-                      onClick={() => deleteMutation.mutate(m.id)}
+                  ) : (
+                    <div
+                      key={m.id}
+                      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid var(--border)", padding: "9px 0" }}
                     >
-                      Sil
-                    </button>
-                  </div>
-                ))}
+                      <div>
+                        <div style={{ fontSize: "var(--text-base)", fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+                          {PAYMENT_METHOD_TYPE_LABEL[m.type]}
+                          {m.isDefault && <span className="chip strong">Varsayılan</span>}
+                        </div>
+                        {m.maskedCardNumber && (
+                          <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>{m.maskedCardNumber} · {m.provider}</div>
+                        )}
+                      </div>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button
+                          type="button"
+                          className="btn xs"
+                          onClick={() => {
+                            setEditingMethodId(m.id);
+                            setEditType(m.type);
+                            setEditMaskedCardNumber(m.maskedCardNumber ?? "");
+                            setEditIsDefault(m.isDefault);
+                          }}
+                        >
+                          Düzenle
+                        </button>
+                        <button
+                          type="button"
+                          className="btn danger xs"
+                          disabled={deleteMutation.isPending}
+                          onClick={() => deleteMutation.mutate(m.id)}
+                        >
+                          Sil
+                        </button>
+                      </div>
+                    </div>
+                  ),
+                )}
               </div>
             )}
           </div>

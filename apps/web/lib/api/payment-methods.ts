@@ -44,6 +44,17 @@ export function deletePaymentMethod(studentId: string, methodId: string) {
   return apiFetch<{ ok: true }>(`/api/branch/students/${studentId}/payment-methods/${methodId}`, { method: "DELETE" });
 }
 
+export function updatePaymentMethod(
+  studentId: string,
+  methodId: string,
+  input: Partial<{ type: PaymentMethodRow["type"]; provider: string; maskedCardNumber: string | null; isDefault: boolean }>,
+) {
+  return apiFetch<{ method: PaymentMethodRow }>(`/api/branch/students/${studentId}/payment-methods/${methodId}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
 export type InstitutionPaymentMethodType = "KREDI_KARTI" | "BANKA_HAVALESI" | "NAKIT" | "SENET";
 
 export interface InstitutionPaymentMethodRow {

@@ -105,6 +105,62 @@ async function main() {
   });
   check("POST: geçersiz tür 400", badTypeRes.status === 400, badTypeRes.status);
 
+  // ===== task #97: kayıtlı yöntem düzenleme (eskiden yalnızca silinebiliyordu) =====
+  const patchNoAuthRes = await fetch(`${base}/${bankMethod.id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ isDefault: true }),
+  });
+  check("PATCH: oturumsuz 401", patchNoAuthRes.status === 401, patchNoAuthRes.status);
+
+  const patchTeacherRes = await fetch(`${base}/${bankMethod.id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: teacherCookie },
+    body: JSON.stringify({ isDefault: true }),
+  });
+  check("PATCH: TEACHER düzenleyemez (403)", patchTeacherRes.status === 403, patchTeacherRes.status);
+
+  const patchTypeRes = await fetch(`${base}/${bankMethod.id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: branchCookie },
+    body: JSON.stringify({ type: "NAKIT" }),
+  });
+  const patchTypeBody = await patchTypeRes.json();
+  check("PATCH: tür güncellenebiliyor (BANKA_HAVALESI → NAKIT, 200)", patchTypeRes.status === 200 && patchTypeBody.method?.type === "NAKIT", patchTypeBody);
+  const dbAfterTypePatch = await prisma.paymentMethod.findUnique({ where: { id: bankMethod.id } });
+  check("DB: tür gerçekten NAKIT olarak güncellendi", dbAfterTypePatch?.type === "NAKIT", dbAfterTypePatch?.type);
+
+  const patchDefaultRes = await fetch(`${base}/${bankMethod.id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: branchCookie },
+    body: JSON.stringify({ isDefault: true }),
+  });
+  const patchDefaultBody = await patchDefaultRes.json();
+  check("PATCH: varsayılan yapılabiliyor (200)", patchDefaultRes.status === 200 && patchDefaultBody.method?.isDefault === true, patchDefaultBody);
+  const dbCardAfterOtherDefault = await prisma.paymentMethod.findUnique({ where: { id: cardMethod.id } });
+  check(
+    "PATCH: bir yöntem varsayılan yapılınca ÖNCEKİ varsayılan (cardMethod) otomatik false oldu",
+    dbCardAfterOtherDefault?.isDefault === false,
+    dbCardAfterOtherDefault?.isDefault,
+  );
+
+  const patchBadTypeRes = await fetch(`${base}/${bankMethod.id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: branchCookie },
+    body: JSON.stringify({ type: "BITCOIN" }),
+  });
+  check("PATCH: geçersiz tür 400", patchBadTypeRes.status === 400, patchBadTypeRes.status);
+
+  const patchNotFoundRes = await fetch(`${base}/does-not-exist`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: branchCookie },
+    body: JSON.stringify({ isDefault: true }),
+  });
+  check("PATCH: olmayan kayıt için 404", patchNotFoundRes.status === 404, patchNotFoundRes.status);
+
+  const editLog = await prisma.auditLogEntry.findFirst({ where: { tenantId: elif.tenantId, action: "Ödeme yöntemi düzenlendi" }, orderBy: { createdAt: "desc" } });
+  check("Aktivite Akışı: ödeme yöntemi düzenleme loglandı", !!editLog, editLog?.action);
+
   const deleteRes = await fetch(`${base}/${bankMethod.id}`, { method: "DELETE", headers: { Cookie: branchCookie } });
   check("DELETE: silme başarılı (200)", deleteRes.status === 200, deleteRes.status);
 
