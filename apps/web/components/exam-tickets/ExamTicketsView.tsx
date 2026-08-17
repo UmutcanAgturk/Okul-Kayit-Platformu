@@ -8,6 +8,8 @@ import { ApiError } from "@/lib/api/client";
 import { fetchExamTickets, type ExamTicketRow } from "@/lib/api/exam-tickets";
 import { Icon } from "@/components/ui/icons";
 import { QrCode } from "./QrCode";
+import { HqBranchSelector } from "@/components/hq/HqBranchSelector";
+import { useHqStudentRoster } from "@/lib/hq-student-roster";
 
 const ALLOWED_ROLES = ["STUDENT", "PARENT"];
 
@@ -44,8 +46,13 @@ export function ExamTicketsView() {
     }
   }, [isError, error, router]);
 
-  const students = me?.students ?? [];
+  const isHq = me?.role === "SUPERADMIN";
+  const hqRoster = useHqStudentRoster(isHq && !!me?.actingTenantId);
+  const students = isHq ? hqRoster : (me?.students ?? []);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  useEffect(() => {
+    if (isHq) setSelectedStudentId(null);
+  }, [isHq, me?.actingTenantId]);
   useEffect(() => {
     if (!selectedStudentId && students.length > 0) setSelectedStudentId(students[0].studentId);
   }, [students, selectedStudentId]);
@@ -62,7 +69,7 @@ export function ExamTicketsView() {
   if (!me || (isError && error instanceof ApiError && error.status === 401)) {
     return null;
   }
-  if (!ALLOWED_ROLES.includes(me.role)) {
+  if (!ALLOWED_ROLES.includes(me.role) && !isHq) {
     return (
       <div className="card card-pad">
         <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
@@ -78,6 +85,7 @@ export function ExamTicketsView() {
     <div className="screen">
       <h1>QR Sınav Belgesi</h1>
       <p className="lede">Girdiğiniz sınavlar için kimlik/salon belgesi — sınav girişinde gösterilir.</p>
+      <HqBranchSelector role={me.role} activeTenantId={me.actingTenantId} />
 
       {students.length > 1 && (
         <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>

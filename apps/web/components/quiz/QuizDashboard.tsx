@@ -7,6 +7,8 @@ import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { createQuizAttempt, fetchAchievements, fetchQuizAttempts, quizKeys } from "@/lib/api/quiz";
 import { Icon } from "@/components/ui/icons";
+import { HqBranchSelector } from "@/components/hq/HqBranchSelector";
+import { useHqStudentRoster } from "@/lib/hq-student-roster";
 
 const OPTIONS = ["A", "B", "C", "D", "E"];
 const QUESTION_COUNT = 5;
@@ -44,8 +46,13 @@ export function QuizDashboard() {
     }
   }, [isError, error, router]);
 
-  const students = me?.students ?? [];
+  const isHq = me?.role === "SUPERADMIN";
+  const hqRoster = useHqStudentRoster(isHq && !!me?.actingTenantId);
+  const students = isHq ? hqRoster : (me?.students ?? []);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  useEffect(() => {
+    if (isHq) setSelectedStudentId(null);
+  }, [isHq, me?.actingTenantId]);
   useEffect(() => {
     if (!selectedStudentId && students.length > 0) setSelectedStudentId(students[0].studentId);
   }, [students, selectedStudentId]);
@@ -107,7 +114,7 @@ export function QuizDashboard() {
   if (!me || (isError && error instanceof ApiError && error.status === 401)) {
     return null;
   }
-  if (me.role !== "STUDENT" && me.role !== "PARENT") {
+  if (me.role !== "STUDENT" && me.role !== "PARENT" && !isHq) {
     return (
       <div className="card card-pad">
         <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
@@ -137,6 +144,7 @@ export function QuizDashboard() {
       <p className="lede">
         {me.firstName} {me.lastName}
       </p>
+      <HqBranchSelector role={me.role} activeTenantId={me.actingTenantId} />
 
       {students.length > 1 && (
         <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>

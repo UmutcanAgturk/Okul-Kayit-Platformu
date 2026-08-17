@@ -16,6 +16,7 @@ export interface MyClassRow {
   students: MyClassStudentRow[];
 }
 
-export function fetchMyClasses() {
-  return apiFetch<{ classrooms: MyClassRow[] }>("/api/teacher/my-classes", { cache: "no-store" });
+export function fetchMyClasses(asTeacherId?: string | null) {
+  const qs = asTeacherId ? `?asTeacherId=${asTeacherId}` : "";
+  return apiFetch<{ classrooms: MyClassRow[] }>(`/api/teacher/my-classes${qs}`, { cache: "no-store" });
 }

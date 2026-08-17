@@ -87,11 +87,42 @@ export const MODULES_BY_ROLE: Record<UserRole, ModuleCard[]> = {
  * Olarak Yönet"e gitmeye gerek kalmaz. ROLLER/İLETİŞİM/ÖLÇME kartları HQ
  * varyantlarını kullanır (bkz. RolesDashboard/MessagesDashboard/
  * OlcmeDegerlendirmeView'daki bare-SUPERADMIN çapraz-şube özel davranışı).
+ *
+ * Ayrıca TEACHER/STUDENT/PARENT'e özgü "kendi verim" self-servis ekranları
+ * (Sınıflarım, Devamsızlığım, vb.) de dahildir — bunlar normalde tek bir
+ * öğretmen/öğrenci/veli kimliğine bağlıdır, bu yüzden HQ için ayrıca bir
+ * HqTeacherPicker/useHqStudentRoster ile "hangi öğretmen/öğrenci gibi
+ * görüntülensin" seçimi eklendi (bkz. components/hq/HqTeacherPicker.tsx,
+ * lib/hq-student-roster.ts). BASARI_CARD kasıtlı olarak DAHİL DEĞİLDİR:
+ * href'i LEADERBOARD_CARD ile aynıdır (/basari) ve GamificationDashboard
+ * SUPERADMIN'i zaten her zaman (branş bazlı) Lider Tablosu görünümüne
+ * yönlendiriyor — "kendi rozetlerim" görünümü HQ için anlamsız/yinelenen olurdu.
  */
+const SUPERADMIN_SELF_SERVICE_CARDS: ModuleCard[] = [
+  SINIFLARIM_CARD,
+  DEVAMSIZLIGIM_CARD,
+  DAVRANIS_NOTLARIM_CARD,
+  QUIZ_CARD,
+  ETUT_ONAYI_CARD,
+  ETUT_RANDEVU_CARD,
+  ROADMAP_CARD,
+  ODEME_ISLEMLERIM_CARD,
+  SINAV_BELGESI_CARD,
+  SINAV_SONUCLARIM_CARD,
+];
+
 export function modulesForActor(role: UserRole, _actingTenantId?: string | null): ModuleCard[] {
   if (role === "SUPERADMIN") {
     const seen = new Set<string>();
-    const all = [SUBE_HARITASI_CARD, KURUMLAR_CARD, ROLLER_HQ_CARD, ILETISIM_HQ_CARD, ...MODULES_BY_ROLE.BRANCH_ADMIN, PROFILIM_CARD];
+    const all = [
+      SUBE_HARITASI_CARD,
+      KURUMLAR_CARD,
+      ROLLER_HQ_CARD,
+      ILETISIM_HQ_CARD,
+      ...MODULES_BY_ROLE.BRANCH_ADMIN,
+      ...SUPERADMIN_SELF_SERVICE_CARDS,
+      PROFILIM_CARD,
+    ];
     return all.filter((card) => {
       if (seen.has(card.href)) return false;
       seen.add(card.href);

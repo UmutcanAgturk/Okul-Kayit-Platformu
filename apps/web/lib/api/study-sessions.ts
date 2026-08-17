@@ -44,12 +44,14 @@ export interface TeacherStudySessionRow {
   note: string | null;
 }
 
-export function fetchTeacherStudySessions() {
-  return apiFetch<{ sessions: TeacherStudySessionRow[] }>("/api/teacher/study-sessions", { cache: "no-store" });
+export function fetchTeacherStudySessions(asTeacherId?: string | null) {
+  const qs = asTeacherId ? `?asTeacherId=${asTeacherId}` : "";
+  return apiFetch<{ sessions: TeacherStudySessionRow[] }>(`/api/teacher/study-sessions${qs}`, { cache: "no-store" });
 }
 
-export function respondToStudySession(sessionId: string, decision: "APPROVE" | "REJECT" | "COMPLETE") {
-  return apiFetch<{ session: unknown }>(`/api/teacher/study-sessions/${sessionId}/respond`, {
+export function respondToStudySession(sessionId: string, decision: "APPROVE" | "REJECT" | "COMPLETE", asTeacherId?: string | null) {
+  const qs = asTeacherId ? `?asTeacherId=${asTeacherId}` : "";
+  return apiFetch<{ session: unknown }>(`/api/teacher/study-sessions/${sessionId}/respond${qs}`, {
     method: "POST",
     body: JSON.stringify({ decision }),
   });

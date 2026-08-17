@@ -2,19 +2,22 @@ import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { withTenantContext } from "@/lib/db-context";
 import { getSessionActor } from "@/lib/session";
+import { resolveTeacherProfile } from "@/lib/hq-teacher";
 
-// Oturumdaki öğretmenin kendi etüt seanslarını listeler.
+// Oturumdaki öğretmenin kendi etüt seanslarını listeler. Genel Merkez
+// ?asTeacherId= ile bir öğretmen seçip "gibi" görüntüleyebilir (bkz. lib/hq-teacher.ts).
 export async function GET(request: NextRequest) {
   const actor = await getSessionActor(request);
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (actor.role !== UserRole.TEACHER) {
+  if (actor.role !== UserRole.TEACHER && actor.role !== UserRole.SUPERADMIN) {
     return NextResponse.json({ message: "Yalnızca öğretmenler kendi etüt seanslarını listeleyebilir" }, { status: 403 });
   }
 
+  const asTeacherId = request.nextUrl.searchParams.get("asTeacherId");
   const sessions = await withTenantContext(actor, async (tx) => {
-    const teacherProfile = await tx.teacherProfile.findUnique({ where: { userId: actor.id } });
+    const teacherProfile = await resolveTeacherProfile(actor, tx, asTeacherId);
     if (!teacherProfile) return [];
     return tx.studySession.findMany({
       where: { teacherId: teacherProfile.id },

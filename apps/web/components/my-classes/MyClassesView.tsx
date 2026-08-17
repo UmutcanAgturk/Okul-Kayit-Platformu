@@ -8,6 +8,8 @@ import { ApiError } from "@/lib/api/client";
 import { fetchMyClasses } from "@/lib/api/my-classes";
 import { fetchBranchExams } from "@/lib/api/exams";
 import { Icon } from "@/components/ui/icons";
+import { HqBranchSelector } from "@/components/hq/HqBranchSelector";
+import { HqTeacherPicker } from "@/components/hq/HqTeacherPicker";
 
 /**
  * Sınıflarım — demo/seviye360-app.html'deki "teacher:myclass" ekranının
@@ -15,6 +17,7 @@ import { Icon } from "@/components/ui/icons";
  */
 export function MyClassesView() {
   const router = useRouter();
+  const [asTeacherId, setAsTeacherId] = useState<string | null>(null);
 
   const { data: me, isLoading, isError, error } = useQuery({
     queryKey: authKeys.me(),
@@ -28,7 +31,13 @@ export function MyClassesView() {
     }
   }, [isError, error, router]);
 
-  const classesQuery = useQuery({ queryKey: ["my-classes"], queryFn: fetchMyClasses, enabled: !!me });
+  const isHq = me?.role === "SUPERADMIN";
+  const effectiveTeacherId = isHq ? asTeacherId : null;
+  const classesQuery = useQuery({
+    queryKey: ["my-classes", effectiveTeacherId],
+    queryFn: () => fetchMyClasses(effectiveTeacherId),
+    enabled: !!me && (!isHq || !!effectiveTeacherId),
+  });
   const examsQuery = useQuery({ queryKey: ["branch-exams"], queryFn: fetchBranchExams, enabled: !!me });
 
   if (isLoading) {
@@ -37,7 +46,7 @@ export function MyClassesView() {
   if (!me || (isError && error instanceof ApiError && error.status === 401)) {
     return null;
   }
-  if (me.role !== "TEACHER") {
+  if (me.role !== "TEACHER" && me.role !== "SUPERADMIN") {
     return (
       <div className="card card-pad">
         <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
@@ -53,6 +62,8 @@ export function MyClassesView() {
     <div className="screen">
       <h1>Sınıflarım</h1>
       <p className="lede">Ders programınızda kayıtlı olduğunuz sınıfların öğrenci listesi.</p>
+      <HqBranchSelector role={me.role} activeTenantId={me.actingTenantId} />
+      {isHq && <HqTeacherPicker activeTenantId={me.actingTenantId} value={asTeacherId} onChange={(id) => setAsTeacherId(id)} />}
 
       {classesQuery.isLoading ? (
         <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>

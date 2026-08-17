@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
 import { withTenantContext } from "@/lib/db-context";
+import { resolveTeacherProfile } from "@/lib/hq-teacher";
 
 /**
  * Sınıflarım — demo/seviye360-app.html'deki "teacher:myclass" ekranının
@@ -10,19 +11,22 @@ import { withTenantContext } from "@/lib/db-context";
  * öğretmenin Ders Programı'ndaki (bkz. app/api/branch/timetable) kayıtlı
  * olduğu TÜM sınıflar kullanılır — bir öğretmen birden fazla sınıfa ders
  * verebileceğinden demo'daki tekil "teacherClassroomLabel()" yerine
- * sınıf bazında gruplanmış bir liste döner.
+ * sınıf bazında gruplanmış bir liste döner. Genel Merkez, HqTeacherPicker
+ * ile seçtiği bir öğretmen "gibi" ?asTeacherId= üzerinden görüntüleyebilir
+ * (bkz. lib/hq-teacher.ts).
  */
 export async function GET(request: NextRequest) {
   const actor = await getSessionActor(request);
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (actor.role !== UserRole.TEACHER) {
+  if (actor.role !== UserRole.TEACHER && actor.role !== UserRole.SUPERADMIN) {
     return NextResponse.json({ message: "Yalnızca öğretmenler kendi sınıflarını görüntüleyebilir" }, { status: 403 });
   }
 
+  const asTeacherId = request.nextUrl.searchParams.get("asTeacherId");
   const classrooms = await withTenantContext(actor, async (tx) => {
-    const teacherProfile = await tx.teacherProfile.findUnique({ where: { userId: actor.id } });
+    const teacherProfile = await resolveTeacherProfile(actor, tx, asTeacherId);
     if (!teacherProfile) return [];
 
     const slots = await tx.timetableSlot.findMany({

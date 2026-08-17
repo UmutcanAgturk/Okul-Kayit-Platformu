@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { StudySessionStatus, UserRole } from "@prisma/client";
 import { withTenantContext } from "@/lib/db-context";
 import { getSessionActor } from "@/lib/session";
+import { resolveTeacherProfile } from "@/lib/hq-teacher";
 
 /**
  * Bir öğretmenin, önerilen (AI_SUGGESTED) bir etüt seansını onaylamasını/
@@ -25,7 +26,7 @@ export async function POST(
   if (!actor) {
     return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
   }
-  if (actor.role !== UserRole.TEACHER) {
+  if (actor.role !== UserRole.TEACHER && actor.role !== UserRole.SUPERADMIN) {
     return NextResponse.json({ message: "Yalnızca öğretmenler etüt seansına yanıt verebilir" }, { status: 403 });
   }
 
@@ -35,6 +36,7 @@ export async function POST(
   if (!decision) {
     return NextResponse.json({ message: "decision \"APPROVE\", \"REJECT\" veya \"COMPLETE\" olmalıdır" }, { status: 400 });
   }
+  const asTeacherId = request.nextUrl.searchParams.get("asTeacherId");
 
   // COMPLETE, onaylanmış bir seansı tamamlandı olarak işaretler (demo'nun
   // "teacher:etut" ekranındaki tamamlama akışı) — APPROVE/REJECT'ten farklı
@@ -48,7 +50,7 @@ export async function POST(
         : StudySessionStatus.COMPLETED;
 
   const outcome = await withTenantContext(actor, async (tx) => {
-    const teacherProfile = await tx.teacherProfile.findUnique({ where: { userId: actor.id } });
+    const teacherProfile = await resolveTeacherProfile(actor, tx, asTeacherId);
     if (!teacherProfile) return { kind: "not_found" as const };
 
     const session = await tx.studySession.findFirst({

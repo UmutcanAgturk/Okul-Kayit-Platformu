@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { authKeys, fetchMe } from "@/lib/api/auth";
@@ -12,6 +12,8 @@ import {
   type StudySessionStatus,
 } from "@/lib/api/study-sessions";
 import { Icon } from "@/components/ui/icons";
+import { HqBranchSelector } from "@/components/hq/HqBranchSelector";
+import { HqTeacherPicker } from "@/components/hq/HqTeacherPicker";
 
 const STATUS_CHIP: Record<StudySessionStatus, string> = {
   AI_SUGGESTED: "weak",
@@ -29,6 +31,7 @@ const STATUS_CHIP: Record<StudySessionStatus, string> = {
 export function TeacherStudySessionsView() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const [asTeacherId, setAsTeacherId] = useState<string | null>(null);
 
   const { data: me, isLoading, isError, error } = useQuery({
     queryKey: authKeys.me(),
@@ -42,11 +45,17 @@ export function TeacherStudySessionsView() {
     }
   }, [isError, error, router]);
 
-  const sessionsQuery = useQuery({ queryKey: ["teacher-study-sessions"], queryFn: fetchTeacherStudySessions, enabled: !!me });
+  const isHq = me?.role === "SUPERADMIN";
+  const effectiveTeacherId = isHq ? asTeacherId : null;
+  const sessionsQuery = useQuery({
+    queryKey: ["teacher-study-sessions", effectiveTeacherId],
+    queryFn: () => fetchTeacherStudySessions(effectiveTeacherId),
+    enabled: !!me && (!isHq || !!effectiveTeacherId),
+  });
 
   const respondMutation = useMutation({
     mutationFn: ({ sessionId, decision }: { sessionId: string; decision: "APPROVE" | "REJECT" | "COMPLETE" }) =>
-      respondToStudySession(sessionId, decision),
+      respondToStudySession(sessionId, decision, effectiveTeacherId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["teacher-study-sessions"] }),
   });
 
@@ -56,7 +65,7 @@ export function TeacherStudySessionsView() {
   if (!me || (isError && error instanceof ApiError && error.status === 401)) {
     return null;
   }
-  if (me.role !== "TEACHER") {
+  if (me.role !== "TEACHER" && me.role !== "SUPERADMIN") {
     return (
       <div className="card card-pad">
         <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
@@ -75,6 +84,8 @@ export function TeacherStudySessionsView() {
     <div className="screen">
       <h1>Etüt Onayı</h1>
       <p className="lede">Yapay zekanın önerdiği etüt seanslarını onaylayın veya reddedin.</p>
+      <HqBranchSelector role={me.role} activeTenantId={me.actingTenantId} />
+      {isHq && <HqTeacherPicker activeTenantId={me.actingTenantId} value={asTeacherId} onChange={(id) => setAsTeacherId(id)} />}
 
       <div className="card card-pad" style={{ marginBottom: 14 }}>
         <div className="card-head">

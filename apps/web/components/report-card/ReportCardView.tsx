@@ -191,7 +191,7 @@ function StaffReportCardView({ me }: { me: MeResponse }) {
   const isTeacher = me.role === "TEACHER";
 
   const branchStudentsQuery = useQuery({ queryKey: ["branch-students"], queryFn: fetchBranchStudents, enabled: !isTeacher });
-  const myClassesQuery = useQuery({ queryKey: ["teacher-my-classes"], queryFn: fetchMyClasses, enabled: isTeacher });
+  const myClassesQuery = useQuery({ queryKey: ["teacher-my-classes"], queryFn: () => fetchMyClasses(), enabled: isTeacher });
   const reportCardQuery = useQuery({
     queryKey: reportCardKeys.byStudent(selectedStudentId ?? ""),
     queryFn: () => fetchReportCard(selectedStudentId!),

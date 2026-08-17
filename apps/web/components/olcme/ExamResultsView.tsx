@@ -10,6 +10,8 @@ import { Icon } from "@/components/ui/icons";
 import { HBarChart } from "@/components/ui/charts/HBarChart";
 import { LineChart } from "@/components/ui/charts/LineChart";
 import { CompositionBar } from "@/components/ui/charts/CompositionBar";
+import { HqBranchSelector } from "@/components/hq/HqBranchSelector";
+import { useHqStudentRoster } from "@/lib/hq-student-roster";
 
 const SELF_SERVICE_ROLES = ["STUDENT", "PARENT"];
 
@@ -109,8 +111,13 @@ export function ExamResultsView() {
     if (isError && error instanceof ApiError && error.status === 401) router.replace("/login");
   }, [isError, error, router]);
 
-  const students = me?.students ?? [];
+  const isHq = me?.role === "SUPERADMIN";
+  const hqRoster = useHqStudentRoster(isHq && !!me?.actingTenantId);
+  const students = isHq ? hqRoster : (me?.students ?? []);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  useEffect(() => {
+    if (isHq) setSelectedStudentId(null);
+  }, [isHq, me?.actingTenantId]);
   useEffect(() => {
     if (!selectedStudentId && students.length > 0) setSelectedStudentId(students[0].studentId);
   }, [students, selectedStudentId]);
@@ -118,7 +125,7 @@ export function ExamResultsView() {
   const resultsQuery = useQuery({
     queryKey: ["exam-results", selectedStudentId],
     queryFn: () => fetchStudentExamResults(selectedStudentId!),
-    enabled: !!selectedStudentId && !!me && SELF_SERVICE_ROLES.includes(me.role),
+    enabled: !!selectedStudentId && !!me && (SELF_SERVICE_ROLES.includes(me.role) || isHq),
   });
 
   const examHistory = resultsQuery.data?.examHistory ?? [];
@@ -137,7 +144,7 @@ export function ExamResultsView() {
   if (!me || (isError && error instanceof ApiError && error.status === 401)) {
     return null;
   }
-  if (!SELF_SERVICE_ROLES.includes(me.role)) {
+  if (!SELF_SERVICE_ROLES.includes(me.role) && !isHq) {
     return (
       <div className="card card-pad">
         <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
@@ -164,6 +171,7 @@ export function ExamResultsView() {
       <p className="lede">
         {me.firstName} {me.lastName}
       </p>
+      <HqBranchSelector role={me.role} activeTenantId={me.actingTenantId} />
 
       {students.length > 1 && (
         <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>

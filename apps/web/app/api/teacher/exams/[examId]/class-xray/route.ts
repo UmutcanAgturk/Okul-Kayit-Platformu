@@ -27,7 +27,7 @@ export async function GET(
   if (!actor) {
     return NextResponse.json({ message: "Oturum bulunamadı" }, { status: 401 });
   }
-  if (actor.role !== UserRole.TEACHER) {
+  if (actor.role !== UserRole.TEACHER && actor.role !== UserRole.SUPERADMIN) {
     return NextResponse.json({ message: "Bu kaynağa erişim yetkiniz yok" }, { status: 403 });
   }
 

@@ -7,6 +7,8 @@ import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { fetchRoadmap, roadmapKeys } from "@/lib/api/roadmap";
 import { LineChart } from "@/components/ui/charts/LineChart";
+import { HqBranchSelector } from "@/components/hq/HqBranchSelector";
+import { useHqStudentRoster } from "@/lib/hq-student-roster";
 
 const ALLOWED_ROLES = ["STUDENT", "PARENT"];
 
@@ -31,8 +33,13 @@ export function RoadmapView() {
     }
   }, [isError, error, router]);
 
-  const students = me?.students ?? [];
+  const isHq = me?.role === "SUPERADMIN";
+  const hqRoster = useHqStudentRoster(isHq && !!me?.actingTenantId);
+  const students = isHq ? hqRoster : (me?.students ?? []);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  useEffect(() => {
+    if (isHq) setSelectedStudentId(null);
+  }, [isHq, me?.actingTenantId]);
   useEffect(() => {
     if (!selectedStudentId && students.length > 0) setSelectedStudentId(students[0].studentId);
   }, [students, selectedStudentId]);
@@ -49,7 +56,7 @@ export function RoadmapView() {
   if (!me || (isError && error instanceof ApiError && error.status === 401)) {
     return null;
   }
-  if (!ALLOWED_ROLES.includes(me.role)) {
+  if (!ALLOWED_ROLES.includes(me.role) && !isHq) {
     return (
       <div className="card card-pad">
         <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
@@ -76,6 +83,7 @@ export function RoadmapView() {
       <p className="lede">
         {me.firstName} {me.lastName}
       </p>
+      <HqBranchSelector role={me.role} activeTenantId={me.actingTenantId} />
 
       {students.length > 1 && (
         <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>

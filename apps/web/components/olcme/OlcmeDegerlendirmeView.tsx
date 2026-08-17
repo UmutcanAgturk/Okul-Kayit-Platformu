@@ -1241,7 +1241,7 @@ function SonucTab({ isTeacher }: { isTeacher: boolean }) {
   // (bkz. app/api/branch/exams/[examId]/results POST'taki teacherOwnsClassroom
   // kontrolü) — bu yüzden sınıf listesi tüm şube yerine fetchMyClasses'tan gelir.
   const branchClassroomsQuery = useQuery({ queryKey: ["branch-classrooms"], queryFn: fetchBranchClassrooms, enabled: !isTeacher });
-  const myClassesQuery = useQuery({ queryKey: ["teacher-my-classes"], queryFn: fetchMyClasses, enabled: isTeacher });
+  const myClassesQuery = useQuery({ queryKey: ["teacher-my-classes"], queryFn: () => fetchMyClasses(), enabled: isTeacher });
 
   const [examId, setExamId] = useState("");
   const [classroomId, setClassroomId] = useState("");

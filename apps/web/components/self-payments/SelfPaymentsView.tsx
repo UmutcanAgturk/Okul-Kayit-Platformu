@@ -18,6 +18,8 @@ import {
   type InstitutionPaymentMethodRow,
 } from "@/lib/api/payment-methods";
 import { Icon } from "@/components/ui/icons";
+import { HqBranchSelector } from "@/components/hq/HqBranchSelector";
+import { useHqStudentRoster } from "@/lib/hq-student-roster";
 
 const ACCEPTED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf"];
 const MAX_FILE_SIZE = 2_500_000;
@@ -282,8 +284,13 @@ export function SelfPaymentsView() {
     }
   }, [isError, error, router]);
 
-  const students = me?.students ?? [];
+  const isHq = me?.role === "SUPERADMIN";
+  const hqRoster = useHqStudentRoster(isHq && !!me?.actingTenantId);
+  const students = isHq ? hqRoster : (me?.students ?? []);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  useEffect(() => {
+    if (isHq) setSelectedStudentId(null);
+  }, [isHq, me?.actingTenantId]);
   useEffect(() => {
     if (!selectedStudentId && students.length > 0) setSelectedStudentId(students[0].studentId);
   }, [students, selectedStudentId]);
@@ -326,7 +333,7 @@ export function SelfPaymentsView() {
   if (!me || (isError && error instanceof ApiError && error.status === 401)) {
     return null;
   }
-  if (me.role !== "PARENT") {
+  if (me.role !== "PARENT" && !isHq) {
     return (
       <div className="card card-pad">
         <p style={{ margin: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--critical)" }}>
@@ -351,6 +358,7 @@ export function SelfPaymentsView() {
     <div className="screen">
       <h1>Ödeme İşlemleri</h1>
       <p className="lede">Çocuğunuzun taksit durumu ve ödeme işlemleri.</p>
+      <HqBranchSelector role={me.role} activeTenantId={me.actingTenantId} />
 
       {students.length > 1 && (
         <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
