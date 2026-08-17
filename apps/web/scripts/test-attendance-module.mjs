@@ -136,6 +136,10 @@ async function main() {
   });
   check("POST attendance: öğretmen 200 alıyor", savePostRes.status === 200, savePostRes.status);
 
+  // ===== task #104 (3. denetim): Aktivite Akışı'na "Yoklama kaydedildi" yazılıyor mu =====
+  const attendanceLog = await prisma.auditLogEntry.findFirst({ where: { action: "Yoklama kaydedildi" }, orderBy: { createdAt: "desc" } });
+  check("Aktivite Akışı: yoklama kaydı loglandı", !!attendanceLog && attendanceLog.detail?.includes(date), attendanceLog?.detail);
+
   const dbRecord = await prisma.attendanceRecord.findUnique({
     where: { studentId_date: { studentId: elif.id, date: new Date(`${date}T00:00:00.000Z`) } },
   });
@@ -243,6 +247,7 @@ async function main() {
 
   // Temizlik
   await prisma.attendanceRecord.delete({ where: { studentId_date: { studentId: elif.id, date: new Date(`${date}T00:00:00.000Z`) } } });
+  await prisma.auditLogEntry.deleteMany({ where: { action: "Yoklama kaydedildi", detail: { contains: date } } });
 
   console.log("\n=== ÖZET ===");
   const fails = results.filter((r) => !r.ok);

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { AttendanceStatus, UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
 import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
+import { actorLabel, logActivity } from "@/lib/audit-log";
 
 /**
  * Devamsızlık/Yoklama — demo/seviye360-app.html'deki "teacher:attendance" /
@@ -126,6 +127,17 @@ export async function POST(request: NextRequest) {
         update: { status: r.status, note: r.note?.trim() || null, recordedByUserId: actor.id },
       });
     }
+
+    // 3. denetim bulgusu — demo'nun "Yoklama kaydedildi" olayının karşılığı
+    // Aktivite Akışı'nda hiç yoktu.
+    await logActivity(tx, {
+      tenantId: effectiveTenantId(actor),
+      actorUserId: actor.id,
+      actorLabel: actorLabel(actor),
+      action: "Yoklama kaydedildi",
+      detail: `${classroom.name} — ${date.toISOString().slice(0, 10)} — ${records.length} öğrenci`,
+    });
+
     return { kind: "saved" as const };
   });
 

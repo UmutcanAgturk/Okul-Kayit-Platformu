@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { PaymentStatus, UserRole } from "@prisma/client";
 import { withTenantContext } from "@/lib/db-context";
 import { getSessionActor } from "@/lib/session";
+import { actorLabel, logActivity } from "@/lib/audit-log";
 
 /**
  * Bir taksiti tahsil edilmiş olarak işaretler ve karşılığında bir Muhasebe
@@ -73,6 +74,17 @@ export async function POST(
         createdByUserId: actor.id,
         relatedInstallmentId: installment.id,
       },
+    });
+
+    // 3. denetim bulgusu — demo'nun "Taksit tahsil edildi" olayının karşılığı
+    // Aktivite Akışı'nda hiç yoktu (yalnızca AccountingLedgerEntry yazılıyordu).
+    const student = await tx.studentProfile.findUnique({ where: { id: installment.studentId }, include: { user: true } });
+    await logActivity(tx, {
+      tenantId: installment.tenantId,
+      actorUserId: actor.id,
+      actorLabel: actorLabel(actor),
+      action: "Taksit tahsil edildi",
+      detail: `${student?.user.firstName} ${student?.user.lastName} — ${installment.installmentNo}. taksit — ₺${installment.amount}`,
     });
 
     return { kind: "collected" as const, installment: updatedInstallment, ledgerEntry };

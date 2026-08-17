@@ -99,6 +99,10 @@ async function main() {
   check("POST collect: ledger doğru taksite bağlı (relatedInstallmentId)", collectBody.ledgerEntry?.relatedInstallmentId === nextPending.id);
   check("POST collect: ledger girişi oturumdaki kullanıcıya (createdByUserId) atfediliyor", collectBody.ledgerEntry?.createdByUserId, collectBody.ledgerEntry?.createdByUserId);
 
+  // ===== task #104 (3. denetim): Aktivite Akışı'na "Taksit tahsil edildi" yazılıyor mu =====
+  const collectLog = await prisma.auditLogEntry.findFirst({ where: { action: "Taksit tahsil edildi" }, orderBy: { createdAt: "desc" } });
+  check("Aktivite Akışı: taksit tahsilatı loglandı", !!collectLog && collectLog.detail?.includes(String(nextPending.installmentNo)), collectLog?.detail);
+
   const dbInstallment = await prisma.paymentInstallment.findUnique({ where: { id: nextPending.id } });
   const dbLedger = await prisma.accountingLedgerEntry.findFirst({ where: { relatedInstallmentId: nextPending.id } });
   check("DB: taksit gerçekten PAID olarak kaydedilmiş", dbInstallment?.status === "PAID");
@@ -212,6 +216,20 @@ async function main() {
   // Temizlik — bu testin ürettiği tek kayıt.
   if (freeCollectBody.entry?.id) {
     await prisma.accountingLedgerEntry.delete({ where: { id: freeCollectBody.entry.id } }).catch(() => {});
+  }
+
+  // Temizlik — 3) Tahsilat adımı GERÇEK seed verisindeki bir taksiti (nextPending)
+  // kalıcı olarak PAID yapıyordu ve önceden hiç geri alınmıyordu (standing veri
+  // bütünlüğü kontrolüyle elle düzeltiliyordu) — artık test kendi kendine temizliyor.
+  if (dbLedger?.id) {
+    await prisma.accountingLedgerEntry.delete({ where: { id: dbLedger.id } }).catch(() => {});
+  }
+  await prisma.paymentInstallment.update({
+    where: { id: nextPending.id },
+    data: { status: "PENDING", paidAt: null, providerTransactionId: null },
+  });
+  if (collectLog?.id) {
+    await prisma.auditLogEntry.delete({ where: { id: collectLog.id } }).catch(() => {});
   }
 
   console.log("\n=== ÖZET ===");
