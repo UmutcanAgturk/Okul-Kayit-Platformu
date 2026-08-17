@@ -332,6 +332,12 @@ model StudentProfile {
   birthDate  DateTime?
   gender     String? // demo ile birebir: "Kadın" | "Erkek"
 
+  // Öğrenci Fotoğrafı (task #113) — demo'daki nk-photo/s.photo alanının
+  // karşılığı: Normal Kayıt formunda opsiyonel olarak yüklenir, MessageAttachment.dataUrl
+  // ile AYNI desen (data: URI, boyut sınırı uygulama katmanında — bkz. complete
+  // route'undaki MAX_DATA_URL_LENGTH). Ayrı bir dosya depolama servisi YOK.
+  photoDataUrl String? @db.Text
+
   guardians          StudentGuardian[]
   examResults        ExamResult[]
   achievementRows    StudentAchievementResult[]

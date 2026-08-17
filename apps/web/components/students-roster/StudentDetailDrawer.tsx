@@ -182,11 +182,20 @@ export function StudentDetailDrawer({
         {student && (
           <>
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16 }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: "var(--text-lg)", fontWeight: 800 }}>{student.name}</h3>
-                <p style={{ margin: "2px 0 0", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>{student.studentNo}</p>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                {detail?.photoDataUrl && (
+                  <img
+                    src={detail.photoDataUrl}
+                    alt={student.name}
+                    style={{ width: 56, height: 56, borderRadius: "50%", objectFit: "cover", border: "1px solid var(--border-strong)", flexShrink: 0 }}
+                  />
+                )}
+                <div>
+                  <h3 style={{ margin: 0, fontSize: "var(--text-lg)", fontWeight: 800 }}>{student.name}</h3>
+                  <p style={{ margin: "2px 0 0", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>{student.studentNo}</p>
+                </div>
               </div>
-              <button type="button" onClick={onClose} aria-label="Kapat" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-faint)" }}>
+              <button type="button" onClick={onClose} aria-label="Kapat" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-faint)", flexShrink: 0 }}>
                 <Icon name="x" />
               </button>
             </div>

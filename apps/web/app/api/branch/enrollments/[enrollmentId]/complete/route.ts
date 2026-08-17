@@ -9,6 +9,9 @@ import { formatDocumentNo } from "@/lib/documents";
 
 const GENDER_OPTIONS = ["Kadın", "Erkek"];
 const PAYMENT_METHOD_OPTIONS = [...Object.values(PaymentMethodType), "SENET"] as const;
+// MessageAttachment/PaymentReceipt ile AYNI sınır (bkz. app/api/branch/messages,
+// app/api/students/[studentId]/payment-receipts route'larındaki MAX_DATA_URL_LENGTH).
+const MAX_PHOTO_DATA_URL_LENGTH = 3_500_000;
 
 /**
  * Bir kayıt adayını (ON_KAYIT ile ön kaydı alınmış ya da doğrudan NORMAL_KAYIT
@@ -45,6 +48,10 @@ const PAYMENT_METHOD_OPTIONS = [...Object.values(PaymentMethodType), "SENET"] as
  *     sınıflar yalnızca UI'da devre dışı bırakılır.
  *   - busRouteId: StudentProfile.busRouteId (Servis/Ulaşım Takibi).
  *   - contractAccepted: true ise Enrollment.contractSignedAt = şimdi.
+ *   - photoDataUrl (task #113): demo'daki nk-photo alanının karşılığı —
+ *     "data:image/" ile başlayan bir data URI olmalı, StudentProfile.photoDataUrl'a
+ *     yazılır; StudentDetailDrawer'da (bkz. app/api/branch/students/[studentId]/detail)
+ *     görüntülenir.
  *   - paymentMethodType: KREDI_KARTI/BANKA_HAVALESI/NAKIT ise tek bir
  *     PaymentMethod satırı (isDefault:true) oluşturulur; SENET ise demo'daki
  *     generateSenetsForStudent() ile birebir aynı şekilde HER taksit için bir
@@ -84,6 +91,15 @@ export async function POST(request: NextRequest, { params }: { params: { enrollm
   const phone = typeof body.phone === "string" && body.phone.trim() ? body.phone.trim() : null;
   if (phone && !/^\d{10,11}$/.test(phone.replace(/\D/g, ""))) {
     return NextResponse.json({ message: "phone 10-11 haneli olmalıdır" }, { status: 400 });
+  }
+  const photoDataUrl = typeof body.photoDataUrl === "string" && body.photoDataUrl.trim() ? body.photoDataUrl.trim() : null;
+  if (photoDataUrl) {
+    if (!photoDataUrl.startsWith("data:image/")) {
+      return NextResponse.json({ message: "photoDataUrl geçerli bir görsel data URI olmalıdır" }, { status: 400 });
+    }
+    if (photoDataUrl.length > MAX_PHOTO_DATA_URL_LENGTH) {
+      return NextResponse.json({ message: "Fotoğraf dosyası çok büyük (limit ~2,5MB)" }, { status: 400 });
+    }
   }
   const targetClassroomId = typeof body.targetClassroomId === "string" && body.targetClassroomId ? body.targetClassroomId : null;
   const contractAccepted = body.contractAccepted === true;
@@ -161,6 +177,7 @@ export async function POST(request: NextRequest, { params }: { params: { enrollm
         birthDate,
         gender,
         busRouteId,
+        photoDataUrl,
       },
     });
 

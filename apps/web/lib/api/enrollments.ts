@@ -115,11 +115,12 @@ export interface CompleteEnrollmentInput {
   targetClassroomId?: string;
   contractAccepted?: boolean;
   paymentMethodType?: PaymentMethodChoice;
+  photoDataUrl?: string;
 }
 
 export interface CompleteEnrollmentResult {
   enrollment: EnrollmentRow;
-  student: { id: string; studentNo: string; nationalId: string | null; birthDate: string | null; gender: string | null; busRouteId: string | null };
+  student: { id: string; studentNo: string; nationalId: string | null; birthDate: string | null; gender: string | null; busRouteId: string | null; photoDataUrl: string | null };
   installments: { id: string; installmentNo: number; amount: number; dueDate: string }[];
   promissoryNotes: { id: string; no: string; amount: number; dueDate: string }[];
   paymentMethod: { id: string; type: string } | null;

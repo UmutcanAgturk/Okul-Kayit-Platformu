@@ -99,6 +99,7 @@ export interface StudentDetail {
   nationalId: string | null;
   birthDate: string | null;
   gender: string | null;
+  photoDataUrl: string | null;
   targetGoal: string | null;
   email: string;
   phone: string | null;

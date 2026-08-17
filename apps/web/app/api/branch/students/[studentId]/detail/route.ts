@@ -79,6 +79,7 @@ export async function GET(request: NextRequest, { params }: { params: { studentI
       nationalId: student.nationalId,
       birthDate: student.birthDate?.toISOString() ?? null,
       gender: student.gender,
+      photoDataUrl: student.photoDataUrl,
       targetGoal: student.targetGoal,
       email: student.user.email,
       phone: student.user.phone,

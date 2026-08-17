@@ -24,6 +24,8 @@ import { EnrollmentContractPrintBody } from "@/components/documents/DocumentPrin
 
 const ALLOWED_ROLES = ["BRANCH_ADMIN", "GUIDANCE_COORDINATOR"];
 const LOCKED_STAGES = ["KAYIT_TAMAMLANDI", "IPTAL_EDILDI"];
+const ACCEPTED_PHOTO_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+const MAX_PHOTO_FILE_SIZE = 2_500_000;
 
 /**
  * Normal Kayıt (Tekli Dönüştürme) — demo/seviye360-app.html'deki
@@ -43,6 +45,8 @@ export function NormalKayitView() {
   const [installmentCount, setInstallmentCount] = useState("1");
   const [installmentAmount, setInstallmentAmount] = useState("");
   const [firstDueDate, setFirstDueDate] = useState("");
+  const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
   const [nationalId, setNationalId] = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [gender, setGender] = useState("");
@@ -78,6 +82,8 @@ export function NormalKayitView() {
       setCredentials(result.credentials);
       setLastCompleted(result);
       setFormError(null);
+      setPhotoDataUrl(null);
+      setPhotoError(null);
       setNationalId("");
       setBirthDate("");
       setGender("");
@@ -115,6 +121,28 @@ export function NormalKayitView() {
   const selected = allEnrollments.find((e) => e.id === selectedId) ?? pending[0] ?? null;
   const selectedIsCompleted = selected ? LOCKED_STAGES.includes(selected.stage) : false;
 
+  async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    setPhotoError(null);
+    if (!file) return;
+    if (!ACCEPTED_PHOTO_MIME_TYPES.includes(file.type)) {
+      setPhotoError("Yalnızca JPEG, PNG, WEBP veya GIF görsel yükleyebilirsiniz.");
+      return;
+    }
+    if (file.size > MAX_PHOTO_FILE_SIZE) {
+      setPhotoError("Fotoğraf dosyası çok büyük (limit ~2,5MB).");
+      return;
+    }
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error("Dosya okunamadı."));
+      reader.readAsDataURL(file);
+    });
+    setPhotoDataUrl(dataUrl);
+  }
+
   function submitComplete() {
     if (!selected) return;
     const count = Number(installmentCount);
@@ -146,6 +174,7 @@ export function NormalKayitView() {
         busRouteId: busRouteId || undefined,
         contractAccepted,
         paymentMethodType,
+        photoDataUrl: photoDataUrl || undefined,
       },
     });
   }
@@ -194,6 +223,8 @@ export function NormalKayitView() {
                     setSelectedId(e.id);
                     setCredentials(null);
                     setFormError(null);
+                    setPhotoDataUrl(null);
+                    setPhotoError(null);
                   }}
                   className={`nav-item ${selected?.id === e.id ? "active" : ""}`}
                   style={{ textAlign: "left" }}
@@ -227,6 +258,20 @@ export function NormalKayitView() {
                   </div>
                 ) : (
                   <>
+                    <div className="field">
+                      <label>Öğrenci Fotoğrafı (opsiyonel)</label>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        {photoDataUrl && (
+                          <img
+                            src={photoDataUrl}
+                            alt="Önizleme"
+                            style={{ width: 56, height: 56, borderRadius: "50%", objectFit: "cover", border: "1px solid var(--border-strong)", flexShrink: 0 }}
+                          />
+                        )}
+                        <input type="file" accept="image/*" onChange={handlePhotoChange} />
+                      </div>
+                      {photoError && <p style={{ margin: "4px 0 0", fontSize: "var(--text-2xs)", color: "var(--critical)" }}>{photoError}</p>}
+                    </div>
                     <div className="grid cols-2">
                       <div className="field">
                         <label>
