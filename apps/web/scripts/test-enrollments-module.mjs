@@ -303,6 +303,74 @@ async function main() {
 
   const thirdStudentId = thirdCompleteBody.student?.id;
 
+  // ===== complete: targetClassroomId + phone (task #86) =====
+  const mezitliClassroom = await prisma.classroom.findFirst({ where: { tenantId: mezitliTenant.id, gradeLevel: "SINIF_9" } });
+  const mismatchClassroom = await prisma.classroom.create({
+    data: { tenantId: mezitliTenant.id, name: `Test-Yanlis-Seviye-${Date.now()}`, gradeLevel: "SINIF_10", capacity: 30 },
+  });
+
+  const fourthName = `Test HedefSinif ${Date.now()}`;
+  const createFourthRes = await fetch(`${BASE}/api/branch/enrollments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({ type: "ON_KAYIT", candidateFullName: fourthName, candidateGradeLevel: "SINIF_9", guardianFullName: "Veli Dört", guardianPhone: "05554445566" }),
+  });
+  const createFourthBody = await createFourthRes.json();
+  const fourthId = createFourthBody.enrollment?.id;
+
+  const badClassroomRes = await fetch(`${BASE}/api/branch/enrollments/${fourthId}/complete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({ installmentCount: 1, installmentAmount: 1000, firstDueDate, targetClassroomId: "olmayan-id" }),
+  });
+  check("complete: geçersiz targetClassroomId 400 ile reddediliyor", badClassroomRes.status === 400, badClassroomRes.status);
+
+  const gradeMismatchRes = await fetch(`${BASE}/api/branch/enrollments/${fourthId}/complete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({ installmentCount: 1, installmentAmount: 1000, firstDueDate, targetClassroomId: mismatchClassroom.id }),
+  });
+  check("complete: seviyesi uyuşmayan sınıf 400 ile reddediliyor", gradeMismatchRes.status === 400, gradeMismatchRes.status);
+
+  const badPhoneRes = await fetch(`${BASE}/api/branch/enrollments/${fourthId}/complete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({ installmentCount: 1, installmentAmount: 1000, firstDueDate, phone: "123" }),
+  });
+  check("complete: geçersiz phone 400 ile reddediliyor", badPhoneRes.status === 400, badPhoneRes.status);
+
+  const fourthPhone = `0555${Date.now().toString().slice(-7)}`;
+  const fourthCompleteRes = await fetch(`${BASE}/api/branch/enrollments/${fourthId}/complete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({ installmentCount: 1, installmentAmount: 1000, firstDueDate, targetClassroomId: mezitliClassroom.id, phone: fourthPhone }),
+  });
+  const fourthCompleteBody = await fourthCompleteRes.json();
+  check("complete: geçerli hedef sınıf + telefonla 201", fourthCompleteRes.status === 201, fourthCompleteRes.status);
+
+  const fourthStudentId = fourthCompleteBody.student?.id;
+  const dbFourthStudent = await prisma.studentProfile.findUnique({ where: { id: fourthStudentId }, include: { user: true } });
+  check("DB: student.classroomId hedef sınıfa eşit", dbFourthStudent?.classroomId === mezitliClassroom.id, dbFourthStudent?.classroomId);
+  check("DB: student user.phone kaydedildi", dbFourthStudent?.user?.phone === fourthPhone, dbFourthStudent?.user?.phone);
+  const dbFourthEnrollment = await prisma.enrollment.findUnique({ where: { id: fourthId } });
+  check("DB: enrollment.targetClassroomId senkron güncellendi", dbFourthEnrollment?.targetClassroomId === mezitliClassroom.id, dbFourthEnrollment?.targetClassroomId);
+
+  // Aynı telefonla ikinci bir tamamlama denemesi (aynı tenant) 409 vermeli.
+  const fifthName = `Test Telefon Cakisma ${Date.now()}`;
+  const createFifthRes = await fetch(`${BASE}/api/branch/enrollments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({ type: "ON_KAYIT", candidateFullName: fifthName, candidateGradeLevel: "SINIF_9", guardianFullName: "Veli Beş", guardianPhone: "05556667788" }),
+  });
+  const createFifthBody = await createFifthRes.json();
+  const fifthId = createFifthBody.enrollment?.id;
+  const dupePhoneCompleteRes = await fetch(`${BASE}/api/branch/enrollments/${fifthId}/complete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: branchAdminCookie },
+    body: JSON.stringify({ installmentCount: 1, installmentAmount: 1000, firstDueDate, phone: fourthPhone }),
+  });
+  check("complete: aynı tenant içinde tekrar kullanılan phone 409 ile reddediliyor", dupePhoneCompleteRes.status === 409, dupePhoneCompleteRes.status);
+
   // ===== Aktivite Akışı =====
   const activityRes = await fetch(`${BASE}/api/branch/activity-log`, { headers: { Cookie: branchAdminCookie } });
   const activityBody = await activityRes.json();
@@ -329,8 +397,16 @@ async function main() {
       await prisma.user.deleteMany({ where: { email: thirdCompleteBody.credentials.username } });
     }
   }
+  if (fourthStudentId) {
+    await prisma.paymentInstallment.deleteMany({ where: { studentId: fourthStudentId } });
+    await prisma.studentProfile.delete({ where: { id: fourthStudentId } }).catch(() => {});
+    if (fourthCompleteBody.credentials?.username) {
+      await prisma.user.deleteMany({ where: { email: fourthCompleteBody.credentials.username } });
+    }
+  }
   await prisma.busRoute.delete({ where: { id: busRoute.id } }).catch(() => {});
-  await prisma.enrollment.deleteMany({ where: { id: { in: [enrollmentId, secondId, thirdId, programTypeEnrollmentId].filter(Boolean) } } });
+  await prisma.classroom.delete({ where: { id: mismatchClassroom.id } }).catch(() => {});
+  await prisma.enrollment.deleteMany({ where: { id: { in: [enrollmentId, secondId, thirdId, fourthId, fifthId, programTypeEnrollmentId].filter(Boolean) } } });
   await prisma.auditLogEntry.deleteMany({
     where: { action: { in: ["Kayıt adayı eklendi", "Kayıt adayı düzenlendi", "Kayıt tamamlandı", "Kayıt adayı iptal edildi"] } },
   });

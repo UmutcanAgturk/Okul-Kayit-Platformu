@@ -111,6 +111,8 @@ export interface CompleteEnrollmentInput {
   birthDate?: string;
   gender?: string;
   busRouteId?: string;
+  phone?: string;
+  targetClassroomId?: string;
   contractAccepted?: boolean;
   paymentMethodType?: PaymentMethodChoice;
 }

@@ -16,6 +16,7 @@ import {
   type PaymentMethodChoice,
 } from "@/lib/api/enrollments";
 import { fetchBusRoutes } from "@/lib/api/bus-routes";
+import { fetchBranchClassrooms } from "@/lib/api/students-roster";
 import { Icon } from "@/components/ui/icons";
 import { BulkImportPanel } from "./BulkImportPanel";
 import { PrintDocumentViewer } from "@/components/documents/PrintDocumentViewer";
@@ -45,6 +46,8 @@ export function NormalKayitView() {
   const [nationalId, setNationalId] = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [gender, setGender] = useState("");
+  const [phone, setPhone] = useState("");
+  const [targetClassroomId, setTargetClassroomId] = useState("");
   const [busRouteId, setBusRouteId] = useState("");
   const [paymentMethodType, setPaymentMethodType] = useState<PaymentMethodChoice>("KREDI_KARTI");
   const [contractAccepted, setContractAccepted] = useState(false);
@@ -67,6 +70,7 @@ export function NormalKayitView() {
 
   const enrollmentsQuery = useQuery({ queryKey: enrollmentKeys.list(), queryFn: () => fetchEnrollments(), enabled: !!me });
   const busRoutesQuery = useQuery({ queryKey: ["bus-routes"], queryFn: fetchBusRoutes, enabled: !!me });
+  const classroomsQuery = useQuery({ queryKey: ["branch-classrooms"], queryFn: fetchBranchClassrooms, enabled: !!me });
 
   const completeMutation = useMutation({
     mutationFn: (vars: { id: string; input: Parameters<typeof completeEnrollment>[1] }) => completeEnrollment(vars.id, vars.input),
@@ -77,6 +81,8 @@ export function NormalKayitView() {
       setNationalId("");
       setBirthDate("");
       setGender("");
+      setPhone("");
+      setTargetClassroomId("");
       setBusRouteId("");
       setContractAccepted(false);
       queryClient.invalidateQueries({ queryKey: enrollmentKeys.list() });
@@ -135,6 +141,8 @@ export function NormalKayitView() {
         nationalId,
         birthDate: birthDate || undefined,
         gender: gender || undefined,
+        phone: phone || undefined,
+        targetClassroomId: targetClassroomId || undefined,
         busRouteId: busRouteId || undefined,
         contractAccepted,
         paymentMethodType,
@@ -253,6 +261,33 @@ export function NormalKayitView() {
                             </option>
                           ))}
                         </select>
+                      </div>
+                    </div>
+                    <div className="grid cols-2">
+                      <div className="field">
+                        <label>Telefon Numarası (opsiyonel)</label>
+                        <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="05xx xxx xx xx" />
+                      </div>
+                      <div className="field">
+                        <label>Hedef Sınıf (opsiyonel)</label>
+                        <select value={targetClassroomId} onChange={(e) => setTargetClassroomId(e.target.value)}>
+                          <option value="">— Atanmamış —</option>
+                          {(classroomsQuery.data?.classrooms ?? [])
+                            .filter((c) => c.gradeLevel === selected.candidateGradeLevel)
+                            .map((c) => {
+                              const full = c.studentCount >= c.capacity;
+                              return (
+                                <option key={c.id} value={c.id} disabled={full}>
+                                  {c.name} ({c.studentCount}/{c.capacity}){full ? " — Dolu" : ""}
+                                </option>
+                              );
+                            })}
+                        </select>
+                        {(classroomsQuery.data?.classrooms ?? []).filter((c) => c.gradeLevel === selected.candidateGradeLevel).length === 0 && (
+                          <p style={{ margin: "4px 0 0", fontSize: "var(--text-2xs)", color: "var(--ink-faint)" }}>
+                            Bu düzeyde şube yok — Sınıf Atama&apos;dan oluşturabilirsiniz.
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="grid cols-3">

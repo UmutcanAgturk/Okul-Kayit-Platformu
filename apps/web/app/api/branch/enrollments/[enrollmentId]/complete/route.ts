@@ -34,6 +34,15 @@ const PAYMENT_METHOD_OPTIONS = [...Object.values(PaymentMethodType), "SENET"] as
  * "Normal Kayıt" formu) — hepsi OPSİYONEL (geriye dönük uyumluluk için;
  * mevcut çağıranlar bunları göndermeden çalışmaya devam eder):
  *   - nationalId/birthDate/gender: StudentProfile'a doğrudan yazılır.
+ *   - phone: User.phone'a yazılır (velinin guardianPhone'undan AYRI —
+ *     öğrencinin kendi iletişim numarası; aynı tenant içinde tekil olmalıdır
+ *     — bkz. User @@unique([tenantId, phone]) — ihlalde 409).
+ *   - targetClassroomId: verilirse hem Enrollment.targetClassroomId hem
+ *     StudentProfile.classroomId güncellenir (seviye eşleşmesi doğrulanır);
+ *     verilmezse Ön Kayıt aşamasında zaten atanmış olan targetClassroomId
+ *     kullanılır. Kapasite dolulukta backend sert bir kısıt UYGULAMAZ —
+ *     Sınıf Atama modülündeki aynı yumuşak-kısıt deseniyle tutarlı, dolu
+ *     sınıflar yalnızca UI'da devre dışı bırakılır.
  *   - busRouteId: StudentProfile.busRouteId (Servis/Ulaşım Takibi).
  *   - contractAccepted: true ise Enrollment.contractSignedAt = şimdi.
  *   - paymentMethodType: KREDI_KARTI/BANKA_HAVALESI/NAKIT ise tek bir
@@ -72,6 +81,11 @@ export async function POST(request: NextRequest, { params }: { params: { enrollm
   const birthDate = typeof body.birthDate === "string" && body.birthDate.trim() && !isNaN(Date.parse(body.birthDate)) ? new Date(body.birthDate) : null;
   const gender = typeof body.gender === "string" && GENDER_OPTIONS.includes(body.gender) ? body.gender : null;
   const busRouteId = typeof body.busRouteId === "string" && body.busRouteId ? body.busRouteId : null;
+  const phone = typeof body.phone === "string" && body.phone.trim() ? body.phone.trim() : null;
+  if (phone && !/^\d{10,11}$/.test(phone.replace(/\D/g, ""))) {
+    return NextResponse.json({ message: "phone 10-11 haneli olmalıdır" }, { status: 400 });
+  }
+  const targetClassroomId = typeof body.targetClassroomId === "string" && body.targetClassroomId ? body.targetClassroomId : null;
   const contractAccepted = body.contractAccepted === true;
   const paymentMethodType =
     typeof body.paymentMethodType === "string" && (PAYMENT_METHOD_OPTIONS as readonly string[]).includes(body.paymentMethodType)
@@ -90,11 +104,25 @@ export async function POST(request: NextRequest, { params }: { params: { enrollm
     if (nationalId && (await tx.studentProfile.findUnique({ where: { nationalId } }))) {
       return { kind: "national_id_taken" as const };
     }
+    if (phone && (await tx.user.findUnique({ where: { tenantId_phone: { tenantId: effectiveTenantId(actor), phone } } }))) {
+      return { kind: "phone_taken" as const };
+    }
     if (busRouteId) {
       const route = await tx.busRoute.findUnique({ where: { id: busRouteId } });
       if (!route || route.tenantId !== effectiveTenantId(actor)) {
         return { kind: "bad_bus_route" as const };
       }
+    }
+    let resolvedClassroomId = enrollment.targetClassroomId;
+    if (targetClassroomId) {
+      const classroom = await tx.classroom.findUnique({ where: { id: targetClassroomId } });
+      if (!classroom || classroom.tenantId !== effectiveTenantId(actor)) {
+        return { kind: "bad_classroom" as const };
+      }
+      if (classroom.gradeLevel !== enrollment.candidateGradeLevel) {
+        return { kind: "classroom_grade_mismatch" as const };
+      }
+      resolvedClassroomId = targetClassroomId;
     }
 
     const tenant = await tx.tenant.findUniqueOrThrow({ where: { id: effectiveTenantId(actor) } });
@@ -120,14 +148,14 @@ export async function POST(request: NextRequest, { params }: { params: { enrollm
     const lastName = rest.join(" ") || firstName;
 
     const user = await tx.user.create({
-      data: { tenantId: effectiveTenantId(actor), email, passwordHash, role: "STUDENT", firstName, lastName },
+      data: { tenantId: effectiveTenantId(actor), email, passwordHash, role: "STUDENT", firstName, lastName, phone },
     });
     const student = await tx.studentProfile.create({
       data: {
         tenantId: effectiveTenantId(actor),
         userId: user.id,
         gradeLevel: enrollment.candidateGradeLevel,
-        classroomId: enrollment.targetClassroomId,
+        classroomId: resolvedClassroomId,
         studentNo,
         nationalId,
         birthDate,
@@ -155,7 +183,12 @@ export async function POST(request: NextRequest, { params }: { params: { enrollm
 
     const updatedEnrollment = await tx.enrollment.update({
       where: { id: enrollment.id },
-      data: { stage: "KAYIT_TAMAMLANDI", studentId: student.id, contractSignedAt: contractAccepted ? new Date() : null },
+      data: {
+        stage: "KAYIT_TAMAMLANDI",
+        studentId: student.id,
+        contractSignedAt: contractAccepted ? new Date() : null,
+        ...(targetClassroomId ? { targetClassroomId } : {}),
+      },
     });
 
     // Ödeme yöntemi: SENET seçilirse demo'daki generateSenetsForStudent() ile
@@ -218,8 +251,17 @@ export async function POST(request: NextRequest, { params }: { params: { enrollm
   if (outcome.kind === "national_id_taken") {
     return NextResponse.json({ message: "Bu T.C. Kimlik Numarası zaten kayıtlı" }, { status: 409 });
   }
+  if (outcome.kind === "phone_taken") {
+    return NextResponse.json({ message: "Bu telefon numarası zaten kayıtlı" }, { status: 409 });
+  }
   if (outcome.kind === "bad_bus_route") {
     return NextResponse.json({ message: "Geçersiz servis güzergahı" }, { status: 400 });
+  }
+  if (outcome.kind === "bad_classroom") {
+    return NextResponse.json({ message: "targetClassroomId bu şubede bulunamadı" }, { status: 400 });
+  }
+  if (outcome.kind === "classroom_grade_mismatch") {
+    return NextResponse.json({ message: "Seçilen sınıfın seviyesi adayın seviyesiyle uyuşmuyor" }, { status: 400 });
   }
 
   return NextResponse.json(
