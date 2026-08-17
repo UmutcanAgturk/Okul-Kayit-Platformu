@@ -248,6 +248,125 @@ async function main() {
   });
   check("Aktivite Akışı: kalıcı silme işlemi loglandı", !!deleteLog && deleteLog.detail?.includes("Test Silinecek"), deleteLog?.detail);
 
+  // ===== task #91: Öğrenci Hızlı Çekmece — zengin detay (GET .../detail) =====
+  const achievements = await prisma.curriculumNode.findMany({ where: { type: "ACHIEVEMENT" }, take: 3 });
+  const examOld = await prisma.exam.create({
+    data: { tenantId: elif.tenantId, name: "Test Eski Deneme", type: "DENEME", scope: "BRANCH", examDate: new Date("2026-01-10") },
+  });
+  const examNew = await prisma.exam.create({
+    data: { tenantId: elif.tenantId, name: "Test Yeni Deneme", type: "DENEME", scope: "BRANCH", examDate: new Date("2026-02-10") },
+  });
+  const detailEmail = `test-cekmece-${Date.now()}@ogrenci.seviye360.com`;
+  const detailUser = await prisma.user.create({
+    data: { tenantId: elif.tenantId, email: detailEmail, passwordHash: bcrypt.hashSync(SEED_DEV_PASSWORD, 10), role: "STUDENT", firstName: "Test", lastName: "Çekmece" },
+  });
+  const detailStudent = await prisma.studentProfile.create({
+    data: {
+      tenantId: elif.tenantId,
+      userId: detailUser.id,
+      gradeLevel: "SINIF_9",
+      studentNo: `TEST-DTL-${Date.now()}`,
+      nationalId: `${Date.now()}`.slice(-11).padStart(11, "9"),
+      birthDate: new Date("2011-03-20"),
+      gender: "Erkek",
+      targetGoal: "Mühendislik",
+    },
+  });
+  await prisma.paymentInstallment.create({
+    data: { tenantId: elif.tenantId, studentId: detailStudent.id, installmentNo: 1, amount: 1000, dueDate: new Date("2020-01-01"), status: "PENDING" },
+  });
+  await prisma.examResult.create({
+    data: { examId: examOld.id, tenantId: elif.tenantId, studentId: detailStudent.id, correctCount: 20, wrongCount: 15, emptyCount: 5, rawScore: 20, netScore: 16.25 },
+  });
+  const newResult = await prisma.examResult.create({
+    data: { examId: examNew.id, tenantId: elif.tenantId, studentId: detailStudent.id, correctCount: 30, wrongCount: 5, emptyCount: 5, rawScore: 30, netScore: 28.75 },
+  });
+  if (achievements.length >= 3) {
+    await prisma.studentAchievementResult.createMany({
+      data: [
+        { examResultId: newResult.id, studentId: detailStudent.id, achievementId: achievements[0].id, questionCount: 5, correctCount: 5, correctRatio: 0.9 },
+        { examResultId: newResult.id, studentId: detailStudent.id, achievementId: achievements[1].id, questionCount: 5, correctCount: 3, correctRatio: 0.6 },
+        { examResultId: newResult.id, studentId: detailStudent.id, achievementId: achievements[2].id, questionCount: 5, correctCount: 1, correctRatio: 0.2 },
+      ],
+    });
+  }
+
+  const detailRes = await fetch(`${BASE}/api/branch/students/${detailStudent.id}/detail`, { headers: { Cookie: branchCookie } });
+  const detailBody = await detailRes.json();
+  check("GET detail: 200", detailRes.status === 200, detailRes.status);
+  check("GET detail: nationalId doğru", detailBody.student?.nationalId === detailStudent.nationalId, detailBody.student?.nationalId);
+  check("GET detail: gender doğru", detailBody.student?.gender === "Erkek", detailBody.student?.gender);
+  check("GET detail: targetGoal doğru", detailBody.student?.targetGoal === "Mühendislik", detailBody.student?.targetGoal);
+  check("GET detail: email doğru", detailBody.student?.email === detailEmail, detailBody.student?.email);
+  check("GET detail: paymentStatus GECIKMIS (vadesi geçmiş bekleyen taksit)", detailBody.student?.paymentStatus === "GECIKMIS", detailBody.student?.paymentStatus);
+  check(
+    "GET detail: lastExamStats en son sınava (examNew) ait",
+    detailBody.student?.lastExamStats?.correct === 30 && detailBody.student?.lastExamStats?.wrong === 5 && detailBody.student?.lastExamStats?.netScore === 28.75,
+    detailBody.student?.lastExamStats,
+  );
+  check(
+    "GET detail: AI profil netTrend = yeni net - eski net (28.75 - 16.25 = 12.5)",
+    detailBody.student?.aiProfile?.netTrend === 12.5,
+    detailBody.student?.aiProfile?.netTrend,
+  );
+  if (achievements.length >= 3) {
+    check("GET detail: güçlü kazanım (ratio 0.9) doğru gruplanmış", detailBody.student?.achievementTags?.strong?.some((t) => t.code === achievements[0].code));
+    check("GET detail: geliştirilmeli kazanım (ratio 0.6) doğru gruplanmış", detailBody.student?.achievementTags?.weak?.some((t) => t.code === achievements[1].code));
+    check("GET detail: kritik kazanım (ratio 0.2) doğru gruplanmış", detailBody.student?.achievementTags?.critical?.some((t) => t.code === achievements[2].code));
+    check(
+      "GET detail: AI profil öncelikli kazanımlar strong'u İÇERMİYOR",
+      !detailBody.student?.aiProfile?.priorityAchievements?.some((t) => t.code === achievements[0].code),
+    );
+  }
+
+  const detailNoAuthRes = await fetch(`${BASE}/api/branch/students/${detailStudent.id}/detail`);
+  check("GET detail: oturumsuz 401", detailNoAuthRes.status === 401, detailNoAuthRes.status);
+
+  const detailTeacherRes = await fetch(`${BASE}/api/branch/students/${detailStudent.id}/detail`, { headers: { Cookie: teacherCookie } });
+  check("GET detail: TEACHER erişemez (403)", detailTeacherRes.status === 403, detailTeacherRes.status);
+
+  const detailCrossTenantRes = await fetch(`${BASE}/api/branch/students/${detailStudent.id}/detail`, { headers: { Cookie: cankayaCookie } });
+  check("GET detail: Çankaya admin Mezitli öğrencisini göremez (404, RLS)", detailCrossTenantRes.status === 404, detailCrossTenantRes.status);
+
+  // ===== task #91: öğrencinin kendi iletişim bilgisi/hedefi PATCH =====
+  const newOwnEmail = `test-cekmece-guncel-${Date.now()}@ogrenci.seviye360.com`;
+  const newOwnPhone = `0555${Date.now().toString().slice(-7)}`;
+  const ownPatchRes = await fetch(`${BASE}/api/branch/students/${detailStudent.id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: branchCookie },
+    body: JSON.stringify({ email: newOwnEmail, phone: newOwnPhone, targetGoal: "Tıp Fakültesi" }),
+  });
+  const ownPatchBody = await ownPatchRes.json();
+  check(
+    "PATCH: öğrencinin kendi e-posta/telefon/hedefi güncellenebiliyor (200)",
+    ownPatchRes.status === 200 && ownPatchBody.email === newOwnEmail && ownPatchBody.phone === newOwnPhone && ownPatchBody.targetGoal === "Tıp Fakültesi",
+    ownPatchBody,
+  );
+  const detailUserAfter = await prisma.user.findUnique({ where: { id: detailUser.id } });
+  check("DB: öğrencinin kendi User kaydı gerçekten güncellendi", detailUserAfter.email === newOwnEmail && detailUserAfter.phone === newOwnPhone, detailUserAfter);
+
+  const badEmailRes = await fetch(`${BASE}/api/branch/students/${detailStudent.id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: branchCookie },
+    body: JSON.stringify({ email: "gecersiz-eposta" }),
+  });
+  check("PATCH: geçersiz e-posta formatı reddediliyor (400)", badEmailRes.status === 400, badEmailRes.status);
+
+  const dupeEmailRes = await fetch(`${BASE}/api/branch/students/${detailStudent.id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Cookie: branchCookie },
+    body: JSON.stringify({ email: "elif.yilmaz@ogrenci.seviye360.com" }),
+  });
+  check("PATCH: zaten kullanılan e-posta reddediliyor (409)", dupeEmailRes.status === 409, dupeEmailRes.status);
+
+  // ===== Temizlik (task #91 fixture'ları) =====
+  await prisma.studentAchievementResult.deleteMany({ where: { studentId: detailStudent.id } });
+  await prisma.examResult.deleteMany({ where: { studentId: detailStudent.id } });
+  await prisma.paymentInstallment.deleteMany({ where: { studentId: detailStudent.id } });
+  await prisma.studentProfile.delete({ where: { id: detailStudent.id } }).catch(() => {});
+  await prisma.user.delete({ where: { id: detailUser.id } }).catch(() => {});
+  await prisma.exam.deleteMany({ where: { id: { in: [examOld.id, examNew.id] } } });
+
   console.log("\n=== ÖZET ===");
   const fails = results.filter((r) => !r.ok);
   console.log(`Toplam: ${results.length} | Başarılı: ${results.length - fails.length} | Başarısız: ${fails.length}`);

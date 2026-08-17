@@ -43,6 +43,17 @@ export async function PATCH(request: NextRequest, { params }: { params: { studen
     return NextResponse.json({ message: "Veli adı ve telefonu boş olamaz" }, { status: 400 });
   }
 
+  // task #91: öğrencinin KENDİ iletişim bilgisi + hedefi — demo'nun
+  // openStudentDetail() düzenleme formundaki sd-edit-phone/sd-edit-email/
+  // sd-edit-hedef alanlarının karşılığı (veli bilgisinden AYRI).
+  const studentPhone = typeof body.phone === "string" ? body.phone.trim() : undefined;
+  const studentEmail = typeof body.email === "string" ? body.email.trim() : undefined;
+  const hasTargetGoalChange = "targetGoal" in body;
+  const targetGoal = typeof body.targetGoal === "string" ? body.targetGoal.trim() || null : null;
+  if (studentEmail !== undefined && !studentEmail.includes("@")) {
+    return NextResponse.json({ message: "Geçerli bir e-posta girin" }, { status: 400 });
+  }
+
   let outcome;
   try {
     outcome = await withBranchTenantContext(actor, async (tx) => {
@@ -106,6 +117,38 @@ export async function PATCH(request: NextRequest, { params }: { params: { studen
         });
       }
 
+      let studentPhoneOut: string | null = student.user.phone;
+      let studentEmailOut: string = student.user.email;
+      const hasStudentContactChange = studentPhone !== undefined || studentEmail !== undefined;
+      if (hasStudentContactChange) {
+        if (studentPhone !== undefined) {
+          const phoneOwner = await tx.user.findFirst({ where: { phone: studentPhone, tenantId: effectiveTenantId(actor) } });
+          if (phoneOwner && phoneOwner.id !== student.userId) return { kind: "student_phone_taken" as const };
+        }
+        if (studentEmail !== undefined) {
+          const emailOwner = await tx.user.findUnique({ where: { email: studentEmail } });
+          if (emailOwner && emailOwner.id !== student.userId) return { kind: "student_email_taken" as const };
+        }
+        const updatedStudentUser = await tx.user.update({
+          where: { id: student.userId },
+          data: { ...(studentPhone !== undefined ? { phone: studentPhone } : {}), ...(studentEmail !== undefined ? { email: studentEmail } : {}) },
+        });
+        studentPhoneOut = updatedStudentUser.phone;
+        studentEmailOut = updatedStudentUser.email;
+      }
+      if (hasTargetGoalChange) {
+        await tx.studentProfile.update({ where: { id: student.id }, data: { targetGoal } });
+      }
+      if (hasStudentContactChange || hasTargetGoalChange) {
+        await logActivity(tx, {
+          tenantId: effectiveTenantId(actor),
+          actorUserId: actor.id,
+          actorLabel: actorLabel(actor),
+          action: "Öğrenci iletişim bilgisi/hedefi güncellendi",
+          detail: `${student.user.firstName} ${student.user.lastName}`,
+        });
+      }
+
       return {
         kind: "updated" as const,
         studentId: student.id,
@@ -113,6 +156,9 @@ export async function PATCH(request: NextRequest, { params }: { params: { studen
         classroomName: hasClassroomChange ? classroomName : undefined,
         guardianName,
         guardianPhone: guardianPhoneOut,
+        phone: studentPhoneOut,
+        email: studentEmailOut,
+        targetGoal: hasTargetGoalChange ? targetGoal : student.targetGoal,
       };
     });
   } catch (e) {
@@ -140,12 +186,21 @@ export async function PATCH(request: NextRequest, { params }: { params: { studen
   if (outcome.kind === "phone_taken") {
     return NextResponse.json({ message: "Bu telefon numarası başka bir kullanıcıda kayıtlı" }, { status: 409 });
   }
+  if (outcome.kind === "student_phone_taken") {
+    return NextResponse.json({ message: "Bu telefon numarası başka bir kullanıcıda kayıtlı" }, { status: 409 });
+  }
+  if (outcome.kind === "student_email_taken") {
+    return NextResponse.json({ message: "Bu e-posta başka bir kullanıcıda kayıtlı" }, { status: 409 });
+  }
   return NextResponse.json({
     studentId: outcome.studentId,
     classroomId: outcome.classroomId,
     classroomName: outcome.classroomName,
     guardianName: outcome.guardianName,
     guardianPhone: outcome.guardianPhone,
+    phone: outcome.phone,
+    email: outcome.email,
+    targetGoal: outcome.targetGoal,
   });
 }
 

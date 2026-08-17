@@ -71,6 +71,43 @@ export function updateStudentGuardianContact(studentId: string, input: { guardia
   );
 }
 
+// task #91 — öğrencinin kendi telefonu/e-postası/hedefi (veli bilgisinden AYRI).
+export function updateStudentOwnContact(studentId: string, input: Partial<{ phone: string; email: string; targetGoal: string | null }>) {
+  return apiFetch<{ studentId: string; phone: string | null; email: string; targetGoal: string | null }>(
+    `/api/branch/students/${studentId}`,
+    { method: "PATCH", body: JSON.stringify(input) },
+  );
+}
+
 export function deleteStudentPermanently(studentId: string) {
   return apiFetch<{ ok: true }>(`/api/branch/students/${studentId}?permanent=true`, { method: "DELETE" });
+}
+
+// task #91 — Öğrenci Hızlı Görüntüle/Düzenle Çekmecesi'nin zengin detay verisi
+// (kimlik, ödeme durumu, son sınav istatistiği, kazanım etiketleri, AI profil).
+export type PaymentStatusBadge = "TAKSIT_YOK" | "GECIKMIS" | "PLANLI" | "GUNCEL";
+
+export interface AchievementTag {
+  code: string;
+  label: string;
+  ratio: number;
+}
+
+export interface StudentDetail {
+  id: string;
+  studentNo: string;
+  nationalId: string | null;
+  birthDate: string | null;
+  gender: string | null;
+  targetGoal: string | null;
+  email: string;
+  phone: string | null;
+  paymentStatus: PaymentStatusBadge;
+  lastExamStats: { correct: number; wrong: number; empty: number; netScore: number; correctRatio: number | null } | null;
+  aiProfile: { netTrend: number | null; priorityAchievements: AchievementTag[] } | null;
+  achievementTags: { strong: AchievementTag[]; weak: AchievementTag[]; critical: AchievementTag[] };
+}
+
+export function fetchStudentDetail(studentId: string) {
+  return apiFetch<{ student: StudentDetail }>(`/api/branch/students/${studentId}/detail`, { cache: "no-store" });
 }
