@@ -16,7 +16,17 @@ import {
   StaffUserRole,
   updateStaffProfile,
 } from "@/lib/api/staff";
-import { fetchTeachers, teacherKeys } from "@/lib/api/teachers";
+import {
+  createTeacher,
+  deactivateTeacher,
+  fetchTeachers,
+  fetchTeachersFull,
+  permanentlyDeleteTeacher,
+  TeacherFull,
+  teacherKeys,
+  updateTeacherProfile,
+  updateTeacherUsername,
+} from "@/lib/api/teachers";
 import { Icon } from "@/components/ui/icons";
 
 const ALLOWED_ROLES = ["BRANCH_ADMIN", "ACCOUNTING"];
@@ -191,6 +201,7 @@ export function PersonelDashboard() {
   const staffQuery = useQuery({ queryKey: staffKeys.list(), queryFn: fetchStaff, enabled: !!me });
   const teachersQuery = useQuery({ queryKey: teacherKeys.list(), queryFn: fetchTeachers, enabled: !!me });
 
+  const [tab, setTab] = useState<"personel" | "ogretmenler">("personel");
   const [fullName, setFullName] = useState("");
   const [role, setRole] = useState<StaffUserRole>("ACCOUNTING");
   const [title, setTitle] = useState("");
@@ -263,6 +274,26 @@ export function PersonelDashboard() {
     );
   }
 
+  if (tab === "ogretmenler") {
+    return (
+      <div className="screen">
+        <h1>Personel</h1>
+        <p className="lede">
+          {me.firstName} {me.lastName} · {me.role === "BRANCH_ADMIN" ? "Şube Yöneticisi" : me.role === "SUPERADMIN" ? "Genel Merkez (Şube Yöneticisi yetkisiyle)" : "Muhasebe"}
+        </p>
+        <div style={{ display: "flex", gap: 6, marginBottom: 18 }}>
+          <button type="button" className="screen-tab" onClick={() => setTab("personel")}>
+            Personel
+          </button>
+          <button type="button" className="screen-tab active">
+            Öğretmenler
+          </button>
+        </div>
+        <TeachersPanel />
+      </div>
+    );
+  }
+
   const staff = staffQuery.data?.staff ?? [];
   const activeStaff = staff.filter((s) => s.isActive);
   const selectedStaff = staff.find((s) => s.id === selectedStaffId) ?? null;
@@ -279,6 +310,14 @@ export function PersonelDashboard() {
       <p className="lede">
         {me.firstName} {me.lastName} · {me.role === "BRANCH_ADMIN" ? "Şube Yöneticisi" : me.role === "SUPERADMIN" ? "Genel Merkez (Şube Yöneticisi yetkisiyle)" : "Muhasebe"}
       </p>
+      <div style={{ display: "flex", gap: 6, marginBottom: 18 }}>
+        <button type="button" className="screen-tab active">
+          Personel
+        </button>
+        <button type="button" className="screen-tab" onClick={() => setTab("ogretmenler")}>
+          Öğretmenler
+        </button>
+      </div>
 
       <div className="grid cols-4" style={{ marginBottom: 14 }}>
         <div className="card stat-card">
@@ -308,8 +347,8 @@ export function PersonelDashboard() {
               <h3>Yeni Personel Ekle</h3>
             </div>
             <p style={{ margin: "0 0 12px", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
-              Öğretmenler burada listelenmez — öğretmen kaydı için ayrı bir akış kullanılır (bkz. Bordro sekmesindeki
-              öğretmen seçici). Bu form yalnızca öğretmen dışı personeli (Şube Müdürü, Ön Büro, Muhasebe, Rehber
+              Öğretmenler burada listelenmez — öğretmen ekleme/düzenleme için yukarıdaki &quot;Öğretmenler&quot;
+              sekmesini kullanın. Bu form yalnızca öğretmen dışı personeli (Şube Müdürü, Ön Büro, Muhasebe, Rehber
               Öğretmen vb.) kapsar.
             </p>
             <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -460,6 +499,370 @@ export function PersonelDashboard() {
                       Devre Dışı Bırak
                     </button>
                   )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TeacherDetailPanel({ teacher, onClose }: { teacher: TeacherFull; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const [nameParts, ...restParts] = teacher.name.split(" ");
+  const [firstName, setFirstName] = useState(nameParts);
+  const [lastName, setLastName] = useState(restParts.join(" "));
+  const [branch, setBranch] = useState(teacher.branch);
+  const [title, setTitle] = useState(teacher.title ?? "");
+  const [phone, setPhone] = useState(teacher.phone ?? "");
+  const [isMentor, setIsMentor] = useState(teacher.isMentor);
+  const [username, setUsername] = useState(teacher.email);
+  const [error, setError] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+  function invalidate() {
+    queryClient.invalidateQueries({ queryKey: teacherKeys.full() });
+    queryClient.invalidateQueries({ queryKey: teacherKeys.list() });
+  }
+
+  const updateMutation = useMutation({
+    mutationFn: () =>
+      updateTeacherProfile(teacher.id, {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        branch: branch.trim(),
+        title: title.trim() || null,
+        phone: phone.trim() || null,
+        isMentor,
+      }),
+    onSuccess: () => {
+      invalidate();
+      setError(null);
+    },
+    onError: (e) => setError(e instanceof ApiError ? e.message : "Güncellenemedi."),
+  });
+
+  const usernameMutation = useMutation({
+    mutationFn: () => updateTeacherUsername(teacher.id, username.trim()),
+    onSuccess: () => {
+      invalidate();
+      setError(null);
+    },
+    onError: (e) => setError(e instanceof ApiError ? e.message : "Kullanıcı adı güncellenemedi."),
+  });
+
+  const reactivateMutation = useMutation({
+    mutationFn: () => updateTeacherProfile(teacher.id, { isActive: true }),
+    onSuccess: invalidate,
+  });
+
+  const deactivateMutation = useMutation({
+    mutationFn: () => deactivateTeacher(teacher.id),
+    onSuccess: () => {
+      invalidate();
+      onClose();
+    },
+  });
+
+  const permanentDeleteMutation = useMutation({
+    mutationFn: () => permanentlyDeleteTeacher(teacher.id),
+    onSuccess: () => {
+      invalidate();
+      onClose();
+    },
+    onError: (e) => setError(e instanceof ApiError ? e.message : "Kalıcı olarak silinemedi."),
+  });
+
+  return (
+    <div className="card card-pad" style={{ marginBottom: 14 }}>
+      <div className="card-head">
+        <h3>{teacher.name} — Düzenle</h3>
+        <button type="button" className="btn xs" onClick={onClose}>
+          Kapat
+        </button>
+      </div>
+      <p style={{ margin: "0 0 12px", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
+        {teacher.email} · {teacher.isActive ? "Aktif" : "Pasif"}
+        {teacher.isMentor && " · Seviye Mentör"}
+      </p>
+      <div className="grid cols-2">
+        <div className="field">
+          <label>Ad</label>
+          <input value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+        </div>
+        <div className="field">
+          <label>Soyad</label>
+          <input value={lastName} onChange={(e) => setLastName(e.target.value)} />
+        </div>
+        <div className="field">
+          <label>Branş (zümre)</label>
+          <input value={branch} onChange={(e) => setBranch(e.target.value)} placeholder="Örn. Matematik" />
+        </div>
+        <div className="field">
+          <label>Unvan (opsiyonel)</label>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Örn. Zümre Başkanı" />
+        </div>
+        <div className="field">
+          <label>Telefon</label>
+          <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="05XX XXX XX XX" />
+        </div>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "var(--text-xs)", color: "var(--ink-muted)", alignSelf: "end", paddingBottom: 8 }}>
+          <input type="checkbox" checked={isMentor} onChange={(e) => setIsMentor(e.target.checked)} />
+          Seviye Mentör havuzunda
+        </label>
+      </div>
+      {error && <p style={{ margin: "8px 0 0", fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--critical)" }}>{error}</p>}
+      <div style={{ display: "flex", gap: 8, marginTop: 12, alignItems: "center", flexWrap: "wrap" }}>
+        <button type="button" className="btn primary" disabled={updateMutation.isPending} onClick={() => updateMutation.mutate()}>
+          {updateMutation.isPending ? "Kaydediliyor…" : "Kaydet"}
+        </button>
+        {!teacher.isActive && (
+          <button type="button" className="btn" disabled={reactivateMutation.isPending} onClick={() => reactivateMutation.mutate()}>
+            Yeniden Aktifleştir
+          </button>
+        )}
+        {teacher.isActive && (
+          <button type="button" className="btn" disabled={deactivateMutation.isPending} onClick={() => deactivateMutation.mutate()}>
+            Devre Dışı Bırak
+          </button>
+        )}
+        {!confirmingDelete ? (
+          <button type="button" className="btn danger" style={{ marginLeft: "auto" }} onClick={() => setConfirmingDelete(true)}>
+            Kalıcı Olarak Sil
+          </button>
+        ) : (
+          <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, fontSize: "var(--text-xs)" }}>
+            Emin misiniz? Ders programı/menti/bordro geçmişi varsa silinemez.
+            <button type="button" className="btn danger xs" disabled={permanentDeleteMutation.isPending} onClick={() => permanentDeleteMutation.mutate()}>
+              Evet, Sil
+            </button>
+            <button type="button" className="btn xs" onClick={() => setConfirmingDelete(false)}>
+              Vazgeç
+            </button>
+          </span>
+        )}
+      </div>
+      <div className="field" style={{ marginTop: 14, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
+        <label>Kullanıcı Adı (giriş e-postası)</label>
+        <div style={{ display: "flex", gap: 8 }}>
+          <input value={username} onChange={(e) => setUsername(e.target.value)} style={{ flex: 1 }} />
+          <button type="button" className="btn sm" disabled={usernameMutation.isPending} onClick={() => usernameMutation.mutate()}>
+            {usernameMutation.isPending ? "Kaydediliyor…" : "Kullanıcı Adını Değiştir"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Öğretmen ekleme/düzenleme (task #88) — Personel'in (StaffProfile) yanına,
+ * aynı "Personel" ekranı içinde ayrı bir sekme olarak eklenir. Demo'nun
+ * unified Personel listesindeki (rol="Öğretmen") aynı işlevi, gerçek
+ * backend'in TeacherProfile/StaffProfile ayrımını koruyarak sağlar (bkz.
+ * app/api/branch/teachers/route.ts POST + [teacherId]/route.ts).
+ */
+function TeachersPanel() {
+  const queryClient = useQueryClient();
+  const teachersQuery = useQuery({ queryKey: teacherKeys.full(), queryFn: fetchTeachersFull });
+
+  const [fullName, setFullName] = useState("");
+  const [branch, setBranch] = useState("");
+  const [title, setTitle] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
+  const [credentials, setCredentials] = useState<{ username: string; password: string } | null>(null);
+  const [search, setSearch] = useState("");
+  const [branchFilter, setBranchFilter] = useState("");
+  const [selectedTeacherId, setSelectedTeacherId] = useState<string | null>(null);
+
+  const createMutation = useMutation({
+    mutationFn: createTeacher,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: teacherKeys.full() });
+      queryClient.invalidateQueries({ queryKey: teacherKeys.list() });
+      setFullName("");
+      setBranch("");
+      setTitle("");
+      setPhone("");
+      setEmail("");
+      setFormError(null);
+      setCredentials(data.credentials);
+    },
+    onError: (err) => setFormError(err instanceof ApiError ? err.message : "Öğretmen oluşturulamadı."),
+  });
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!fullName.trim() || !branch.trim()) {
+      setFormError("Ad soyad ve branş (zümre) zorunludur.");
+      return;
+    }
+    createMutation.mutate({
+      fullName: fullName.trim(),
+      branch: branch.trim(),
+      title: title.trim() || undefined,
+      phone: phone.trim() || undefined,
+      email: email.trim() || undefined,
+    });
+  }
+
+  const teachers = teachersQuery.data?.teachers ?? [];
+  const activeTeachers = teachers.filter((t) => t.isActive);
+  const mentorCount = teachers.filter((t) => t.isMentor).length;
+  const branches = Array.from(new Set(teachers.map((t) => t.branch))).sort((a, b) => a.localeCompare(b, "tr"));
+  const selectedTeacher = teachers.find((t) => t.id === selectedTeacherId) ?? null;
+  const filteredTeachers = teachers.filter((t) => {
+    const q = search.trim().toLocaleLowerCase("tr-TR");
+    if (branchFilter && t.branch !== branchFilter) return false;
+    if (q && !t.name.toLocaleLowerCase("tr-TR").includes(q)) return false;
+    return true;
+  });
+
+  return (
+    <div>
+      <div className="grid cols-4" style={{ marginBottom: 14 }}>
+        <div className="card stat-card">
+          <p className="stat-label">Toplam Öğretmen</p>
+          <p className="stat-value">{teachers.length}</p>
+        </div>
+        <div className="card stat-card">
+          <p className="stat-label">Aktif</p>
+          <p className="stat-value">{activeTeachers.length}</p>
+        </div>
+        <div className="card stat-card">
+          <p className="stat-label">Seviye Mentör</p>
+          <p className="stat-value">{mentorCount}</p>
+        </div>
+        <div className="card stat-card">
+          <p className="stat-label">Branş Sayısı</p>
+          <p className="stat-value">{branches.length}</p>
+        </div>
+      </div>
+
+      {selectedTeacher && <TeacherDetailPanel teacher={selectedTeacher} onClose={() => setSelectedTeacherId(null)} />}
+
+      <div className="grid cols-2">
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div className="card card-pad">
+            <div className="card-head">
+              <h3>Yeni Öğretmen Ekle</h3>
+            </div>
+            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div className="field">
+                <label>Ad Soyad</label>
+                <input value={fullName} onChange={(e) => setFullName(e.target.value)} />
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div className="field">
+                  <label>Branş (zümre)</label>
+                  <input value={branch} onChange={(e) => setBranch(e.target.value)} placeholder="Örn. Matematik" />
+                </div>
+                <div className="field">
+                  <label>Unvan (opsiyonel)</label>
+                  <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Örn. Zümre Başkanı" />
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div className="field">
+                  <label>Telefon (opsiyonel)</label>
+                  <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="05XX XXX XX XX" />
+                </div>
+                <div className="field">
+                  <label>E-posta (opsiyonel)</label>
+                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="ad.soyad@sube.seviye360.com" />
+                </div>
+              </div>
+
+              {formError && <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--critical)" }}>{formError}</p>}
+
+              <button type="submit" disabled={createMutation.isPending} className="btn primary" style={{ justifyContent: "center" }}>
+                {createMutation.isPending ? "Oluşturuluyor…" : "Öğretmeni Kaydet"}
+              </button>
+            </form>
+          </div>
+
+          {credentials && (
+            <div className="card card-pad" style={{ borderColor: "var(--strong)", background: "var(--strong-bg)" }}>
+              <h3 style={{ margin: 0, fontSize: "var(--text-base)", fontWeight: 700, color: "var(--strong)" }}>
+                Giriş Bilgileri Oluşturuldu
+              </h3>
+              <p style={{ margin: "4px 0 0", fontSize: "var(--text-xs)", color: "var(--strong)" }}>
+                Bu şifre yalnızca burada gösterilir — hemen öğretmene iletin, tekrar görüntülenemez.
+              </p>
+              <dl style={{ margin: "8px 0 0", display: "flex", flexDirection: "column", gap: 4, fontSize: "var(--text-xs)", color: "var(--strong)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <dt>Kullanıcı adı</dt>
+                  <dd style={{ margin: 0, fontFamily: "monospace" }}>{credentials.username}</dd>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <dt>Şifre</dt>
+                  <dd style={{ margin: 0, fontFamily: "monospace" }}>{credentials.password}</dd>
+                </div>
+              </dl>
+            </div>
+          )}
+        </div>
+
+        <div className="card card-pad">
+          <div className="card-head">
+            <h3>Öğretmen Listesi</h3>
+          </div>
+
+          <div className="grid cols-2" style={{ marginBottom: 12 }}>
+            <div className="field">
+              <label>Ara</label>
+              <input type="text" placeholder="İsim…" value={search} onChange={(e) => setSearch(e.target.value)} />
+            </div>
+            <div className="field">
+              <label>Branş</label>
+              <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)}>
+                <option value="">Tümü</option>
+                {branches.map((b) => (
+                  <option key={b} value={b}>
+                    {b}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {teachersQuery.isLoading && <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>}
+          {!teachersQuery.isLoading && teachers.length === 0 && (
+            <div className="empty-state">
+              <Icon name="users" />
+              <p>Henüz öğretmen kaydı yok. Soldaki formdan ilk öğretmeninizi ekleyin.</p>
+            </div>
+          )}
+          {!teachersQuery.isLoading && teachers.length > 0 && filteredTeachers.length === 0 && (
+            <div className="empty-state">
+              <Icon name="users" />
+              <p>Aramanızla eşleşen öğretmen yok.</p>
+            </div>
+          )}
+
+          <div style={{ maxHeight: 560, overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}>
+            {filteredTeachers.map((t) => (
+              <div
+                key={t.id}
+                onClick={() => setSelectedTeacherId(t.id)}
+                className="row-clickable"
+                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid var(--border)", padding: "9px 0", cursor: "pointer" }}
+              >
+                <div>
+                  <div style={{ fontSize: "var(--text-base)", fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
+                    {t.name}
+                    {!t.isActive && <span className="chip neutral">Pasif</span>}
+                    {t.isMentor && <span className="chip strong">Mentör</span>}
+                  </div>
+                  <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
+                    {t.branch}
+                    {t.title && ` · ${t.title}`}
+                    {t.phone && ` · ${t.phone}`}
+                  </div>
                 </div>
               </div>
             ))}

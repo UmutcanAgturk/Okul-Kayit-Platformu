@@ -42,6 +42,15 @@ export function generateStaffEmail(fullName: string, tenantCode: string): string
   return `${local}.${domainTag}@personel.seviye360.com`;
 }
 
+// Öğretmen (TeacherProfile) için — bkz. /api/branch/teachers POST (task #88).
+// Personel/öğrenci e-postalarından ayrı bir alan adı kullanır (aynı desen —
+// bkz. generateStaffEmail/generateStudentEmail).
+export function generateTeacherEmail(fullName: string, tenantCode: string): string {
+  const local = slugifyTurkish(fullName) || "ogretmen";
+  const domainTag = slugifyTurkish(tenantCode).replace(/\./g, "-") || "sube";
+  return `${local}.${domainTag}@ogretmen.seviye360.com`;
+}
+
 // Yeni kurum eklerken otomatik oluşturulan Şube Yöneticisi hesabı için —
 // bkz. /api/hq/tenants. Seed'deki BRANCH_ADMIN hesaplarıyla (ör.
 // merve.aslan@seviye360.com) aynı üst düzey alan adını kullanır; öğrenci/
