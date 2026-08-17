@@ -40,6 +40,7 @@ async function main() {
 
   const branchCookie = await loginAs("merve.aslan@seviye360.com", SEED_DEV_PASSWORD);
   const teacherCookie = await loginAs("ayse.demir@seviye360.com", SEED_DEV_PASSWORD);
+  const cankayaCookie = await loginAs("onur.kaya@seviye360.com", SEED_DEV_PASSWORD);
   check("Kurulum: giriş başarılı", !!branchCookie && !!teacherCookie);
 
   const noSession = await fetch(`${BASE}/api/branch/exams`);
@@ -183,6 +184,28 @@ async function main() {
   });
   check("DB: tekrar girişte HÂLÂ tam olarak 2 kazanım satırı var (çoğalmamış)", dbResult2?.achievementResults.length === 2, dbResult2?.achievementResults.length);
   check("DB: tekrar girişte her iki kazanım da correctRatio=0", dbResult2?.achievementResults.every((r) => r.correctRatio === 0), dbResult2?.achievementResults);
+
+  // ===== Sınav Bazlı Soru/Madde Analizi (task #79) =====
+  const qStatsNoSession = await fetch(`${BASE}/api/branch/exams/${examId}/question-stats`);
+  check("GET question-stats: oturumsuz 401", qStatsNoSession.status === 401, qStatsNoSession.status);
+
+  const qStatsCankayaRes = await fetch(`${BASE}/api/branch/exams/${examId}/question-stats`, { headers: { Cookie: cankayaCookie } });
+  check("Tenant izolasyonu: Çankaya admin'i Mezitli sınavının soru analizini GÖREMİYOR (404)", qStatsCankayaRes.status === 404, qStatsCankayaRes.status);
+
+  const qStatsRes = await fetch(`${BASE}/api/branch/exams/${examId}/question-stats`, { headers: { Cookie: branchCookie } });
+  const qStatsBody = await qStatsRes.json();
+  check("GET question-stats: 200 ve 2 soru dönüyor", qStatsRes.status === 200 && qStatsBody.questions?.length === 2, qStatsBody);
+  const qStat1 = qStatsBody.questions?.find((q) => q.questionId === q1.id);
+  const qStat2 = qStatsBody.questions?.find((q) => q.questionId === q2.id);
+  check(
+    "question-stats: son girişte her iki soru da yanlış işaretlendiğinden wrongPct=100",
+    qStat1?.wrongPct === 100 && qStat2?.wrongPct === 100 && qStat1?.wrong === 1 && qStat1?.total === 1,
+    qStatsBody.questions,
+  );
+  check("question-stats: subject/achievementLabel alanları dolu", !!qStat1?.subject && !!qStat1?.achievementLabel, qStat1);
+
+  const qStatsNotFoundRes = await fetch(`${BASE}/api/branch/exams/does-not-exist/question-stats`, { headers: { Cookie: branchCookie } });
+  check("GET question-stats: olmayan sınav için 404", qStatsNotFoundRes.status === 404, qStatsNotFoundRes.status);
 
   const rosterAfterRes = await fetch(`${BASE}/api/branch/exams/${examId}/results?classroomId=${elif.classroomId}`, { headers: { Cookie: branchCookie } });
   const rosterAfterBody = await rosterAfterRes.json();

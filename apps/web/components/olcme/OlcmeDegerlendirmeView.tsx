@@ -16,6 +16,7 @@ import {
   fetchBranchExamDetail,
   fetchBranchExams,
   fetchCurriculumAchievements,
+  fetchExamQuestionStats,
   fetchExamResultRoster,
   submitExamResult,
 } from "@/lib/api/exams";
@@ -130,6 +131,20 @@ function DurumTab() {
   const examsQuery = useQuery({ queryKey: examKeys.list(), queryFn: fetchBranchExams });
   const achievementQuery = useQuery({ queryKey: examKeys.achievementSummary(), queryFn: fetchAchievementSummary });
   const exams = examsQuery.data?.exams ?? [];
+
+  const [selectedExamId, setSelectedExamId] = useState<string | null>(null);
+  useEffect(() => {
+    if (exams.length > 0 && !exams.some((e) => e.id === selectedExamId)) {
+      setSelectedExamId(exams[0].id);
+    }
+  }, [exams, selectedExamId]);
+  const questionStatsQuery = useQuery({
+    queryKey: ["exam-question-stats", selectedExamId],
+    queryFn: () => fetchExamQuestionStats(selectedExamId!),
+    enabled: !!selectedExamId,
+  });
+  const questionStats = [...(questionStatsQuery.data?.questions ?? [])].sort((a, b) => b.wrongPct - a.wrongPct).slice(0, 12);
+
   const bySubject = achievementQuery.data?.bySubject ?? [];
   const withResults = exams.filter((e) => e.avgNet !== null);
   const trendPoints = [...withResults].reverse().map((e) => ({ label: e.name, value: e.avgNet! }));
@@ -270,6 +285,42 @@ function DurumTab() {
               </tbody>
             </table>
           </div>
+        )}
+      </div>
+
+      <div className="card card-pad">
+        <div className="card-head">
+          <h3>Sınav Bazlı Soru/Madde Analizi</h3>
+          {exams.length > 0 && (
+            <select value={selectedExamId ?? ""} onChange={(e) => setSelectedExamId(e.target.value)} style={{ fontSize: "var(--text-xs)" }}>
+              {exams.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.name} ({new Date(e.examDate).toLocaleDateString("tr-TR")})
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+        <p style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)", margin: "0 0 10px" }}>
+          Seçili sınavda kapsam genelinde en çok yanlış/boş bırakılan sorular — madde bazlı zorluk analizi.
+        </p>
+        {exams.length === 0 ? (
+          <p style={{ color: "var(--ink-faint)", fontSize: "var(--text-sm)", margin: 0 }}>Henüz tanımlı bir sınav yok.</p>
+        ) : questionStatsQuery.isLoading ? (
+          <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>
+        ) : questionStats.length === 0 ? (
+          <p style={{ color: "var(--ink-faint)", fontSize: "var(--text-sm)", margin: 0 }}>Bu sınav için henüz soru bazlı sonuç yok.</p>
+        ) : (
+          <HBarChart
+            max={100}
+            unit="%"
+            rows={questionStats.map((q) => ({
+              label: `Soru ${q.questionNo} · ${q.subject}`,
+              sub: q.achievementLabel,
+              value: q.wrongPct,
+              tone: q.wrongPct >= 60 ? "critical" : q.wrongPct >= 35 ? "weak" : "strong",
+            }))}
+          />
         )}
       </div>
 

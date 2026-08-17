@@ -61,6 +61,22 @@ export function fetchBranchExamDetail(examId: string) {
   }>(`/api/branch/exams/${examId}`, { cache: "no-store" });
 }
 
+export interface ExamQuestionStatRow {
+  questionId: string;
+  questionNo: number;
+  subject: string;
+  achievementLabel: string;
+  correct: number;
+  wrong: number;
+  blank: number;
+  total: number;
+  wrongPct: number;
+}
+
+export function fetchExamQuestionStats(examId: string) {
+  return apiFetch<{ questions: ExamQuestionStatRow[] }>(`/api/branch/exams/${examId}/question-stats`, { cache: "no-store" });
+}
+
 export interface ExamResultRosterRow {
   studentId: string;
   studentNo: string;
