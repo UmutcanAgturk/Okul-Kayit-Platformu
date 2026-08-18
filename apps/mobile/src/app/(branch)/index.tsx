@@ -1,9 +1,9 @@
 import { ScrollView, View } from 'react-native';
 
-import { Card, Chip, ErrorBanner, Label, MutedText, Screen, StatTile, Title } from '@/components/ui';
+import { Card, Chip, EmptyState, ErrorBanner, Label, MutedText, Screen, StatTile, Title } from '@/components/ui';
 import { useAuth } from '@/lib/auth-context';
 import { useApiQuery } from '@/lib/use-api-query';
-import type { AgingBucket, LedgerEntry, LedgerSummary, PaymentInstallment } from '@/lib/types';
+import type { AgingBucket, LedgerEntry, LedgerSummary, PaymentInstallment, TodaySummary } from '@/lib/types';
 
 function tl(n: number) {
   return `₺${Math.round(n).toLocaleString('tr-TR')}`;
@@ -18,8 +18,10 @@ export default function BranchHomeScreen() {
     '/api/branch/payment-installments?status=PENDING',
   );
   const aging = useApiQuery<{ buckets: AgingBucket[] }>('/api/branch/payment-installments/aging');
+  const today = useApiQuery<TodaySummary>('/api/branch/today-summary');
 
   const overdueCount = (aging.data?.buckets ?? []).reduce((sum, b) => sum + b.count, 0);
+  const attendanceRatePct = today.data?.attendance.trend.at(-1)?.ratePct ?? null;
 
   return (
     <ScrollView>
@@ -61,6 +63,63 @@ export default function BranchHomeScreen() {
             ))}
           </View>
           <MutedText>Vadesi geçmiş taksitler, en eski vadeye göre gecikme aralığına ayrılır.</MutedText>
+        </Card>
+
+        {today.error && <ErrorBanner message={today.error} />}
+
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          <StatTile
+            icon="checkmark-circle"
+            label="Bugünkü Devam Oranı"
+            value={attendanceRatePct !== null ? `%${attendanceRatePct}` : '—'}
+            tone={attendanceRatePct !== null && attendanceRatePct < 80 ? 'warning' : 'success'}
+          />
+          <StatTile
+            icon="school"
+            label="Yoklama Alınan Sınıf"
+            value={`${today.data?.attendance.classroomsTakenToday ?? 0}/${today.data?.attendance.classroomsTotal ?? 0}`}
+            tone="brand"
+          />
+        </View>
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          <StatTile icon="heart" label="Bekleyen Etüt" value={String(today.data?.etut.pendingCount ?? 0)} tone="warning" />
+          <StatTile
+            icon="people-circle"
+            label="Bekleyen Veli Görüşmesi"
+            value={String(today.data?.pta.pendingCount ?? 0)}
+            tone="brand"
+          />
+        </View>
+
+        <Card style={{ gap: 10 }}>
+          <Label>Bugünkü Veli Görüşmeleri</Label>
+          {(today.data?.pta.today.length ?? 0) === 0 ? (
+            <EmptyState message="Bugün için planlanmış veli görüşmesi yok." icon="people-outline" />
+          ) : (
+            (today.data?.pta.today ?? []).map((r) => (
+              <View key={r.id} style={{ gap: 2 }}>
+                <MutedText>
+                  {r.studentName} · {r.teacherName}
+                </MutedText>
+              </View>
+            ))
+          )}
+        </Card>
+
+        <Card style={{ gap: 10 }}>
+          <Label>Son Aktivite Akışı</Label>
+          {(today.data?.recentActivity.length ?? 0) === 0 ? (
+            <EmptyState message="Henüz bir aktivite kaydı yok." icon="time-outline" />
+          ) : (
+            (today.data?.recentActivity ?? []).map((a) => (
+              <View key={a.id} style={{ gap: 2 }}>
+                <MutedText>
+                  {a.actorLabel} — {a.action}
+                </MutedText>
+                {a.detail ? <MutedText>{a.detail}</MutedText> : null}
+              </View>
+            ))
+          )}
         </Card>
       </Screen>
     </ScrollView>

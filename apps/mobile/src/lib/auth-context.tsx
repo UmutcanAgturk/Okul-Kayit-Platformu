@@ -10,7 +10,7 @@ interface AuthContextValue {
   user: Me | null;
   loading: boolean;
   error: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (identifier: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   logoutAll: () => Promise<void>;
   refreshMe: () => Promise<void>;
@@ -58,10 +58,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [refreshMe]);
 
   const login = useCallback(
-    async (email: string, password: string) => {
+    // identifier: personel için e-posta/kullanıcı adı, Öğrenci/Veli için
+    // T.C. Kimlik No (11 haneli) — bkz. apps/web/app/api/auth/login/route.ts.
+    async (identifier: string, password: string) => {
       setError(null);
       try {
-        await api.post('/api/auth/login', { email, password });
+        await api.post('/api/auth/login', { identifier, password });
         await refreshMe();
       } catch (err) {
         const message = err instanceof ApiError ? err.message : 'Giriş yapılamadı';

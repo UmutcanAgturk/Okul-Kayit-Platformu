@@ -10,7 +10,11 @@ tüm veri, `apps/web`'in çalışan sunucusundan gelir.
 - **Kimlik doğrulama**: `apps/web/lib/auth.ts`'deki httpOnly oturum çerezine
   dayanır. React Native'in `fetch`'i (native networking üzerinden) bu çerezi
   bir tarayıcı gibi otomatik saklar/gönderir — istemci tarafında token
-  yönetimi yoktur (bkz. `src/lib/api.ts`).
+  yönetimi yoktur (bkz. `src/lib/api.ts`). Giriş ekranı tek bir "Kullanıcı
+  Adı / T.C. Kimlik No" alanı kullanır: personel kullanıcı adı/e-postasıyla,
+  Öğrenci/Veli YALNIZCA T.C. Kimlik No'suyla girer — web ile birebir aynı
+  `POST /api/auth/login` sözleşmesi (`{identifier, password}`, bkz.
+  `apps/web/app/api/auth/login/route.ts`).
 - **Rol yönlendirmesi**: Giriş sonrası `GET /api/me` (bkz.
   `apps/web/app/api/me/route.ts`) çağrılır; dönen role göre
   `src/app/_layout.tsx`'teki `Stack.Protected` grupları arasından doğru
@@ -36,6 +40,14 @@ salt-okunur endpoint'ler eklendi:
   ayırır (Şube Yönetimi ana ekranında "Tahsilat Yaşlandırma" kartı).
 - `GET /api/hq/accounting-ledger` — yalnızca SUPERADMIN: tüm kurumların
   konsolide gelir/gider/net özeti + genel toplam (`(admin)` ana ekranı).
+
+Ayrıca zaten var olan (yeni eklenmeyen) iki route daha tüketilir:
+
+- `GET /api/branch/students` — Öğrenciler sekmesi (`(branch)/students.tsx`,
+  arama + roster; web'deki `StudentsRosterDashboard`'ın salt-okunur karşılığı).
+- `GET /api/branch/today-summary` — Bugün ekranındaki (`(branch)/index.tsx`)
+  devam oranı, bekleyen etüt/veli görüşmesi sayıları, bugünkü veli görüşmesi
+  listesi ve son aktivite akışı kartları.
 
 ## Kurulum
 

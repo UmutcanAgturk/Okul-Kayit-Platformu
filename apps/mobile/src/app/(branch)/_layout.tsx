@@ -22,6 +22,13 @@ export default function BranchPortalLayout() {
         }}
       />
       <Tabs.Screen
+        name="students"
+        options={{
+          title: 'Öğrenciler',
+          tabBarIcon: ({ color, size }) => <Ionicons name="people" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="ledger"
         options={{
           title: 'Muhasebe',

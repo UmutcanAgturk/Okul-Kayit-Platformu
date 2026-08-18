@@ -1,25 +1,25 @@
 import { useState } from 'react';
-import { Image, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 
 import { Button, ErrorBanner, Field, MutedText, Screen, Title } from '@/components/ui';
 import { useAuth } from '@/lib/auth-context';
 
 export default function LoginScreen() {
   const { login, error } = useAuth();
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
   async function handleSubmit() {
-    if (!email.trim() || !password) {
-      setLocalError('E-posta ve şifre zorunludur');
+    if (!identifier.trim() || !password) {
+      setLocalError('Kullanıcı adı/T.C. Kimlik No ve şifre zorunludur');
       return;
     }
     setLocalError(null);
     setSubmitting(true);
     try {
-      await login(email.trim(), password);
+      await login(identifier.trim(), password);
     } catch {
       // hata mesajı useAuth().error üzerinden zaten gösteriliyor
     } finally {
@@ -34,14 +34,17 @@ export default function LoginScreen() {
           <Title>Seviye 360</Title>
           <MutedText>Kurs Merkezi otomasyon platformuna giriş yapın</MutedText>
 
+          {/* Tek alan hem personel kullanıcı adını/e-postasını hem de
+              Öğrenci/Veli'nin T.C. Kimlik No'sunu kabul eder — backend
+              (bkz. apps/web/app/api/auth/login/route.ts) 11 haneli tamamen
+              sayısal bir değeri otomatik T.C. Kimlik No olarak ayırt eder. */}
           <Field
-            label="E-posta"
-            value={email}
-            onChangeText={setEmail}
+            label="Kullanıcı Adı / T.C. Kimlik No"
+            value={identifier}
+            onChangeText={setIdentifier}
             autoCapitalize="none"
-            keyboardType="email-address"
-            autoComplete="email"
-            placeholder="ornek@seviye360.com"
+            autoComplete="username"
+            placeholder="Personel: kullanıcı adı · Öğrenci/Veli: T.C. Kimlik No"
           />
           <Field
             label="Şifre"
