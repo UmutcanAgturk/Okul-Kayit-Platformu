@@ -1,11 +1,19 @@
 "use client";
 
+import { useRef, useState } from "react";
+import { downloadElementAsPdf } from "@/lib/pdf";
+
 /**
  * demo/seviye360-app.html'deki #doc-viewer modal'ının (printInvoice/
  * printDekont/printSenet/printEnrollmentContract) karşılığı — Muhasebe →
  * Belgeler'deki (ve Normal Kayıt'taki sözleşme) kayıtları temiz,
  * yazdırmaya hazır bir düzende gösterir. Veri zaten gerçek (Fatura/Dekont/
  * Senet/Enrollment tabloları) — burada eklenen tek şey görsel sunum.
+ *
+ * Çıktı almanın birincil yolu artık tarayıcının yazdırma diyaloğu değil,
+ * "PDF İndir" — belge lib/pdf.ts ile doğrudan bir .pdf dosyası olarak iner
+ * (dosya adı belge numarasından türetilir). Yazdırma, yedek seçenek olarak
+ * duruyor.
  */
 export function PrintDocumentViewer({
   open,
@@ -18,7 +26,24 @@ export function PrintDocumentViewer({
   documentNo: string;
   children: React.ReactNode;
 }) {
+  const printAreaRef = useRef<HTMLDivElement>(null);
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+
   if (!open) return null;
+
+  async function handleDownloadPdf() {
+    if (!printAreaRef.current || pdfBusy) return;
+    setPdfBusy(true);
+    setPdfError(null);
+    try {
+      await downloadElementAsPdf(printAreaRef.current, documentNo || "belge");
+    } catch {
+      setPdfError("PDF oluşturulamadı — lütfen tekrar deneyin.");
+    } finally {
+      setPdfBusy(false);
+    }
+  }
 
   return (
     <>
@@ -38,17 +63,20 @@ export function PrintDocumentViewer({
         }}
       >
         <div className="print-hide" style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, padding: "12px 16px", borderBottom: "1px solid #e5e7eb", background: "#f8f9fb", flexWrap: "wrap" }}>
-          <p style={{ flex: 1, minWidth: 200, margin: 0, fontSize: 11.5, color: "#6b7280" }}>
-            Yazdırmak için &quot;Doğrudan Yazdır&quot;a basın veya klavyeden Ctrl/Cmd+P kullanın.
+          <p style={{ flex: 1, minWidth: 200, margin: 0, fontSize: 11.5, color: pdfError ? "#b91c1c" : "#6b7280" }}>
+            {pdfError ?? "Belgeyi PDF dosyası olarak indirin; dilerseniz yazdırmayı da kullanabilirsiniz."}
           </p>
-          <button type="button" className="btn primary" style={{ padding: "6px 14px", fontSize: 12.5 }} onClick={() => window.print()}>
-            Doğrudan Yazdır (Ctrl+P)
+          <button type="button" className="btn primary" style={{ padding: "6px 14px", fontSize: 12.5 }} onClick={handleDownloadPdf} disabled={pdfBusy}>
+            {pdfBusy ? "PDF hazırlanıyor…" : "PDF İndir"}
+          </button>
+          <button type="button" className="btn" style={{ padding: "6px 14px", fontSize: 12.5 }} onClick={() => window.print()}>
+            Yazdır
           </button>
           <button type="button" className="btn" style={{ padding: "6px 14px", fontSize: 12.5 }} onClick={onClose}>
             Kapat
           </button>
         </div>
-        <div className="print-area" style={{ overflowY: "auto", padding: "36px 40px", color: "#111", userSelect: "text" }}>
+        <div ref={printAreaRef} className="print-area" style={{ overflowY: "auto", padding: "36px 40px", color: "#111", userSelect: "text", background: "#ffffff" }}>
           {children}
         </div>
       </div>
@@ -77,7 +105,9 @@ export function DocHeader({ title, no, date }: { title: string; no: string; date
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24, paddingBottom: 16, borderBottom: "2px solid #111" }}>
       <div>
-        <p style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>Seviye 360 Eğitim Kurumları</p>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/seviye360-logo.png" alt="Seviye 360" style={{ height: 40, width: "auto", display: "block", marginBottom: 6 }} />
+        <p style={{ margin: 0, fontSize: 15, fontWeight: 800 }}>Seviye 360 Eğitim Kurumları</p>
         <p style={{ margin: "4px 0 0", fontSize: 12, color: "#6b7280" }}>{title}</p>
       </div>
       <div style={{ textAlign: "right" }}>

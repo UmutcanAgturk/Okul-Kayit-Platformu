@@ -47,7 +47,8 @@ export default function LandingPage() {
     <div className="landing">
       <nav className="landing-nav">
         <div className="brand-block" style={{ padding: 0 }}>
-          <div className="mark">Seviye 360</div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/seviye360-logo.png" alt="Seviye 360" style={{ height: 36, width: "auto", display: "block" }} />
         </div>
         <div className="landing-nav-actions">
           <ThemeToggle />

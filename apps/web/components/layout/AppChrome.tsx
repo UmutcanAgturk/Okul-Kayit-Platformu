@@ -72,7 +72,8 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
       <div className={`sidebar-scrim ${sidebarOpen ? "open" : ""}`} onClick={() => setSidebarOpen(false)} />
       <nav className={`sidebar ${sidebarOpen ? "open" : ""}`} aria-label="Ana gezinme">
         <div className="brand-block" data-tour="brand">
-          <div className="mark">Seviye 360</div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/seviye360-logo.png" alt="Seviye 360" style={{ height: 34, width: "auto", display: "block" }} />
           <div className="tag">{ROLE_LABEL[me.role] ?? me.role}</div>
         </div>
         <Link href="/dashboard" className={`nav-item ${pathname === "/dashboard" ? "active" : ""}`} onClick={() => setSidebarOpen(false)} data-tour="nav-modules">

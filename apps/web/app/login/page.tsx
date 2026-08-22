@@ -41,7 +41,8 @@ export default function LoginPage() {
     <main style={{ display: "flex", minHeight: "100vh", alignItems: "center", justifyContent: "center", background: "var(--surface-2)", padding: "16px" }}>
       <div className="card card-pad" style={{ width: "100%", maxWidth: 380 }}>
         <div className="brand-block" style={{ padding: 0, marginBottom: 22 }}>
-          <div className="mark" style={{ fontSize: 20 }}>Seviye 360</div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/seviye360-logo.png" alt="Seviye 360" style={{ height: 60, width: "auto", display: "block" }} />
           <p style={{ margin: "6px 0 0", fontSize: "var(--text-sm)", color: "var(--ink-muted)" }}>
             Kurum yönetim paneline giriş yapın.
           </p>
