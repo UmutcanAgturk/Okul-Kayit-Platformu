@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { MentorRequestStatus, UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
+import { effectiveTenantId, withBranchTenantContext, tenantScopeFilter } from "@/lib/db-context";
 import { actorLabel, logActivity } from "@/lib/audit-log";
 import { mentorMonthlyQuota } from "@/lib/mentor";
 
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
       // route'undaki not) — bu yüzden tenant filtresi `user` ilişkisi üzerinden
       // AÇIKÇA uygulanmalı; aksi halde başka şubelerin mentörleri de sızabilir.
       tx.teacherProfile.findMany({
-        where: { isMentor: true, user: { tenantId: effectiveTenantId(actor), role: UserRole.TEACHER } },
+        where: { isMentor: true, user: { ...tenantScopeFilter(actor), role: UserRole.TEACHER } },
         include: { user: true, _count: { select: { mentees: true } } },
       }),
       tx.studentProfile.findMany({

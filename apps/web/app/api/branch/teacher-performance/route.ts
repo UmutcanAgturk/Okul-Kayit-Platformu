@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
+import { effectiveTenantId, withBranchTenantContext, tenantScopeFilter } from "@/lib/db-context";
 import { subjectFromCode } from "@/lib/curriculum";
 
 /**
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     // tabloda doğrudan bir tenantId kolonu yok (bkz. app/api/branch/teachers'daki
     // aynı not). Tenant filtresi burada `User.tenantId` üzerinden AÇIKÇA uygulanır.
     const teacherProfiles = await tx.teacherProfile.findMany({
-      where: { user: { tenantId: effectiveTenantId(actor), role: UserRole.TEACHER, isActive: true } },
+      where: { user: { ...tenantScopeFilter(actor), role: UserRole.TEACHER, isActive: true } },
       include: { user: true },
       orderBy: { user: { firstName: "asc" } },
     });
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     // var). Bu yüzden tenant filtresi burada AÇIKÇA `student.tenantId` üzerinden
     // uygulanır — aksi halde bir BRANCH_ADMIN tüm şubelerin verisini görürdü.
     const achievementRows = await tx.studentAchievementResult.findMany({
-      where: { student: { tenantId: effectiveTenantId(actor) } },
+      where: { student: { ...tenantScopeFilter(actor) } },
       include: { achievement: true },
     });
 

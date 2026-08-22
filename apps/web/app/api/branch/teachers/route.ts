@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
+import { effectiveTenantId, withBranchTenantContext, tenantScopeFilter } from "@/lib/db-context";
 import { hashPassword } from "@/lib/auth";
 import { generateTeacherEmail, generateTempPassword } from "@/lib/enrollment";
 
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
   const teachers = await withBranchTenantContext(actor, (tx) =>
     tx.teacherProfile.findMany({
       where: {
-        user: { tenantId: effectiveTenantId(actor), role: UserRole.TEACHER, ...(full ? {} : { isActive: true }) },
+        user: { ...tenantScopeFilter(actor), role: UserRole.TEACHER, ...(full ? {} : { isActive: true }) },
         ...(subject ? { branch: subject } : {}),
       },
       include: { user: true },

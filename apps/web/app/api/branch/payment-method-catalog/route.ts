@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { InstitutionPaymentMethodType, UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
+import { effectiveTenantId, withBranchTenantContext, tenantScopeFilter } from "@/lib/db-context";
 import { actorLabel, logActivity } from "@/lib/audit-log";
 
 /**
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
 
   const methods = await withBranchTenantContext(actor, (tx) =>
     tx.institutionPaymentMethod.findMany({
-      where: { tenantId: effectiveTenantId(actor), ...(actor.role === UserRole.PARENT ? { isActive: true } : {}) },
+      where: { ...tenantScopeFilter(actor), ...(actor.role === UserRole.PARENT ? { isActive: true } : {}) },
       orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
     }),
   );

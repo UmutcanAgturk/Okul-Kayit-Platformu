@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AccountingEntryType, UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
+import { effectiveTenantId, withBranchTenantContext, effectiveTenantIdOrNull } from "@/lib/db-context";
 import { actorLabel, logActivity } from "@/lib/audit-log";
 
 /**
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
     const gider = entries.filter((e) => e.type === AccountingEntryType.GIDER).reduce((sum, e) => sum + Number(e.amount), 0);
 
     await logActivity(tx, {
-      tenantId: effectiveTenantId(actor),
+      tenantId: effectiveTenantIdOrNull(actor),
       actorUserId: actor.id,
       actorLabel: actorLabel(actor),
       action: "Rapor görüntülendi",

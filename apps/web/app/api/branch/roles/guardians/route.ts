@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
+import { effectiveTenantId, withBranchTenantContext, tenantScopeFilter } from "@/lib/db-context";
 
 /**
  * Roller > Veliler sekmesi. `ParentProfile` RLS taşımaz (bkz.
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
 
   const guardians = await withBranchTenantContext(actor, async (tx) => {
     const rows = await tx.studentGuardian.findMany({
-      where: { student: { tenantId: effectiveTenantId(actor) } },
+      where: { student: { ...tenantScopeFilter(actor) } },
       include: { student: { include: { user: true } }, parent: { include: { user: true } } },
       orderBy: { student: { user: { firstName: "asc" } } },
     });

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { StaffAttendanceStatus, UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
+import { effectiveTenantId, withBranchTenantContext, tenantScopeFilter } from "@/lib/db-context";
 import { actorLabel, logActivity } from "@/lib/audit-log";
 
 /**
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
   const roster = await withBranchTenantContext(actor, async (tx) => {
     const [staffProfiles, teacherProfiles, records] = await Promise.all([
       tx.staffProfile.findMany({ include: { user: true } }),
-      tx.teacherProfile.findMany({ where: { user: { tenantId: effectiveTenantId(actor), role: UserRole.TEACHER } }, include: { user: true } }),
+      tx.teacherProfile.findMany({ where: { user: { ...tenantScopeFilter(actor), role: UserRole.TEACHER } }, include: { user: true } }),
       tx.staffAttendanceRecord.findMany({ where: { date } }),
     ]);
 

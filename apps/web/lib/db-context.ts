@@ -57,7 +57,12 @@ export async function withBranchTenantContext<T>(
   fn: (tx: Prisma.TransactionClient | PrismaClient) => Promise<T>,
 ): Promise<T> {
   if (actor.role === UserRole.SUPERADMIN) {
-    if (!actor.actingTenantId) throw new BranchScopeRequiredError();
+    // KONSOLİDE MOD: Genel Merkez henüz bir şube seçmediyse (acting tenant
+    // yok) route, superadmin_role (BYPASSRLS) ile çalışır — listeler TÜM
+    // kurumların verisini birleşik döner. Tek bir tenant'a yazmayı gerektiren
+    // işlemler ise effectiveTenantId üzerinden BranchScopeRequiredError
+    // fırlatmaya devam eder (konsolide mod salt-okunurdur).
+    if (!actor.actingTenantId) return fn(prismaSuperadmin);
     const tenantId = actor.actingTenantId;
     return prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT set_config('app.tenant_id', ${tenantId}, true)`;
@@ -78,6 +83,28 @@ export async function withBranchTenantContext<T>(
  */
 export function effectiveTenantId(actor: Actor): string {
   const id = actor.role === UserRole.SUPERADMIN ? actor.actingTenantId : actor.tenantId;
-  if (!id) throw new Error("effectiveTenantId: geçerli bir tenant bağlamı yok.");
+  if (!id) throw new BranchScopeRequiredError();
   return id;
+}
+
+/**
+ * effectiveTenantId'nin konsolide-dostu varyantı: Genel Merkez şube
+ * seçmemişse (konsolide mod) null döner — çağıran taraf tenant filtresini
+ * atlayarak tüm kurumları kapsar. Diğer roller için effectiveTenantId ile
+ * birebir aynıdır.
+ */
+export function effectiveTenantIdOrNull(actor: Actor): string | null {
+  if (actor.role === UserRole.SUPERADMIN) return actor.actingTenantId ?? null;
+  return effectiveTenantId(actor);
+}
+
+/**
+ * where-clause'larda `tenantId: effectiveTenantId(actor)` yerine
+ * `...tenantScopeFilter(actor)` yazılır: konsolide moddaki Genel Merkez için
+ * boş obje döner (filtre yok → tüm kurumlar), diğer tüm durumlarda
+ * `{ tenantId }` döner. Yalnızca OKUMA sorgularında kullanılmalıdır.
+ */
+export function tenantScopeFilter(actor: Actor): { tenantId?: string } {
+  const id = effectiveTenantIdOrNull(actor);
+  return id ? { tenantId: id } : {};
 }

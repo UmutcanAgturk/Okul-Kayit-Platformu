@@ -33,8 +33,11 @@ export function actorLabel(actor: { firstName: string; lastName: string; role: U
  */
 export async function logActivity(
   tx: Prisma.TransactionClient | PrismaClient,
-  params: { tenantId: string; actorUserId: string; actorLabel: string; action: string; detail?: string },
+  params: { tenantId: string | null; actorUserId: string; actorLabel: string; action: string; detail?: string },
 ) {
+  // Konsolide moddaki Genel Merkez'in tek bir tenant'ı yoktur — AuditLogEntry
+  // tenant-scoped olduğundan bu durumda log atlanır (rapor yine üretilir).
+  if (!params.tenantId) return;
   const id = randomUUID();
   await tx.$executeRaw`
     INSERT INTO "AuditLogEntry" ("id", "tenantId", "actorUserId", "actorLabel", "action", "detail")

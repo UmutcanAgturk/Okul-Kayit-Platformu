@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
-import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
+import { effectiveTenantId, withBranchTenantContext, effectiveTenantIdOrNull, tenantScopeFilter } from "@/lib/db-context";
 import { toCsv } from "@/lib/csv";
 import { actorLabel, logActivity } from "@/lib/audit-log";
 
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
   const csv = await withBranchTenantContext(actor, async (tx) => {
     const staff = await tx.staffProfile.findMany({ include: { user: true } });
     const teachers = await tx.teacherProfile.findMany({
-      where: { user: { tenantId: effectiveTenantId(actor), role: UserRole.TEACHER } },
+      where: { user: { ...tenantScopeFilter(actor), role: UserRole.TEACHER } },
       include: { user: true },
     });
 
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     rows.sort((a, b) => String(a[0]).localeCompare(String(b[0]), "tr"));
 
     await logActivity(tx, {
-      tenantId: effectiveTenantId(actor),
+      tenantId: effectiveTenantIdOrNull(actor),
       actorUserId: actor.id,
       actorLabel: actorLabel(actor),
       action: "Rapor indirildi",
