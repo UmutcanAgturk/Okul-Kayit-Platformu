@@ -187,3 +187,15 @@ export interface EtutSessionRow {
   id: string; status: StudySessionStatus; scheduledStart: string;
   teacherName: string; achievement: { code: string; label: string } | null;
 }
+
+// ---- Dalga 3: Öğretmen portalı ----
+export interface MyClassStudentRow {
+  studentId: string; studentNo: string; name: string; gradeLevel: string;
+  netAvg: number | null; guardianName: string | null; guardianPhone: string | null;
+}
+export interface MyClassRow { classroomId: string; classroomName: string; students: MyClassStudentRow[]; }
+export interface TeacherTimetableSlotRow { id: string; subject: string; dayOfWeek: number; startTime: string; endTime: string; classroomName: string; }
+export type PtaRequestStatus = 'BEKLIYOR' | 'ONAYLANDI' | 'REDDEDILDI';
+export interface TeacherPtaRequest { id: string; studentId: string; studentName: string; requestedAt: string; topic: string | null; status: PtaRequestStatus; createdAt: string; }
+export interface TeacherMenteeRow { id: string; name: string; gradeLevel: string; classroomName: string | null; quotaLimit: number; }
+export interface TeacherClub { id: string; name: string; description: string | null; memberCount: number; }

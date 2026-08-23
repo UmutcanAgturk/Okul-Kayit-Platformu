@@ -1,5 +1,5 @@
 import { InboxScreen } from '@/components/inbox-screen';
 
-export default function IletisimScreen() {
+export default function TeacherIletisimScreen() {
   return <InboxScreen />;
 }

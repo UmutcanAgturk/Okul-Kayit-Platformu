@@ -1,40 +1,40 @@
 import { ScrollView, View } from 'react-native';
 
-import { Card, Chip, Label, MutedText, Screen, Title } from '@/components/ui';
+import { ModuleHub, type HubModule } from '@/components/module-hub';
+import { Card, Chip, Label, MutedText, Title } from '@/components/ui';
 import { useAuth } from '@/lib/auth-context';
 import { useApiQuery } from '@/lib/use-api-query';
 import type { StudySession } from '@/lib/types';
 
-export default function TeacherHomeScreen() {
+const MODULES: HubModule[] = [
+  { title: 'Sınıflarım', description: 'Öğrenci listeleri', icon: 'people', route: '/(teacher)/siniflarim' },
+  { title: 'Etüt Onayı', description: 'AI önerileri', icon: 'book', route: '/(teacher)/study-sessions' },
+  { title: 'AI Sınıf Röntgeni', description: 'Kazanım ısı haritası', icon: 'analytics', route: '/(teacher)/class-xray' },
+  { title: 'Ders Programı', description: 'Haftalık program', icon: 'time', route: '/(teacher)/ders-programi' },
+  { title: 'Veli Görüşmeleri', description: 'Randevu onayı', icon: 'chatbubbles', route: '/(teacher)/veli-gorusme' },
+  { title: 'Mentörlük', description: 'Danışan öğrenciler', icon: 'person-add', route: '/(teacher)/mentorluk' },
+  { title: 'Kulüplerim', description: 'Danışman kulüpler', icon: 'star', route: '/(teacher)/kulupler' },
+  { title: 'İletişim', description: 'Gelen mesajlar', icon: 'mail', route: '/(teacher)/iletisim' },
+];
+
+export default function TeacherHubScreen() {
   const { user } = useAuth();
   const { data } = useApiQuery<{ sessions: StudySession[] }>('/api/teacher/study-sessions');
-  const pendingCount = (data?.sessions ?? []).filter((s) => s.status === 'AI_SUGGESTED').length;
+  const pending = (data?.sessions ?? []).filter((s) => s.status === 'AI_SUGGESTED').length;
 
   return (
-    <ScrollView>
-      <Screen style={{ gap: 16 }}>
-        <View>
-          <Title>Merhaba, {user?.firstName}</Title>
-          <MutedText>Öğretmen Portalı</MutedText>
-        </View>
+    <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
+      <View>
+        <Title>Merhaba, {user?.firstName}</Title>
+        <MutedText>Öğretmen Portalı</MutedText>
+      </View>
 
-        <Card style={{ gap: 8 }}>
-          <Label>Yanıt Bekleyen Etüt Talepleri</Label>
-          <Chip
-            label={pendingCount > 0 ? `${pendingCount} talep bekliyor` : 'Bekleyen talep yok'}
-            tone={pendingCount > 0 ? 'warning' : 'success'}
-          />
-          <MutedText>Detaylar için Etüt Seansları sekmesine geçin.</MutedText>
-        </Card>
+      <Card style={{ gap: 8 }}>
+        <Label>Yanıt Bekleyen Etüt Talepleri</Label>
+        <Chip label={pending > 0 ? `${pending} talep bekliyor` : 'Bekleyen talep yok'} tone={pending > 0 ? 'warning' : 'success'} />
+      </Card>
 
-        <Card style={{ gap: 8 }}>
-          <Label>AI Sınıf Röntgeni</Label>
-          <MutedText>
-            Bir sınavın kazanım ısı haritasını görmek için Sınıf Röntgeni sekmesinden sınav ve
-            sınıf bilgisini girin.
-          </MutedText>
-        </Card>
-      </Screen>
+      <ModuleHub modules={MODULES} />
     </ScrollView>
   );
 }
