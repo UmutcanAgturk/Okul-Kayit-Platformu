@@ -71,14 +71,19 @@ export function InboxScreen() {
       }
       ListEmptyComponent={!loading ? <EmptyState message="Gelen kutunuz boş." icon="mail-outline" /> : null}
       renderItem={({ item }) => (
-        <Card style={{ gap: 6 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Label>{item.title}</Label>
-            {!item.readAt && <Chip label="Yeni" tone="brand" />}
-          </View>
-          <MutedText>{item.senderLabel} · {new Date(item.createdAt).toLocaleDateString('tr-TR')}</MutedText>
-          <MutedText>{item.body}</MutedText>
-        </Card>
+        <Pressable
+          onPress={() => { if (!item.readAt) { api.patch(`/api/messages/${item.id}`).then(refetch).catch(() => {}); } }}
+          onLongPress={() => { api.del(`/api/messages/${item.id}`).then(refetch).catch(() => {}); }}>
+          <Card style={{ gap: 6 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Label>{item.title}</Label>
+              {!item.readAt && <Chip label="Yeni" tone="brand" />}
+            </View>
+            <MutedText>{item.senderLabel} · {new Date(item.createdAt).toLocaleDateString('tr-TR')}</MutedText>
+            <MutedText>{item.body}</MutedText>
+            <MutedText>{item.readAt ? 'Okundu' : 'Okundu işaretle: dokun'} · Sil: uzun bas</MutedText>
+          </Card>
+        </Pressable>
       )}
     />
   );
