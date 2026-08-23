@@ -27,6 +27,7 @@ export default function AdminPortalLayout() {
       <Tabs.Screen name="olcme-degerlendirme" options={{ ...hidden, title: 'Genel Sınav Merkezi' }} />
       <Tabs.Screen name="ogrenciler" options={{ ...hidden, title: 'Öğrenciler (Tüm Şubeler)' }} />
       <Tabs.Screen name="mesaj-yayini" options={{ ...hidden, title: 'Mesaj Yayını' }} />
+      <Tabs.Screen name="tahsilat-oranlari" options={{ ...hidden, title: 'Tahsilat Oranları' }} />
       <Tabs.Screen name="guvenlik" options={{ ...hidden, title: 'Güvenlik' }} />
     </Tabs>
   );
