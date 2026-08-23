@@ -16,6 +16,7 @@ const MODULES: HubModule[] = [
   { title: 'Kulüplerim', description: 'Danışman kulüpler', icon: 'star', route: '/(teacher)/kulupler' },
   { title: 'Yoklama Al', description: 'Sınıf yoklaması', icon: 'checkbox', route: '/(teacher)/yoklama' },
   { title: 'İletişim', description: 'Gelen mesajlar', icon: 'mail', route: '/(teacher)/iletisim' },
+  { title: 'Lider Tablosu', description: 'Sınıf sıralaması', icon: 'trophy', route: '/(teacher)/lider-tablosu' },
   { title: 'Güvenlik', description: '2FA kurulumu', icon: 'lock-closed', route: '/(teacher)/guvenlik' },
 ];
 

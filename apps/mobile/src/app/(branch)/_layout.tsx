@@ -28,6 +28,12 @@ export default function BranchPortalLayout() {
       <Tabs.Screen name="ogretmen-performansi" options={{ ...hidden, title: 'Öğretmen Performansı' }} />
       <Tabs.Screen name="aktivite" options={{ ...hidden, title: 'Aktivite Akışı' }} />
       <Tabs.Screen name="iletisim" options={{ ...hidden, title: 'İletişim' }} />
+      <Tabs.Screen name="crm" options={{ ...hidden, title: 'CRM' }} />
+      <Tabs.Screen name="on-kayit" options={{ ...hidden, title: 'Öğrenci Ön Kayıt' }} />
+      <Tabs.Screen name="ders-programi" options={{ ...hidden, title: 'Ders Programı' }} />
+      <Tabs.Screen name="servis" options={{ ...hidden, title: 'Servis' }} />
+      <Tabs.Screen name="kulupler" options={{ ...hidden, title: 'Kulüpler' }} />
+      <Tabs.Screen name="lider-tablosu" options={{ ...hidden, title: 'Lider Tablosu' }} />
       <Tabs.Screen name="guvenlik" options={{ ...hidden, title: 'Güvenlik' }} />
     </Tabs>
   );

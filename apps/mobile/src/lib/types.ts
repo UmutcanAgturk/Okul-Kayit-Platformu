@@ -239,3 +239,18 @@ export type AttendanceStatus2 = 'VAR' | 'GEC' | 'IZINLI' | 'YOK';
 export interface ClassroomOption { id: string; name: string; }
 export interface AttendanceRow { studentId: string; name: string; status: AttendanceStatus2; note: string | null; }
 export interface StudentClub { id: string; name: string; description: string | null; advisorName: string | null; memberCount: number; isMember: boolean; }
+
+// ---- Dalga 7: Şube kalan modüller ----
+export interface CrmLead {
+  id: string; candidateFullName: string; candidateGradeLevel: string; school: string | null;
+  guardianFullName: string; guardianPhone: string; guardianEmail: string | null; notes: string | null;
+  stage: string; enrollmentId: string | null;
+}
+export interface EnrollmentRow {
+  id: string; type: string; stage: string; programType: string;
+  candidateFullName: string; candidateGradeLevel: string; guardianFullName: string; guardianPhone: string;
+}
+export interface BusRouteSummary { id: string; name: string; driverName: string | null; driverPhone: string | null; capacity: number; stops: string[]; memberCount: number; }
+export interface BranchClub { id: string; name: string; description: string | null; advisorName: string | null; memberCount: number; }
+export interface LeaderboardRow { studentId: string; name: string; classroom: string | null; xp: number; level: number; badgeCount: number; }
+export interface BranchTimetableSlot { id: string; classroomName: string; teacherName: string; subject: string; dayOfWeek: number; startTime: string; endTime: string; }

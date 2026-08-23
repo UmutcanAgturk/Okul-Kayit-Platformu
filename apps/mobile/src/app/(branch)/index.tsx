@@ -14,6 +14,12 @@ const MODULES: HubModule[] = [
   { title: 'Öğretmen Performansı', description: 'Başarı ortalaması', icon: 'stats-chart', route: '/(branch)/ogretmen-performansi' },
   { title: 'Aktivite Akışı', description: 'Denetim izi', icon: 'time', route: '/(branch)/aktivite' },
   { title: 'İletişim', description: 'Gelen mesajlar', icon: 'mail', route: '/(branch)/iletisim' },
+  { title: 'CRM', description: 'Aday takibi', icon: 'people-circle', route: '/(branch)/crm' },
+  { title: 'Öğrenci Ön Kayıt', description: 'Kayıt adayları', icon: 'document-text', route: '/(branch)/on-kayit' },
+  { title: 'Ders Programı', description: 'Haftalık program', icon: 'time', route: '/(branch)/ders-programi' },
+  { title: 'Servis', description: 'Güzergahlar', icon: 'bus', route: '/(branch)/servis' },
+  { title: 'Kulüpler', description: 'Kulüp yönetimi', icon: 'star', route: '/(branch)/kulupler' },
+  { title: 'Lider Tablosu', description: 'XP sıralaması', icon: 'trophy', route: '/(branch)/lider-tablosu' },
   { title: 'Güvenlik', description: '2FA kurulumu', icon: 'lock-closed', route: '/(branch)/guvenlik' },
 ];
 
