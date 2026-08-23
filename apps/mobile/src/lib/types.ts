@@ -281,3 +281,7 @@ export interface ExamDetail { id: string; name: string; type: string; examDate: 
 
 // ---- Dalga F: HQ kurum CRUD + öğrenci + mesaj ----
 export interface HqStudentRow { id: string; studentNo: string; name: string; tenantId: string; tenantName: string; gradeLevel: string; classroomName: string | null; guardianName: string | null; }
+
+// ---- Dalga J: sınav risk, mentör talep, senet ----
+export interface AtRiskStudentRow { studentId: string; name: string; classroomName: string | null; criticalAchievements: { achievementId: string; code: string; label: string }[]; }
+export interface PromissoryNoteRow { id: string; no: string; issueDate: string; dueDate: string; debtorName: string; amount: string; status?: string; }

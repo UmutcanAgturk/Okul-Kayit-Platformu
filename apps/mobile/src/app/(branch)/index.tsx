@@ -16,6 +16,8 @@ const MODULES: HubModule[] = [
   { title: 'Mesaj Şablonları', description: 'Hazır duyurular', icon: 'documents', route: '/(branch)/mesaj-sablonlari' },
   { title: 'Personel Yoklama', description: 'Günlük personel', icon: 'people-circle', route: '/(branch)/personel-yoklama' },
   { title: 'Vergi Ayarları', description: 'Vergi no/dairesi', icon: 'settings', route: '/(branch)/vergi-ayarlari' },
+  { title: 'Risk Öğrenciler', description: 'Kritik kazanım zayıf', icon: 'alert-circle', route: '/(branch)/risk-ogrenciler' },
+  { title: 'Senetler', description: 'Senet takibi + ödendi', icon: 'document', route: '/(branch)/senetler' },
   { title: 'Personel', description: 'Kadro', icon: 'people', route: '/(branch)/personel' },
   { title: 'Öğretmen Performansı', description: 'Başarı ortalaması', icon: 'stats-chart', route: '/(branch)/ogretmen-performansi' },
   { title: 'Aktivite Akışı', description: 'Denetim izi', icon: 'time', route: '/(branch)/aktivite' },

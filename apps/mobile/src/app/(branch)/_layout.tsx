@@ -50,6 +50,8 @@ export default function BranchPortalLayout() {
       <Tabs.Screen name="mesaj-sablonlari" options={{ ...hidden, title: 'Mesaj Şablonları' }} />
       <Tabs.Screen name="personel-yoklama" options={{ ...hidden, title: 'Personel Yoklama' }} />
       <Tabs.Screen name="vergi-ayarlari" options={{ ...hidden, title: 'Vergi Ayarları' }} />
+      <Tabs.Screen name="risk-ogrenciler" options={{ ...hidden, title: 'Risk Altındaki Öğrenciler' }} />
+      <Tabs.Screen name="senetler" options={{ ...hidden, title: 'Senetler' }} />
       <Tabs.Screen name="raporlar" options={{ ...hidden, title: 'Raporlar' }} />
       <Tabs.Screen name="guvenlik" options={{ ...hidden, title: 'Güvenlik' }} />
     </Tabs>
