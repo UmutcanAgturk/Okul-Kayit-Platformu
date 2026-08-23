@@ -199,3 +199,20 @@ export type PtaRequestStatus = 'BEKLIYOR' | 'ONAYLANDI' | 'REDDEDILDI';
 export interface TeacherPtaRequest { id: string; studentId: string; studentName: string; requestedAt: string; topic: string | null; status: PtaRequestStatus; createdAt: string; }
 export interface TeacherMenteeRow { id: string; name: string; gradeLevel: string; classroomName: string | null; quotaLimit: number; }
 export interface TeacherClub { id: string; name: string; description: string | null; memberCount: number; }
+
+// ---- Dalga 4: Şube portalı (okuma) ----
+export interface TodaySummary {
+  date: string;
+  attendance: { classroomsTotal: number; classroomsTakenToday: number };
+  payments: { overdueCount: number; upcomingCount: number };
+  pta: { pendingCount: number };
+  etut: { pendingCount: number };
+  recentActivity: { id: string; actorLabel: string; action: string; detail: string | null; createdAt: string }[];
+}
+export interface OpsPaymentRow { installmentId: string; studentId: string; studentName: string; installmentNo: number; amount: number; dueDate: string; }
+export interface OpsEtutSlot { subject: string; time: string; count: number; }
+export interface DailyOps { date: string; overduePayments: OpsPaymentRow[]; overdueTotal: number; upcomingPayments: OpsPaymentRow[]; todayEtut: OpsEtutSlot[]; todayEtutTotal: number; }
+export interface BranchStudentRow { id: string; studentNo: string; name: string; gradeLevel: string; classroomId: string | null; classroomName: string | null; guardianName: string | null; guardianPhone: string | null; }
+export interface StaffMember { id: string; name: string; email: string; phone: string | null; role: string; isActive: boolean; status: string; title: string; department: string | null; }
+export interface ActivityLogEntry { id: string; actorLabel: string; action: string; detail: string | null; createdAt: string; }
+export interface TeacherPerformanceRow { teacherId: string; name: string; branch: string; title: string | null; resultCount: number; avgMasteryPct: number | null; rosterSize: number; avgAttendancePct: number | null; positiveCount: number; negativeCount?: number; }
