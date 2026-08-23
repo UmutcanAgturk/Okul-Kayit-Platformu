@@ -5,6 +5,9 @@ import { useEffect } from 'react';
 
 import { CenterLoading } from '@/components/ui';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
+import { initSentry, setSentryUser, wrapWithSentry } from '@/lib/sentry';
+
+initSentry();
 
 SplashScreen.preventAutoHideAsync();
 
@@ -18,6 +21,7 @@ function RootNavigator() {
   if (loading) return <CenterLoading />;
 
   const role = user?.role;
+  useEffect(() => { setSentryUser(role, user?.id); }, [role, user?.id]);
   const isStudentOrParent = role === 'STUDENT' || role === 'PARENT';
   const isBranch = role === 'BRANCH_ADMIN' || role === 'ACCOUNTING' || role === 'GUIDANCE_COORDINATOR';
   const isOther = !!user && !isStudentOrParent && role !== 'TEACHER' && !isBranch && role !== 'SUPERADMIN';
@@ -46,7 +50,7 @@ function RootNavigator() {
   );
 }
 
-export default function RootLayout() {
+function RootLayout() {
   return (
     <AuthProvider>
       <StatusBar style="auto" />
@@ -54,3 +58,5 @@ export default function RootLayout() {
     </AuthProvider>
   );
 }
+
+export default wrapWithSentry(RootLayout);
