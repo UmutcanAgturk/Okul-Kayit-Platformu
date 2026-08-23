@@ -92,20 +92,42 @@ function ResultEntry({ examId, source, onDone }: { examId: string; source: 'bran
   );
 }
 
+function QuestionStats({ examId, onBack }: { examId: string; onBack: () => void }) {
+  const { data, loading, error } = useApiQuery<{ questions: { questionId: string; questionNo: number; subject: string; achievementLabel: string; correct: number; wrong: number; blank: number }[] }>(`/api/branch/exams/${examId}/question-stats`);
+  if (loading) return <CenterLoading />;
+  if (error) return <View style={{ padding: 16 }}><ErrorBanner message={error} /></View>;
+  return (
+    <FlatList
+      contentContainerStyle={{ padding: 16, gap: 10 }}
+      data={data?.questions ?? []} keyExtractor={(q) => q.questionId}
+      ListHeaderComponent={<Pressable onPress={onBack}><Label>‹ Soru İstatistikleri</Label></Pressable>}
+      ListEmptyComponent={<EmptyState message="Soru verisi yok." />}
+      renderItem={({ item }) => (
+        <Card style={{ gap: 4 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Label>{item.questionNo}. {item.subject}</Label><MutedText>D:{item.correct} Y:{item.wrong} B:{item.blank}</MutedText></View>
+          <MutedText>{item.achievementLabel}</MutedText>
+        </Card>
+      )}
+    />
+  );
+}
+
 export function ExamsScreen({ source = 'branch' }: { source?: 'branch' | 'teacher' }) {
   const { data, loading, refreshing, error, refetch } = useApiQuery<{ exams: BranchExam[] }>('/api/branch/exams');
   const [entry, setEntry] = useState<string | null>(null);
+  const [stats, setStats] = useState<string | null>(null);
 
   if (entry) return <ResultEntry examId={entry} source={source} onDone={() => { setEntry(null); refetch(); }} />;
+  if (stats) return <QuestionStats examId={stats} onBack={() => setStats(null)} />;
 
   return (
     <FlatList
       contentContainerStyle={{ padding: 16, gap: 12 }} onRefresh={refetch} refreshing={refreshing}
       data={data?.exams ?? []} keyExtractor={(e) => e.id}
-      ListHeaderComponent={error ? <ErrorBanner message={error} /> : <MutedText>Sonuç girmek için sınava dokunun.</MutedText>}
+      ListHeaderComponent={error ? <ErrorBanner message={error} /> : <MutedText>Dokun: sonuç gir · Uzun bas: soru istatistiği</MutedText>}
       ListEmptyComponent={!loading ? <EmptyState message="Sınav yok." icon="clipboard-outline" /> : null}
       renderItem={({ item }) => (
-        <Pressable onPress={() => setEntry(item.id)}>
+        <Pressable onPress={() => setEntry(item.id)} onLongPress={() => setStats(item.id)}>
           <Card style={{ gap: 4 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
               <Label>{item.name}</Label>

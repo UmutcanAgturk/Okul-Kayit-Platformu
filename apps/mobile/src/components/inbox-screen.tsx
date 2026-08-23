@@ -23,6 +23,9 @@ export function InboxScreen() {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [audience, setAudience] = useState('ALL_STUDENTS');
+  const [studentQ, setStudentQ] = useState('');
+  const [picked, setPicked] = useState<{ id: string; name: string }[]>([]);
+  const search = useApiQuery<{ students: { id: string; name: string; studentNo: string }[] }>(studentQ.trim().length >= 2 ? `/api/branch/messages/students-search?q=${encodeURIComponent(studentQ.trim())}` : null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
@@ -31,8 +34,8 @@ export function InboxScreen() {
     if (!title.trim() || !body.trim()) { setErr('Başlık ve mesaj zorunlu'); return; }
     setBusy(true); setErr(null);
     try {
-      await api.post('/api/branch/messages', { title: title.trim(), body: body.trim(), audience });
-      setTitle(''); setBody(''); setCompose(false); setSent(true); await refetch();
+      await api.post('/api/branch/messages', { title: title.trim(), body: body.trim(), audience, ...(picked.length ? { studentIds: picked.map((p) => p.id) } : {}) });
+      setTitle(''); setBody(''); setPicked([]); setStudentQ(''); setCompose(false); setSent(true); await refetch();
     } catch (e) { setErr(e instanceof ApiError ? e.message : 'Gönderilemedi'); }
     finally { setBusy(false); }
   }
@@ -50,6 +53,14 @@ export function InboxScreen() {
         </View>
         <Field label="Başlık" value={title} onChangeText={setTitle} />
         <Field label="Mesaj" value={body} onChangeText={setBody} multiline />
+        <Label>Belirli Öğrenci(ler) (opsiyonel)</Label>
+        <Field label="Öğrenci Ara" value={studentQ} onChangeText={setStudentQ} placeholder="Ad veya no" autoCapitalize="none" />
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+          {picked.map((p) => <Pressable key={p.id} onPress={() => setPicked((x) => x.filter((y) => y.id !== p.id))}><Chip label={`${p.name} ✕`} tone="success" selected /></Pressable>)}
+          {(search.data?.students ?? []).filter((r) => !picked.some((p) => p.id === r.id)).slice(0, 8).map((r) => (
+            <Pressable key={r.id} onPress={() => { setPicked((x) => [...x, { id: r.id, name: r.name }]); setStudentQ(''); }}><Chip label={r.name} tone="neutral" /></Pressable>
+          ))}
+        </View>
         {err && <ErrorBanner message={err} />}
         <Button title="Gönder" onPress={send} loading={busy} />
         <Button title="Vazgeç" variant="secondary" onPress={() => setCompose(false)} />

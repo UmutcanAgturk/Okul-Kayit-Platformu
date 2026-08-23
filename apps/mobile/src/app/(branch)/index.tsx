@@ -21,6 +21,7 @@ const MODULES: HubModule[] = [
   { title: 'Kazanımlar', description: 'Müfredat kazanım listesi', icon: 'library', route: '/(branch)/kazanimlar' },
   { title: 'Sınıflar', description: 'Sınıf detayı + program', icon: 'grid', route: '/(branch)/siniflar' },
   { title: 'Öğretmenler', description: 'Kadro + mentör havuzu', icon: 'people', route: '/(branch)/ogretmenler' },
+  { title: 'Ödeme Analizi', description: 'Yöntem dağılımı + durum', icon: 'pie-chart', route: '/(branch)/odeme-analizi' },
   { title: 'Senetler', description: 'Senet takibi + ödendi', icon: 'document', route: '/(branch)/senetler' },
   { title: 'Personel', description: 'Kadro', icon: 'people', route: '/(branch)/personel' },
   { title: 'Öğretmen Performansı', description: 'Başarı ortalaması', icon: 'stats-chart', route: '/(branch)/ogretmen-performansi' },
