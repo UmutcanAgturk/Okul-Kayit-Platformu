@@ -3,6 +3,7 @@ import { AttendanceStatus, UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
 import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { actorLabel, logActivity } from "@/lib/audit-log";
+import { notify } from "@/lib/notifications";
 
 /**
  * Devamsızlık/Yoklama — demo/seviye360-app.html'deki "teacher:attendance" /
@@ -138,7 +139,29 @@ export async function POST(request: NextRequest) {
       detail: `${classroom.name} — ${date.toISOString().slice(0, 10)} — ${records.length} öğrenci`,
     });
 
-    return { kind: "saved" as const };
+    // Devamsız (YOK) işaretlenen öğrenciler için veli bildirimi hazırla
+    const absentIds = (records as { studentId: string; status: AttendanceStatus }[])
+      .filter((r) => r.status === AttendanceStatus.YOK)
+      .map((r) => r.studentId);
+    let notifyList: { phone: string | null; email: string | null; name: string; studentName: string }[] = [];
+    if (absentIds.length > 0) {
+      const absentStudents = await tx.studentProfile.findMany({
+        where: { id: { in: absentIds } },
+        include: { user: true, guardians: { include: { parent: { include: { user: true } } } } },
+      });
+      notifyList = absentStudents.map((st) => {
+        const billing = st.guardians.find((g) => g.isBillingResponsible) ?? st.guardians[0];
+        const contact = billing ? billing.parent.user : st.user;
+        return {
+          phone: contact.phone,
+          email: contact.email,
+          name: contact.firstName,
+          studentName: `${st.user.firstName} ${st.user.lastName}`,
+        };
+      });
+    }
+
+    return { kind: "saved" as const, notifyList, dateStr: date.toISOString().slice(0, 10), className: classroom.name };
   });
 
   if (outcome.kind === "not_found") {
@@ -147,5 +170,20 @@ export async function POST(request: NextRequest) {
   if (outcome.kind === "student_mismatch") {
     return NextResponse.json({ message: `Öğrenci (${outcome.studentId}) bu sınıfa ait değil` }, { status: 400 });
   }
+  // Devamsızlık bildirimi — best-effort, ateşle-unut (bkz. lib/notifications.ts).
+  if (outcome.kind === "saved" && outcome.notifyList.length > 0) {
+    for (const t of outcome.notifyList) {
+      void notify(t, {
+        sms: `Sn. ${t.name}, ogrenciniz ${t.studentName} ${outcome.dateStr} tarihinde ${outcome.className} dersinde devamsiz gorunmektedir. Seviye 360`,
+        emailSubject: "Devamsızlık Bildirimi — Seviye 360",
+        emailText: `Sayın ${t.name},
+
+Öğrenciniz ${t.studentName}, ${outcome.dateStr} tarihinde ${outcome.className} dersinde devamsız görünmektedir.
+
+Seviye 360 Eğitim Kurumları`,
+      }).catch(() => {});
+    }
+  }
+
   return NextResponse.json({ ok: true });
 }

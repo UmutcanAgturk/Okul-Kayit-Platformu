@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { prismaSuperadmin } from "@/lib/prisma-superadmin";
-import { createSessionToken, verifyPassword, SESSION_COOKIE_NAME, SESSION_TTL_SECONDS } from "@/lib/auth";
+import { createMfaToken, createSessionToken, verifyPassword, SESSION_COOKIE_NAME, SESSION_TTL_SECONDS } from "@/lib/auth";
 import { peekRateLimit, recordAttempt } from "@/lib/rate-limit";
 
 // Hesap bazlı kilitlenme: middleware.ts'teki IP bazlı limitten BAĞIMSIZ bir
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let user: { id: string; email: string; passwordHash: string; role: UserRole; firstName: string; lastName: string; isActive: boolean } | null = null;
+  let user: { id: string; email: string; passwordHash: string; role: UserRole; firstName: string; lastName: string; isActive: boolean; totpEnabled: boolean } | null = null;
 
   if (NATIONAL_ID_RE.test(identifier)) {
     // StudentProfile RLS ile korunur (tenant_isolation) — hangi tenant'a ait
@@ -83,6 +83,13 @@ export async function POST(request: NextRequest) {
   if (!user || !user.isActive || !isValid) {
     recordAttempt(rateLimitKey, LOGIN_EMAIL_LIMIT, LOGIN_EMAIL_WINDOW_MS);
     return NextResponse.json({ message: "Kullanıcı adı/T.C. Kimlik No veya şifre hatalı" }, { status: 401 });
+  }
+
+  // Şifre doğru. Kullanıcının iki faktörlü doğrulaması açıksa, oturumu HENÜZ
+  // açma — kısa ömürlü bir MFA token'ı dönüp TOTP kodunu iste (ikinci adım:
+  // /api/auth/login/verify). Başarılı şifre girişi sayaca dokunmaz.
+  if (user.totpEnabled) {
+    return NextResponse.json({ mfaRequired: true, mfaToken: createMfaToken(user.id) });
   }
 
   const session = await prisma.userSession.create({

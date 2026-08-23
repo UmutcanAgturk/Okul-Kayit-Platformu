@@ -3,6 +3,7 @@ import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
 import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { actorLabel, logActivity } from "@/lib/audit-log";
+import { notify } from "@/lib/notifications";
 
 /**
  * Ölçme-Değerlendirme — Sonuç Girişi. demo/seviye360-app.html'deki
@@ -100,7 +101,10 @@ export async function POST(request: NextRequest, { params }: { params: { examId:
       return { kind: "bad_booklet_type" as const };
     }
 
-    const student = await tx.studentProfile.findUnique({ where: { id: studentId } });
+    const student = await tx.studentProfile.findUnique({
+      where: { id: studentId },
+      include: { user: true, guardians: { include: { parent: { include: { user: true } } } } },
+    });
     if (!student) return { kind: "student_not_found" as const };
 
     if (exam.eligibleGradeLevels.length > 0 && !exam.eligibleGradeLevels.includes(student.gradeLevel)) {
@@ -166,7 +170,15 @@ export async function POST(request: NextRequest, { params }: { params: { examId:
       detail: `${exam.name} — ${student.studentNo} (net ${netScore})`,
     });
 
-    return { kind: "ok" as const, examResult, netScore, correctCount, wrongCount, emptyCount };
+    const billing = student.guardians.find((g) => g.isBillingResponsible) ?? student.guardians[0];
+    const contact = billing ? billing.parent.user : student.user;
+    return {
+      kind: "ok" as const,
+      examResult, netScore, correctCount, wrongCount, emptyCount,
+      notifyTarget: { phone: contact.phone, email: contact.email, name: contact.firstName },
+      studentName: `${student.user.firstName} ${student.user.lastName}`,
+      examName: exam.name,
+    };
   });
 
   if (outcome.kind === "exam_not_found") {
@@ -187,6 +199,20 @@ export async function POST(request: NextRequest, { params }: { params: { examId:
   if (outcome.kind === "answer_mismatch") {
     return NextResponse.json({ message: "answers, sınavdaki tüm sorular için tam olarak bir kez girilmelidir" }, { status: 400 });
   }
+  // Sınav sonucu duyurusu — best-effort, ateşle-unut (bkz. lib/notifications.ts).
+  if (outcome.kind === "ok") {
+    void notify(outcome.notifyTarget, {
+      sms: `Sn. ${outcome.notifyTarget.name}, ${outcome.studentName} icin ${outcome.examName} sonucu aciklandi. Net: ${outcome.netScore} (D:${outcome.correctCount} Y:${outcome.wrongCount} B:${outcome.emptyCount}). Seviye 360`,
+      emailSubject: `Sınav Sonucu: ${outcome.examName} — Seviye 360`,
+      emailText: `Sayın ${outcome.notifyTarget.name},
+
+${outcome.studentName} adına ${outcome.examName} sınav sonucu açıklanmıştır.
+Net: ${outcome.netScore}  (Doğru: ${outcome.correctCount}, Yanlış: ${outcome.wrongCount}, Boş: ${outcome.emptyCount})
+
+Seviye 360 Eğitim Kurumları`,
+    }).catch(() => {});
+  }
+
   return NextResponse.json({
     correctCount: outcome.correctCount,
     wrongCount: outcome.wrongCount,

@@ -57,4 +57,25 @@ export function verifySessionToken(token: string): { userId: string; sessionId: 
   }
 }
 
+// İki faktörlü giriş ara-token'ı: şifre doğrulandıktan SONRA, TOTP kodu
+// girilene kadar geçerli olan KISA ÖMÜRLÜ (5dk) bir token. Bu token TEK
+// BAŞINA oturum açmaya yetmez — yalnızca "bu kullanıcı şifresini doğru girdi,
+// şimdi ikinci faktörü bekliyoruz" durumunu taşır. `mfa: true` claim'i, bir
+// oturum token'ının yanlışlıkla buraya geçmesini engeller.
+const MFA_TOKEN_TTL_SECONDS = 5 * 60;
+
+export function createMfaToken(userId: string): string {
+  return jwt.sign({ sub: userId, mfa: true }, JWT_SECRET, { expiresIn: MFA_TOKEN_TTL_SECONDS });
+}
+
+export function verifyMfaToken(token: string): { userId: string } | null {
+  try {
+    const payload = jwt.verify(token, JWT_SECRET) as jwt.JwtPayload;
+    if (payload.mfa !== true || typeof payload.sub !== "string") return null;
+    return { userId: payload.sub };
+  } catch {
+    return null;
+  }
+}
+
 export { SESSION_COOKIE_NAME, SESSION_TTL_SECONDS };

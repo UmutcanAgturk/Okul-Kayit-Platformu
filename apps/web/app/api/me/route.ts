@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
     tenantId: actor.tenantId,
     actingTenantId: actor.actingTenantId,
     actingTenantName,
+    twoFactorEnabled: actor.totpEnabled,
   };
 
   if (actor.role === UserRole.STUDENT) {
