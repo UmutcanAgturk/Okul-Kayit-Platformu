@@ -16,6 +16,7 @@ const MODULES: HubModule[] = [
   { title: 'İletişim', description: 'Gelen mesajlar', icon: 'mail', route: '/(branch)/iletisim' },
   { title: 'CRM', description: 'Aday takibi', icon: 'people-circle', route: '/(branch)/crm' },
   { title: 'Öğrenci Ön Kayıt', description: 'Kayıt adayları', icon: 'document-text', route: '/(branch)/on-kayit' },
+  { title: 'Normal Kayıt', description: 'Adayı tam kayda çevir', icon: 'checkmark-circle', route: '/(branch)/normal-kayit' },
   { title: 'Ders Programı', description: 'Haftalık program', icon: 'time', route: '/(branch)/ders-programi' },
   { title: 'Servis', description: 'Güzergahlar', icon: 'bus', route: '/(branch)/servis' },
   { title: 'Kulüpler', description: 'Kulüp yönetimi', icon: 'star', route: '/(branch)/kulupler' },
