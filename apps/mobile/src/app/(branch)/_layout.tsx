@@ -41,6 +41,7 @@ export default function BranchPortalLayout() {
       <Tabs.Screen name="olcme-degerlendirme" options={{ ...hidden, title: 'Ölçme-Değerlendirme' }} />
       <Tabs.Screen name="roller" options={{ ...hidden, title: 'Roller' }} />
       <Tabs.Screen name="odeme-yontemleri" options={{ ...hidden, title: 'Ödeme Yöntemleri' }} />
+      <Tabs.Screen name="devamsizlik" options={{ ...hidden, title: 'Devamsızlık' }} />
       <Tabs.Screen name="raporlar" options={{ ...hidden, title: 'Raporlar' }} />
       <Tabs.Screen name="guvenlik" options={{ ...hidden, title: 'Güvenlik' }} />
     </Tabs>

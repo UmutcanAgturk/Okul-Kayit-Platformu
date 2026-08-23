@@ -270,3 +270,7 @@ export interface HqRoleStudentRow { id: string; name: string; studentNo: string;
 export interface HqExam { id: string; name: string; examDate: string; bookletTypes: string[]; eligibleGradeLevels: string[]; feePerStudent: number | null; branchCount: number; studentCount: number; opticFormCount: number; totalFee: number; }
 export interface FinancialSummary { rows: { type: 'GELIR' | 'GIDER'; category: string; amount: number }[]; totalIncome: number; totalExpense: number; netProfit: number; recordCount: number; }
 export interface StudentPtaRequest { id: string; teacherId: string; teacherName: string; requestedAt: string; topic: string | null; status: string; createdAt: string; }
+
+// ---- Dalga 10: devamsızlık özeti ----
+export interface AttendanceClassroomSummaryRow { classroomId: string; name: string; gradeLevel: string; studentCount: number; daysTaken: number; takenToday: boolean; absentRate: number; }
+export interface AttendanceBranchSummary { classrooms: AttendanceClassroomSummaryRow[]; summary: { classroomsTotal: number; takenTodayCount: number; avgAbsentRate: number }; }

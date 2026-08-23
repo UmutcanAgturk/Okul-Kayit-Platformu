@@ -1,5 +1,5 @@
 import { ExamsScreen } from '@/components/exams-screen';
 
-export default function BranchOlcmeScreen() {
+export default function TeacherOlcmeScreen() {
   return <ExamsScreen />;
 }

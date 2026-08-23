@@ -27,6 +27,7 @@ const MODULES: HubModule[] = [
   { title: 'Seviye Mentör', description: 'Mentör havuzu', icon: 'person-add', route: '/(branch)/mentor' },
   { title: 'Roller', description: 'Kullanıcı adları', icon: 'key', route: '/(branch)/roller' },
   { title: 'Ödeme Yöntemleri', description: 'Öğrenci bazlı', icon: 'card', route: '/(branch)/odeme-yontemleri' },
+  { title: 'Devamsızlık', description: 'Sınıf yoklama özeti', icon: 'calendar', route: '/(branch)/devamsizlik' },
   { title: 'Raporlar', description: 'Mali özet', icon: 'download', route: '/(branch)/raporlar' },
   { title: 'Güvenlik', description: '2FA kurulumu', icon: 'lock-closed', route: '/(branch)/guvenlik' },
 ];

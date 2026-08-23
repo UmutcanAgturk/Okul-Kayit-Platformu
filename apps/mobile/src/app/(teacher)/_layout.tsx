@@ -28,6 +28,8 @@ export default function TeacherPortalLayout() {
       <Tabs.Screen name="kulupler" options={{ ...hidden, title: 'Kulüplerim' }} />
       <Tabs.Screen name="yoklama" options={{ ...hidden, title: 'Yoklama Al' }} />
       <Tabs.Screen name="iletisim" options={{ ...hidden, title: 'İletişim' }} />
+      <Tabs.Screen name="olcme-degerlendirme" options={{ ...hidden, title: 'Ölçme-Değerlendirme' }} />
+      <Tabs.Screen name="disiplin" options={{ ...hidden, title: 'Disiplin' }} />
       <Tabs.Screen name="lider-tablosu" options={{ ...hidden, title: 'Lider Tablosu' }} />
       <Tabs.Screen name="guvenlik" options={{ ...hidden, title: 'Güvenlik' }} />
     </Tabs>
