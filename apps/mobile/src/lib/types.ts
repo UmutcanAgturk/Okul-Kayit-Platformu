@@ -216,3 +216,20 @@ export interface BranchStudentRow { id: string; studentNo: string; name: string;
 export interface StaffMember { id: string; name: string; email: string; phone: string | null; role: string; isActive: boolean; status: string; title: string; department: string | null; }
 export interface ActivityLogEntry { id: string; actorLabel: string; action: string; detail: string | null; createdAt: string; }
 export interface TeacherPerformanceRow { teacherId: string; name: string; branch: string; title: string | null; resultCount: number; avgMasteryPct: number | null; rosterSize: number; avgAttendancePct: number | null; positiveCount: number; negativeCount?: number; }
+
+// ---- Dalga 5: Genel Merkez (HQ) ----
+export interface HqTenant {
+  id: string; name: string; code: string; type: 'GENEL_MERKEZ' | 'SUBE' | 'BOLUM';
+  city: string | null; district: string | null; phone: string | null; email: string | null;
+  capacity: number | null; isActive?: boolean;
+}
+export interface HqAnalytics {
+  totalBranches: number; totalStudents: number; orgAvgNet: number | null;
+  topBranches: { tenantId: string; tenantName: string; city: string | null; avgNet: number | null; studentCount: number }[];
+  subjectPerformance: { subject: string; avgMasteryPct: number; count: number }[];
+  branchRevenue: { tenantId: string; tenantName: string; city: string | null; totalGelir: number }[];
+}
+export interface BranchMapRow {
+  id: string; name: string; city: string | null; district: string | null; capacity: number | null;
+  studentCount: number; occupancyPct: number; collectionPct: number; revenue: number;
+}
