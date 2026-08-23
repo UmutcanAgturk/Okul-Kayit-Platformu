@@ -18,6 +18,7 @@ const MODULES: HubModule[] = [
   { title: 'İletişim', description: 'Gelen mesajlar', icon: 'mail', route: '/(teacher)/iletisim' },
   { title: 'Ölçme-Değerlendirme', description: 'Sınavlar', icon: 'clipboard', route: '/(teacher)/olcme-degerlendirme' },
   { title: 'Disiplin', description: 'Davranış kayıtları', icon: 'shield-checkmark', route: '/(teacher)/disiplin' },
+  { title: 'Karne', description: 'Öğrenci karnesi', icon: 'document-text', route: '/(teacher)/karne' },
   { title: 'Lider Tablosu', description: 'Sınıf sıralaması', icon: 'trophy', route: '/(teacher)/lider-tablosu' },
   { title: 'Güvenlik', description: '2FA kurulumu', icon: 'lock-closed', route: '/(teacher)/guvenlik' },
 ];
