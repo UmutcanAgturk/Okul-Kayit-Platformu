@@ -1,0 +1,111 @@
+name: CI
+
+# apps/web'in 59 uçtan uca entegrasyon testini (apps/web/scripts/test-*.mjs)
+# gerçek bir PostgreSQL'e karşı, tam migration + seed + RLS bağlamıyla çalıştırır.
+# Her push ve PR'da otomatik koşar; bir test kırılırsa iş (job) fail eder ve
+# değişiklik canlıya inmeden yakalanır.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: seviye360
+        ports:
+          - 5432:5432
+        # Sağlık kontrolü: DB hazır olmadan adımlar başlamasın
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      # Owner/migration bağlantısı — GitHub postgres servisinin superuser'ı
+      # zaten CREATEROLE + BYPASSRLS taşır, RLS migration'ının app_role/
+      # superadmin_role'ü oluşturması için yeterli.
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/seviye360?schema=public"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # 1) Kök bağımlılıklar + Prisma client (schema.prisma kökte)
+      - name: Kök bağımlılıkları kur
+        run: npm install --no-audit --no-fund
+
+      # 2) Migration'ları uygula (şema + RLS + app_role/superadmin_role rolleri)
+      - name: Migration'ları uygula
+        run: npx prisma migrate deploy
+
+      - name: Prisma client üret
+        run: npx prisma generate
+
+      # 3) Demo/seed veri (test kullanıcıları: merve.aslan@seviye360.com vb.)
+      - name: Seed veriyi yükle
+        run: npm run seed
+
+      # 4) apps/web ortamı — uygulama RLS'e tabi app_role/superadmin_role ile
+      #    bağlanır (migration'ın oluşturduğu dev şifreleriyle; CI efemeral).
+      - name: apps/web .env oluştur
+        working-directory: apps/web
+        run: |
+          cat > .env <<'EOF'
+          DATABASE_URL="postgresql://app_role:app_role_dev_only@localhost:5432/seviye360?schema=public"
+          SUPERADMIN_DATABASE_URL="postgresql://superadmin_role:superadmin_dev_only@localhost:5432/seviye360?schema=public"
+          JWT_SECRET="ci-only-jwt-secret-en-az-32-karakter-uzunlugunda-olmali"
+          EOF
+
+      - name: apps/web bağımlılıklarını kur
+        working-directory: apps/web
+        run: npm install --no-audit --no-fund
+
+      - name: apps/web build
+        working-directory: apps/web
+        run: npm run build
+
+      # 5) Üretim sunucusunu başlat, port 3000 hazır olana kadar bekle
+      - name: Sunucuyu başlat
+        working-directory: apps/web
+        run: |
+          npm run start > server.log 2>&1 &
+          echo $! > server.pid
+          for i in $(seq 1 60); do
+            if curl -sf -o /dev/null http://localhost:3000/login; then
+              echo "Sunucu hazır."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Sunucu 120sn içinde ayağa kalkmadı:"; cat server.log; exit 1
+
+      # 6) 59 entegrasyon testini sırayla koştur; herhangi biri fail ederse job fail
+      - name: Entegrasyon testleri
+        working-directory: apps/web
+        run: |
+          fail=0
+          for t in scripts/test-*.mjs; do
+            echo "::group::$t"
+            if node "$t"; then echo "PASS $t"; else echo "FAIL $t"; fail=1; fi
+            echo "::endgroup::"
+          done
+          exit $fail
+
+      - name: Sunucu loglarını yazdır (başarısızlıkta)
+        if: failure()
+        working-directory: apps/web
+        run: cat server.log || true

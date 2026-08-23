@@ -83,6 +83,10 @@ export default function LoginPage() {
             {submitting ? "Giriş yapılıyor…" : "Giriş Yap"}
           </button>
         </form>
+
+        <p style={{ marginTop: 16, fontSize: 11.5, color: "var(--ink-muted)", textAlign: "center" }}>
+          Giriş yaparak <a href="/kvkk" style={{ color: "var(--brand, #208AEF)" }}>KVKK Aydınlatma Metni</a>ni okuduğunuzu kabul edersiniz.
+        </p>
       </div>
     </main>
   );

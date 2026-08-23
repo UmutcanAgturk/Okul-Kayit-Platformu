@@ -122,7 +122,10 @@ export default function LandingPage() {
         <Link href="/login" className="btn primary">
           Giriş Yap
         </Link>
-        <p>Seviye 360 — Okul Yönetim ve Kayıt Platformu.</p>
+        <p>
+          Seviye 360 — Okul Yönetim ve Kayıt Platformu ·{" "}
+          <Link href="/kvkk" style={{ color: "inherit", textDecoration: "underline" }}>KVKK Aydınlatma Metni</Link>
+        </p>
       </footer>
     </div>
   );

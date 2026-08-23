@@ -3,6 +3,7 @@ import { PaymentStatus, UserRole } from "@prisma/client";
 import { withTenantContext } from "@/lib/db-context";
 import { getSessionActor } from "@/lib/session";
 import { actorLabel, logActivity } from "@/lib/audit-log";
+import { notify } from "@/lib/notifications";
 
 /**
  * Bir taksiti tahsil edilmiş olarak işaretler ve karşılığında bir Muhasebe
@@ -78,7 +79,14 @@ export async function POST(
 
     // 3. denetim bulgusu — demo'nun "Taksit tahsil edildi" olayının karşılığı
     // Aktivite Akışı'nda hiç yoktu (yalnızca AccountingLedgerEntry yazılıyordu).
-    const student = await tx.studentProfile.findUnique({ where: { id: installment.studentId }, include: { user: true } });
+    const student = await tx.studentProfile.findUnique({
+      where: { id: installment.studentId },
+      include: {
+        user: true,
+        // Fatura sorumlusu veliyi (yoksa ilk veliyi) bildirim için al
+        guardians: { include: { parent: { include: { user: true } } } },
+      },
+    });
     await logActivity(tx, {
       tenantId: installment.tenantId,
       actorUserId: actor.id,
@@ -87,7 +95,22 @@ export async function POST(
       detail: `${student?.user.firstName} ${student?.user.lastName} — ${installment.installmentNo}. taksit — ₺${installment.amount}`,
     });
 
-    return { kind: "collected" as const, installment: updatedInstallment, ledgerEntry };
+    const billing = student?.guardians.find((g) => g.isBillingResponsible) ?? student?.guardians[0];
+    const notifyTarget = billing
+      ? { phone: billing.parent.user.phone, email: billing.parent.user.email, name: billing.parent.user.firstName }
+      : student
+        ? { phone: student.user.phone, email: student.user.email, name: student.user.firstName }
+        : null;
+
+    return {
+      kind: "collected" as const,
+      installment: updatedInstallment,
+      ledgerEntry,
+      notifyTarget,
+      amount: installment.amount,
+      installmentNo: installment.installmentNo,
+      studentName: student ? `${student.user.firstName} ${student.user.lastName}` : "",
+    };
   });
 
   if (outcome.kind === "not_found") {
@@ -99,5 +122,20 @@ export async function POST(
       { status: 409 },
     );
   }
+  // Ana işlem (tahsilat + muhasebe kaydı) commit oldu. Bildirim EN İYİ ÇABA
+  // ile, ateşle-unut gönderilir — SMS/e-posta yapılandırılmamışsa veya
+  // gönderim başarısız olursa yanıt yine 200 döner (bkz. lib/notifications.ts).
+  if (outcome.notifyTarget) {
+    void notify(outcome.notifyTarget, {
+      sms: `Sn. ${outcome.notifyTarget.name}, ${outcome.studentName} icin ${outcome.installmentNo}. taksit odemeniz (${outcome.amount} TL) alinmistir. Tesekkurler. Seviye 360`,
+      emailSubject: "Ödeme Onayı — Seviye 360",
+      emailText: `Sayın ${outcome.notifyTarget.name},
+
+${outcome.studentName} adına ${outcome.installmentNo}. taksit ödemeniz (${outcome.amount} TL) sistemimize işlenmiştir.
+
+Seviye 360 Eğitim Kurumları`,
+    }).catch(() => {});
+  }
+
   return NextResponse.json({ installment: outcome.installment, ledgerEntry: outcome.ledgerEntry }, { status: 200 });
 }
