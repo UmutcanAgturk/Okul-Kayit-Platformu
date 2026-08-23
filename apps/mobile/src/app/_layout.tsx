@@ -14,14 +14,16 @@ SplashScreen.preventAutoHideAsync();
 function RootNavigator() {
   const { user, loading } = useAuth();
 
+  const role = user?.role;
+
   useEffect(() => {
     if (!loading) SplashScreen.hideAsync();
   }, [loading]);
 
+  useEffect(() => { setSentryUser(role, user?.id); }, [role, user?.id]);
+
   if (loading) return <CenterLoading />;
 
-  const role = user?.role;
-  useEffect(() => { setSentryUser(role, user?.id); }, [role, user?.id]);
   const isStudentOrParent = role === 'STUDENT' || role === 'PARENT';
   const isBranch = role === 'BRANCH_ADMIN' || role === 'ACCOUNTING' || role === 'GUIDANCE_COORDINATOR';
   const isOther = !!user && !isStudentOrParent && role !== 'TEACHER' && !isBranch && role !== 'SUPERADMIN';
