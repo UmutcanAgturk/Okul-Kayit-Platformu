@@ -6,7 +6,9 @@ import { useAuth } from '@/lib/auth-context';
 
 const MODULES: HubModule[] = [
   { title: 'Şube Performansı', description: 'Doluluk/tahsilat/ciro', icon: 'map', route: '/(admin)/sube-haritasi' },
-  { title: 'Kurum Yönetimi', description: 'Tüm kurumlar', icon: 'business', route: '/(admin)/kurumlar' },
+  { title: 'Kurum Yönetimi', description: 'Ekle/düzenle/pasifleştir', icon: 'business', route: '/(admin)/kurumlar' },
+  { title: 'Öğrenciler', description: 'Tüm şubeler arama', icon: 'school', route: '/(admin)/ogrenciler' },
+  { title: 'Mesaj Yayını', description: 'Tüm sisteme duyuru', icon: 'megaphone', route: '/(admin)/mesaj-yayini' },
   { title: 'Global Analytics', description: 'Org geneli başarı', icon: 'analytics', route: '/(admin)/analytics' },
   { title: 'Konsolide Muhasebe', description: 'Tüm kurumlar mali', icon: 'wallet', route: '/(admin)/muhasebe' },
   { title: 'İletişim', description: 'Gelen mesajlar', icon: 'mail', route: '/(admin)/iletisim' },

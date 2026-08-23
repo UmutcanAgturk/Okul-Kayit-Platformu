@@ -278,3 +278,6 @@ export interface AttendanceBranchSummary { classrooms: AttendanceClassroomSummar
 // ---- Ölçme sonuç girişi ----
 export interface ExamQuestionDetail { id: string; orderIndex: number; achievementId: string; achievementCode: string; achievementLabel: string; subject: string; correctAnswer: string | null; }
 export interface ExamDetail { id: string; name: string; type: string; examDate: string; bookletTypes: string[]; feePerStudent: number | null; eligibleGradeLevels: string[]; questions: ExamQuestionDetail[]; }
+
+// ---- Dalga F: HQ kurum CRUD + öğrenci + mesaj ----
+export interface HqStudentRow { id: string; studentNo: string; name: string; tenantId: string; tenantName: string; gradeLevel: string; classroomName: string | null; guardianName: string | null; }
