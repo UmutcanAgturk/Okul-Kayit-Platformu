@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import { api, ApiError } from '@/lib/api';
+import { registerPushToken } from '@/lib/push';
 import type { Me } from '@/lib/types';
 
 const ME_CACHE_KEY = 'seviye360.me-cache';
@@ -32,6 +33,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const me = await api.get<Me>('/api/me');
       setUser(me);
       await AsyncStorage.setItem(ME_CACHE_KEY, JSON.stringify(me));
+      void registerPushToken();
     } catch (err) {
       setUser(null);
       await AsyncStorage.removeItem(ME_CACHE_KEY);

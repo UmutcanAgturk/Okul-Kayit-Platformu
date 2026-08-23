@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { PaymentStatus } from "@prisma/client";
 import { prismaSuperadmin } from "@/lib/prisma-superadmin";
 import { notify } from "@/lib/notifications";
+import { sendPushToUser } from "@/lib/push";
 
 /**
  * Taksit vadesi hatırlatma cron'u. Oturumla DEĞİL, `CRON_SECRET` ile korunur —
@@ -71,6 +72,8 @@ async function handle(request: NextRequest) {
         emailText: `Sayın ${contact.firstName},\n\n${studentName} adına ${inst.installmentNo}. taksit ödemeniz (${inst.amount} TL) ${overdue ? `${dueStr} tarihinde vadesi geçmiştir` : `için son ödeme tarihi ${dueStr}'dir`}.\n\nSeviye 360 Eğitim Kurumları`,
       },
     );
+
+    void sendPushToUser(contact.id, overdue ? "Taksit Gecikme" : "Taksit Hatırlatma", `${studentName} ${inst.installmentNo}. taksit (${inst.amount} TL) ${overdue ? "vadesi geçti" : `son ödeme ${dueStr}`}.`, { type: "payment-reminder" }).catch(() => {});
 
     // Gönderim denendi (yapılandırma yoksa skipped döner ama yine de işaretleriz;
     // amaç aynı taramada tekrar tekrar denememek). Hiç iletişim bilgisi yoksa atla.

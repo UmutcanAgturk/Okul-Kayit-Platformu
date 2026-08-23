@@ -4,6 +4,7 @@ import { getSessionActor } from "@/lib/session";
 import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { actorLabel, logActivity } from "@/lib/audit-log";
 import { notify } from "@/lib/notifications";
+import { sendPushToUser } from "@/lib/push";
 
 /**
  * Ölçme-Değerlendirme — Sonuç Girişi. demo/seviye360-app.html'deki
@@ -175,7 +176,7 @@ export async function POST(request: NextRequest, { params }: { params: { examId:
     return {
       kind: "ok" as const,
       examResult, netScore, correctCount, wrongCount, emptyCount,
-      notifyTarget: { phone: contact.phone, email: contact.email, name: contact.firstName },
+      notifyTarget: { userId: contact.id, phone: contact.phone, email: contact.email, name: contact.firstName },
       studentName: `${student.user.firstName} ${student.user.lastName}`,
       examName: exam.name,
     };
@@ -211,6 +212,7 @@ Net: ${outcome.netScore}  (Doğru: ${outcome.correctCount}, Yanlış: ${outcome.
 
 Seviye 360 Eğitim Kurumları`,
     }).catch(() => {});
+    void sendPushToUser(outcome.notifyTarget.userId, `Sınav Sonucu: ${outcome.examName}`, `${outcome.studentName} — Net ${outcome.netScore} (D:${outcome.correctCount} Y:${outcome.wrongCount} B:${outcome.emptyCount})`, { type: "exam-result" }).catch(() => {});
   }
 
   return NextResponse.json({

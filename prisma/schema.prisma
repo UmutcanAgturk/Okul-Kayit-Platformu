@@ -174,6 +174,7 @@ model User {
   studentProfile StudentProfile?
   parentProfile  ParentProfile?
   sessions       UserSession[]
+  pushTokens     PushToken[]
 
   sentMessages      Message[]
   messageRecipients MessageRecipient[]
@@ -1494,4 +1495,16 @@ model MentorRequest {
   @@index([tenantId, createdAt])
   @@index([studentId])
   @@index([mentorTeacherId, status])
+}
+
+// Expo push bildirim cihaz token'ları — bir kullanıcının birden çok cihazı olabilir.
+model PushToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  platform  String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }

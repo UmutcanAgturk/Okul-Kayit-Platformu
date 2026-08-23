@@ -4,6 +4,7 @@ import { getSessionActor } from "@/lib/session";
 import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { actorLabel, logActivity } from "@/lib/audit-log";
 import { notify } from "@/lib/notifications";
+import { sendPushToUser } from "@/lib/push";
 
 /**
  * Devamsızlık/Yoklama — demo/seviye360-app.html'deki "teacher:attendance" /
@@ -143,7 +144,7 @@ export async function POST(request: NextRequest) {
     const absentIds = (records as { studentId: string; status: AttendanceStatus }[])
       .filter((r) => r.status === AttendanceStatus.YOK)
       .map((r) => r.studentId);
-    let notifyList: { phone: string | null; email: string | null; name: string; studentName: string }[] = [];
+    let notifyList: { userId: string; phone: string | null; email: string | null; name: string; studentName: string }[] = [];
     if (absentIds.length > 0) {
       const absentStudents = await tx.studentProfile.findMany({
         where: { id: { in: absentIds } },
@@ -153,6 +154,7 @@ export async function POST(request: NextRequest) {
         const billing = st.guardians.find((g) => g.isBillingResponsible) ?? st.guardians[0];
         const contact = billing ? billing.parent.user : st.user;
         return {
+          userId: contact.id,
           phone: contact.phone,
           email: contact.email,
           name: contact.firstName,
