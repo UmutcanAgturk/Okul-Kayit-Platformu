@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Image, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 
-import { Button, ErrorBanner, Field, MutedText, Screen, Title } from '@/components/ui';
+import { Button, ErrorBanner, Field, MutedText, Screen } from '@/components/ui';
 import { useAuth } from '@/lib/auth-context';
 
 export default function LoginScreen() {
@@ -48,7 +48,11 @@ export default function LoginScreen() {
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
         <Screen style={{ justifyContent: 'center', gap: 20 }}>
-          <Title>Seviye 360</Title>
+          <Image
+            source={require('../../assets/images/seviye360-logo.png')}
+            style={{ width: 220, height: 90, resizeMode: 'contain', alignSelf: 'flex-start' }}
+            accessibilityLabel="Seviye 360"
+          />
 
           {!mfaRequired ? (
             <>

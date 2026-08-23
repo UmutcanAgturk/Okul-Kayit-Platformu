@@ -122,3 +122,43 @@ export interface ClassXRayResponse {
     strongestAchievement: { label: string; classAverageRatio: number };
   };
 }
+
+// ---- Öğrenci/Veli portalı modül tipleri (Dalga 1) ----
+export interface ExamHistoryRow {
+  examId: string; examName: string; examType: string; examDate: string;
+  netScore: number; rawScore: number; percentile: number | null;
+}
+export interface SubjectBreakdownRow { subject: string; achievementCount: number; avgMasteryPct: number; }
+export interface ReportCard {
+  studentId: string; studentName: string;
+  examHistory: ExamHistoryRow[];
+  subjectBreakdown: SubjectBreakdownRow[];
+  attendanceSummary: { totalDays: number; presentDays: number; lateDays: number; excusedDays: number; absentDays: number; absenceRatePct: number };
+  disciplineSummary: { recordCount: number; positiveCount: number; negativeCount: number; netPoints: number };
+  summary: { overallAvgMasteryPct: number | null; strongestSubject: string | null; weakestSubject: string | null };
+}
+export interface AttendanceRecordRow { date: string; status: 'VAR' | 'GEC' | 'IZINLI' | 'YOK'; note: string | null; }
+export interface StudentAttendance {
+  studentId: string; records: AttendanceRecordRow[];
+  summary: { totalDays: number; presentDays: number; lateDays: number; excusedDays: number; absentDays: number; absenceRatePct: number };
+}
+export interface DisciplineRecordRow { id: string; type: 'OLUMLU' | 'OLUMSUZ'; category: string; note: string | null; points: number; createdAt: string; }
+export interface StudentDiscipline { studentId: string; records: DisciplineRecordRow[]; netPoints: number; }
+export interface StudentTimetableSlotRow { id: string; subject: string; dayOfWeek: number; startTime: string; endTime: string; teacherName: string; }
+export interface CriticalAchievement { achievementId: string; code: string; label: string; subject: string; avgRatio: number; }
+export interface StudentRoadmap {
+  studentId: string; studentName: string; gradeLevel: string; targetGoal: string | null;
+  examCount: number; latestNet: number | null; maxPossibleNet: number | null; netPct: number;
+  netTrend: { label: string; value: number }[]; criticalAchievements: CriticalAchievement[];
+}
+export interface Badge { id: string; label: string; desc: string; earned: boolean; }
+export interface StudentGamification {
+  xp: number; level: number; xpIntoLevel: number; xpForNextLevel: number; progressPct: number;
+  classRank: number | null; classSize: number;
+  stats: { examCount: number; attRate: number | null };
+  badges?: Badge[];
+}
+export interface ExamTicketRow {
+  examId: string; examName: string; examType: 'DENEME' | 'YAZILI' | 'VIP_OLCME'; examDate: string;
+  bookletType: string | null; seatingRoomId: string | null; seatNo: string | null; studentNo: string; studentName: string;
+}
