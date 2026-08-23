@@ -254,3 +254,13 @@ export interface BusRouteSummary { id: string; name: string; driverName: string 
 export interface BranchClub { id: string; name: string; description: string | null; advisorName: string | null; memberCount: number; }
 export interface LeaderboardRow { studentId: string; name: string; classroom: string | null; xp: number; level: number; badgeCount: number; }
 export interface BranchTimetableSlot { id: string; classroomName: string; teacherName: string; subject: string; dayOfWeek: number; startTime: string; endTime: string; }
+
+// ---- Dalga 8: Şube okuma modülleri ----
+export interface BranchDisciplineRecord { id: string; studentId: string; studentName: string; type: string; category: string; note: string | null; points: number; createdAt: string; recordedByName: string; }
+export interface BranchPtaRequest { id: string; studentId: string; studentName: string; requestedAt: string; topic: string | null; status: string; createdAt: string; }
+export interface BranchStudySessionRow { id: string; status: string; source: string; scheduledStart: string; teacherName: string; studentName: string; achievement: { code: string; label: string } | null; note: string | null; }
+export interface MentorRosterStudentRow { id: string; name: string; gradeLevel: string; classroomName: string | null; mentorTeacherId: string | null; mentorName: string | null; }
+export interface MentorRosterSummary { mentorCount: number; unassignedCount: number; pendingRequestCount: number; }
+export interface BranchExam { id: string; name: string; type: string; examDate: string; questionCount: number; resultCount: number; avgNet: number | null; }
+export interface RoleStudentRow { id: string; name: string; studentNo: string; classroomName: string | null; username: string; }
+export interface PaymentStudentOverviewRow { id: string; studentNo: string; name: string; guardianName: string | null; totalTuition: number; paymentStatus: string; methodType: string; }

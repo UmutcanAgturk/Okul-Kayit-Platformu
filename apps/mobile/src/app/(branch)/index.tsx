@@ -20,6 +20,13 @@ const MODULES: HubModule[] = [
   { title: 'Servis', description: 'Güzergahlar', icon: 'bus', route: '/(branch)/servis' },
   { title: 'Kulüpler', description: 'Kulüp yönetimi', icon: 'star', route: '/(branch)/kulupler' },
   { title: 'Lider Tablosu', description: 'XP sıralaması', icon: 'trophy', route: '/(branch)/lider-tablosu' },
+  { title: 'Ölçme-Değerlendirme', description: 'Sınavlar', icon: 'clipboard', route: '/(branch)/olcme-degerlendirme' },
+  { title: 'Disiplin', description: 'Davranış kayıtları', icon: 'shield-checkmark', route: '/(branch)/disiplin' },
+  { title: 'Veli Görüşmeleri', description: 'Randevu talepleri', icon: 'chatbubbles', route: '/(branch)/veli-gorusme' },
+  { title: 'Etüt', description: 'Etüt seansları', icon: 'book', route: '/(branch)/etut' },
+  { title: 'Seviye Mentör', description: 'Mentör havuzu', icon: 'person-add', route: '/(branch)/mentor' },
+  { title: 'Roller', description: 'Kullanıcı adları', icon: 'key', route: '/(branch)/roller' },
+  { title: 'Ödeme Yöntemleri', description: 'Öğrenci bazlı', icon: 'card', route: '/(branch)/odeme-yontemleri' },
   { title: 'Güvenlik', description: '2FA kurulumu', icon: 'lock-closed', route: '/(branch)/guvenlik' },
 ];
 
