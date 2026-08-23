@@ -11,6 +11,7 @@ const MODULES: HubModule[] = [
   { title: 'Taksitler', description: 'Tahsilat', icon: 'card', route: '/(branch)/installments' },
   { title: 'Muhasebe', description: 'Gelir/gider defteri', icon: 'wallet', route: '/(branch)/ledger' },
   { title: 'Belgeler', description: 'Fatura/dekont/senet/bordro', icon: 'document-text', route: '/(branch)/belgeler' },
+  { title: 'Dekont Onayı', description: 'Veli dekontları', icon: 'receipt', route: '/(branch)/dekont-onay' },
   { title: 'Personel', description: 'Kadro', icon: 'people', route: '/(branch)/personel' },
   { title: 'Öğretmen Performansı', description: 'Başarı ortalaması', icon: 'stats-chart', route: '/(branch)/ogretmen-performansi' },
   { title: 'Aktivite Akışı', description: 'Denetim izi', icon: 'time', route: '/(branch)/aktivite' },

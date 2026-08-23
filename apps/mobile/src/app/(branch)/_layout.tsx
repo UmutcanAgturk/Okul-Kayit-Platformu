@@ -45,6 +45,7 @@ export default function BranchPortalLayout() {
       <Tabs.Screen name="karne" options={{ ...hidden, title: 'Karne' }} />
       <Tabs.Screen name="normal-kayit" options={{ ...hidden, title: 'Normal Kayıt' }} />
       <Tabs.Screen name="belgeler" options={{ ...hidden, title: 'Belgeler' }} />
+      <Tabs.Screen name="dekont-onay" options={{ ...hidden, title: 'Dekont Onayı' }} />
       <Tabs.Screen name="raporlar" options={{ ...hidden, title: 'Raporlar' }} />
       <Tabs.Screen name="guvenlik" options={{ ...hidden, title: 'Güvenlik' }} />
     </Tabs>
