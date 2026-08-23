@@ -274,3 +274,7 @@ export interface StudentPtaRequest { id: string; teacherId: string; teacherName:
 // ---- Dalga 10: devamsızlık özeti ----
 export interface AttendanceClassroomSummaryRow { classroomId: string; name: string; gradeLevel: string; studentCount: number; daysTaken: number; takenToday: boolean; absentRate: number; }
 export interface AttendanceBranchSummary { classrooms: AttendanceClassroomSummaryRow[]; summary: { classroomsTotal: number; takenTodayCount: number; avgAbsentRate: number }; }
+
+// ---- Ölçme sonuç girişi ----
+export interface ExamQuestionDetail { id: string; orderIndex: number; achievementId: string; achievementCode: string; achievementLabel: string; subject: string; correctAnswer: string | null; }
+export interface ExamDetail { id: string; name: string; type: string; examDate: string; bookletTypes: string[]; feePerStudent: number | null; eligibleGradeLevels: string[]; questions: ExamQuestionDetail[]; }
