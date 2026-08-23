@@ -1,11 +1,39 @@
 import { useMemo, useState } from 'react';
-import { FlatList, View } from 'react-native';
+import { FlatList, Pressable, ScrollView, View } from 'react-native';
 
-import { Card, EmptyState, ErrorBanner, Field, Label, MutedText } from '@/components/ui';
+import { Card, CenterLoading, Chip, EmptyState, ErrorBanner, Field, Label, MutedText, StatTile, Subtitle } from '@/components/ui';
 import { useApiQuery } from '@/lib/use-api-query';
 import type { BranchStudentRow } from '@/lib/types';
 
+function StudentDetail({ id, onBack }: { id: string; onBack: () => void }) {
+  const { data, loading, error } = useApiQuery<{ student: any }>(`/api/branch/students/${id}/detail`);
+  if (loading) return <CenterLoading />;
+  if (error) return <View style={{ padding: 16 }}><ErrorBanner message={error} /></View>;
+  const d = data?.student;
+  return (
+    <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
+      <Pressable onPress={onBack}><Label>‹ Geri</Label></Pressable>
+      <Subtitle>Öğrenci No: {d?.studentNo}</Subtitle>
+      <Card style={{ gap: 4 }}>
+        {d?.nationalId ? <MutedText>T.C.: {d.nationalId}</MutedText> : null}
+        {d?.birthDate ? <MutedText>Doğum: {new Date(d.birthDate).toLocaleDateString('tr-TR')}</MutedText> : null}
+        {d?.gender ? <MutedText>Cinsiyet: {d.gender}</MutedText> : null}
+        {d?.phone ? <MutedText>Telefon: {d.phone}</MutedText> : null}
+        {d?.targetGoal ? <MutedText>Hedef: {d.targetGoal}</MutedText> : null}
+      </Card>
+      {d?.lastExamStats && (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+          <StatTile icon="stats-chart" label="Son Net" value={String(d.lastExamStats.netScore)} tone="brand" />
+          <StatTile icon="checkmark" label="Doğru" value={String(d.lastExamStats.correct)} tone="success" />
+          <StatTile icon="close" label="Yanlış" value={String(d.lastExamStats.wrong)} tone="critical" />
+        </View>
+      )}
+    </ScrollView>
+  );
+}
+
 export default function OgrencilerScreen() {
+  const [openId, setOpenId] = useState<string | null>(null);
   const { data, loading, refreshing, error, refetch } = useApiQuery<{ students: BranchStudentRow[] }>('/api/branch/students');
   const [q, setQ] = useState('');
   const filtered = useMemo(() => {
@@ -14,6 +42,8 @@ export default function OgrencilerScreen() {
     const t = q.toLocaleLowerCase('tr');
     return all.filter((s) => s.name.toLocaleLowerCase('tr').includes(t) || s.studentNo.includes(t));
   }, [data, q]);
+
+  if (openId) return <StudentDetail id={openId} onBack={() => setOpenId(null)} />;
 
   return (
     <FlatList
@@ -29,14 +59,16 @@ export default function OgrencilerScreen() {
       }
       ListEmptyComponent={!loading ? <EmptyState message="Öğrenci bulunamadı." /> : null}
       renderItem={({ item }) => (
-        <Card style={{ gap: 4 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-            <Label>{item.name}</Label>
-            <MutedText>{item.classroomName ?? 'Sınıfsız'}</MutedText>
-          </View>
-          <MutedText>No: {item.studentNo} · {item.gradeLevel}</MutedText>
-          {item.guardianName ? <MutedText>Veli: {item.guardianName}{item.guardianPhone ? ` · ${item.guardianPhone}` : ''}</MutedText> : null}
-        </Card>
+        <Pressable onPress={() => setOpenId(item.id)}>
+          <Card style={{ gap: 4 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <Label>{item.name}</Label>
+              <MutedText>{item.classroomName ?? 'Sınıfsız'}</MutedText>
+            </View>
+            <MutedText>No: {item.studentNo} · {item.gradeLevel}</MutedText>
+            {item.guardianName ? <MutedText>Veli: {item.guardianName}{item.guardianPhone ? ` · ${item.guardianPhone}` : ''}</MutedText> : null}
+          </Card>
+        </Pressable>
       )}
     />
   );
