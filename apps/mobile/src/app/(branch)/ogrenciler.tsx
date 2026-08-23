@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { FlatList, Pressable, ScrollView, View } from 'react-native';
 
 import { Card, CenterLoading, Chip, EmptyState, ErrorBanner, Field, Label, MutedText, StatTile, Subtitle } from '@/components/ui';
+import { api } from '@/lib/api';
 import { useApiQuery } from '@/lib/use-api-query';
 import type { BranchStudentRow } from '@/lib/types';
 
@@ -28,7 +29,34 @@ function StudentDetail({ id, onBack }: { id: string; onBack: () => void }) {
           <StatTile icon="close" label="Yanlış" value={String(d.lastExamStats.wrong)} tone="critical" />
         </View>
       )}
+      <PaymentMethods studentId={id} />
     </ScrollView>
+  );
+}
+
+function PaymentMethods({ studentId }: { studentId: string }) {
+  const { data, refetch } = useApiQuery<{ methods: { id: string; type: string; provider: string; maskedCardNumber: string | null; isDefault: boolean }[] }>(`/api/branch/students/${studentId}/payment-methods`);
+  const [busy, setBusy] = useState(false);
+  async function add(type: string) {
+    setBusy(true);
+    try { await api.post(`/api/branch/students/${studentId}/payment-methods`, { type }); await refetch(); } catch { /* */ } finally { setBusy(false); }
+  }
+  async function del(id: string) { try { await api.del(`/api/branch/students/${studentId}/payment-methods/${id}`); await refetch(); } catch { /* */ } }
+  return (
+    <Card style={{ gap: 8 }}>
+      <Label>Kayıtlı Ödeme Yöntemleri</Label>
+      {(data?.methods ?? []).map((m) => (
+        <Pressable key={m.id} onLongPress={() => del(m.id)}>
+          <Card style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <MutedText>{m.type}{m.maskedCardNumber ? ` · ${m.maskedCardNumber}` : ''}</MutedText>
+            {m.isDefault ? <Chip label="Varsayılan" tone="success" /> : <MutedText>(sil: uzun bas)</MutedText>}
+          </Card>
+        </Pressable>
+      ))}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+        {['KREDI_KARTI', 'BANKA_HAVALESI', 'NAKIT'].map((t) => <Pressable key={t} onPress={() => add(t)} disabled={busy}><Chip label={`+ ${t}`} tone="brand" /></Pressable>)}
+      </View>
+    </Card>
   );
 }
 

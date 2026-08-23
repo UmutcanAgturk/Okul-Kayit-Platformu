@@ -289,3 +289,9 @@ export interface PromissoryNoteRow { id: string; no: string; issueDate: string; 
 // ---- Dalga K: HQ roller/tahsilat + sınıf detay ----
 export interface HqRoleStaffRow { id: string; name: string; email: string; role: string; title: string; isActive: boolean; tenantId: string; tenantName?: string; }
 export interface CollectionRateRow { tenantId: string; tenantName: string; city: string; collectionRate: number | null; paidAmount: number; pendingAmount: number; }
+
+// ---- Dalga L: sınav istatistik, kart, mesaj hedef, HQ dağıtım ----
+export interface ExamQuestionStatRow { questionId: string; questionNo: number; subject: string; achievementLabel: string; correct: number; wrong: number; blank: number; }
+export interface AchievementSummaryRow { achievementId: string; code: string; label: string; subject: string; avgMasteryPct: number; count: number; }
+export interface StudentPaymentMethod { id: string; type: string; provider: string; maskedCardNumber: string | null; isDefault: boolean; }
+export interface HqExamBranchBreakdownRow { tenantId: string; tenantCode: string; tenantName: string; studentCount: number; opticFormCount: number; totalFee: number; dispatchStatus: string; }

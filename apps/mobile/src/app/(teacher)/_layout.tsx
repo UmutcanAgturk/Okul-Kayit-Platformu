@@ -32,6 +32,7 @@ export default function TeacherPortalLayout() {
       <Tabs.Screen name="disiplin" options={{ ...hidden, title: 'Disiplin' }} />
       <Tabs.Screen name="karne" options={{ ...hidden, title: 'Karne' }} />
       <Tabs.Screen name="lider-tablosu" options={{ ...hidden, title: 'Lider Tablosu' }} />
+      <Tabs.Screen name="kazanim-ozeti" options={{ ...hidden, title: 'Kazanım Özeti' }} />
       <Tabs.Screen name="guvenlik" options={{ ...hidden, title: 'Güvenlik' }} />
     </Tabs>
   );

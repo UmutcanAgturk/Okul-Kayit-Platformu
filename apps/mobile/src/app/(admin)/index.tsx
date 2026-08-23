@@ -10,6 +10,7 @@ const MODULES: HubModule[] = [
   { title: 'Öğrenciler', description: 'Tüm şubeler arama', icon: 'school', route: '/(admin)/ogrenciler' },
   { title: 'Mesaj Yayını', description: 'Tüm sisteme duyuru', icon: 'megaphone', route: '/(admin)/mesaj-yayini' },
   { title: 'Tahsilat Oranları', description: 'Şube bazlı tahsilat', icon: 'stats-chart', route: '/(admin)/tahsilat-oranlari' },
+  { title: 'Sınav Dağıtımı', description: 'Kitapçık kargo takibi', icon: 'cube', route: '/(admin)/sinav-dagitimi' },
   { title: 'Global Analytics', description: 'Org geneli başarı', icon: 'analytics', route: '/(admin)/analytics' },
   { title: 'Konsolide Muhasebe', description: 'Tüm kurumlar mali', icon: 'wallet', route: '/(admin)/muhasebe' },
   { title: 'İletişim', description: 'Gelen mesajlar', icon: 'mail', route: '/(admin)/iletisim' },
