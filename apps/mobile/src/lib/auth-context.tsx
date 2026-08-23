@@ -10,7 +10,10 @@ interface AuthContextValue {
   user: Me | null;
   loading: boolean;
   error: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (identifier: string, password: string) => Promise<void>;
+  mfaRequired: boolean;
+  verifyMfa: (code: string) => Promise<void>;
+  cancelMfa: () => void;
   logout: () => Promise<void>;
   logoutAll: () => Promise<void>;
   refreshMe: () => Promise<void>;
@@ -22,6 +25,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<Me | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [mfaToken, setMfaToken] = useState<string | null>(null);
 
   const refreshMe = useCallback(async () => {
     try {
@@ -58,10 +62,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [refreshMe]);
 
   const login = useCallback(
-    async (email: string, password: string) => {
+    async (identifier: string, password: string) => {
       setError(null);
       try {
-        await api.post('/api/auth/login', { email, password });
+        const res = await api.post<{ mfaRequired?: boolean; mfaToken?: string }>('/api/auth/login', {
+          identifier,
+          password,
+        });
+        // İki faktörlü doğrulama açıksa oturum HENÜZ açılmadı — ikinci adıma geç.
+        if (res?.mfaRequired && res.mfaToken) {
+          setMfaToken(res.mfaToken);
+          return;
+        }
         await refreshMe();
       } catch (err) {
         const message = err instanceof ApiError ? err.message : 'Giriş yapılamadı';
@@ -71,6 +83,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
     [refreshMe],
   );
+
+  const verifyMfa = useCallback(
+    async (code: string) => {
+      setError(null);
+      if (!mfaToken) throw new ApiError(400, 'Doğrulama oturumu bulunamadı');
+      try {
+        await api.post('/api/auth/login/verify', { mfaToken, code });
+        setMfaToken(null);
+        await refreshMe();
+      } catch (err) {
+        const message = err instanceof ApiError ? err.message : 'Kod doğrulanamadı';
+        setError(message);
+        throw err;
+      }
+    },
+    [mfaToken, refreshMe],
+  );
+
+  const cancelMfa = useCallback(() => {
+    setMfaToken(null);
+    setError(null);
+  }, []);
 
   const clearSession = useCallback(async () => {
     setUser(null);
@@ -94,8 +128,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [clearSession]);
 
   const value = useMemo(
-    () => ({ user, loading, error, login, logout, logoutAll, refreshMe }),
-    [user, loading, error, login, logout, logoutAll, refreshMe],
+    () => ({ user, loading, error, login, mfaRequired: !!mfaToken, verifyMfa, cancelMfa, logout, logoutAll, refreshMe }),
+    [user, loading, error, login, mfaToken, verifyMfa, cancelMfa, logout, logoutAll, refreshMe],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
