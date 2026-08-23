@@ -54,6 +54,8 @@ export default function BranchPortalLayout() {
       <Tabs.Screen name="senetler" options={{ ...hidden, title: 'Senetler' }} />
       <Tabs.Screen name="kazanim-ozeti" options={{ ...hidden, title: 'Kazanım Özeti' }} />
       <Tabs.Screen name="kazanimlar" options={{ ...hidden, title: 'Kazanımlar' }} />
+      <Tabs.Screen name="siniflar" options={{ ...hidden, title: 'Sınıflar' }} />
+      <Tabs.Screen name="ogretmenler" options={{ ...hidden, title: 'Öğretmenler' }} />
       <Tabs.Screen name="raporlar" options={{ ...hidden, title: 'Raporlar' }} />
       <Tabs.Screen name="guvenlik" options={{ ...hidden, title: 'Güvenlik' }} />
     </Tabs>

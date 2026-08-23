@@ -19,6 +19,8 @@ const MODULES: HubModule[] = [
   { title: 'Risk Öğrenciler', description: 'Kritik kazanım zayıf', icon: 'alert-circle', route: '/(branch)/risk-ogrenciler' },
   { title: 'Kazanım Özeti', description: 'Sınav kazanım analizi', icon: 'analytics', route: '/(branch)/kazanim-ozeti' },
   { title: 'Kazanımlar', description: 'Müfredat kazanım listesi', icon: 'library', route: '/(branch)/kazanimlar' },
+  { title: 'Sınıflar', description: 'Sınıf detayı + program', icon: 'grid', route: '/(branch)/siniflar' },
+  { title: 'Öğretmenler', description: 'Kadro + mentör havuzu', icon: 'people', route: '/(branch)/ogretmenler' },
   { title: 'Senetler', description: 'Senet takibi + ödendi', icon: 'document', route: '/(branch)/senetler' },
   { title: 'Personel', description: 'Kadro', icon: 'people', route: '/(branch)/personel' },
   { title: 'Öğretmen Performansı', description: 'Başarı ortalaması', icon: 'stats-chart', route: '/(branch)/ogretmen-performansi' },

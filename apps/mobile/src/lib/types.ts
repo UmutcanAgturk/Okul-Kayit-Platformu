@@ -295,3 +295,8 @@ export interface ExamQuestionStatRow { questionId: string; questionNo: number; s
 export interface AchievementSummaryRow { achievementId: string; code: string; label: string; subject: string; avgMasteryPct: number; count: number; }
 export interface StudentPaymentMethod { id: string; type: string; provider: string; maskedCardNumber: string | null; isDefault: boolean; }
 export interface HqExamBranchBreakdownRow { tenantId: string; tenantCode: string; tenantName: string; studentCount: number; opticFormCount: number; totalFee: number; dispatchStatus: string; }
+
+// ---- Dalga N: sınıf detay, öğretmen mentör, HQ karşılaştırma ----
+export interface BranchClassroom { id: string; name: string; gradeLevel: string; capacity: number; studentCount: number; }
+export interface TeacherFull { id: string; name: string; email: string; phone: string | null; isActive: boolean; branch: string; title: string | null; isMentor: boolean; salary: string | null; }
+export interface BranchExamComparisonRow { tenantId: string; tenantName: string; city: string; avgNet: number | null; avgKatilim: number | null; examTakers: number; }

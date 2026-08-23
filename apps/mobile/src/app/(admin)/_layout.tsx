@@ -30,6 +30,7 @@ export default function AdminPortalLayout() {
       <Tabs.Screen name="tahsilat-oranlari" options={{ ...hidden, title: 'Tahsilat Oranları' }} />
       <Tabs.Screen name="sinav-dagitimi" options={{ ...hidden, title: 'Sınav Kitapçık Dağıtımı' }} />
       <Tabs.Screen name="arama" options={{ ...hidden, title: 'Genel Arama' }} />
+      <Tabs.Screen name="sinav-karsilastirma" options={{ ...hidden, title: 'Şube Sınav Karşılaştırma' }} />
       <Tabs.Screen name="guvenlik" options={{ ...hidden, title: 'Güvenlik' }} />
     </Tabs>
   );

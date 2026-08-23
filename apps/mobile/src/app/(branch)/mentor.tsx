@@ -7,6 +7,7 @@ import type { MentorRosterStudentRow, MentorRosterSummary } from '@/lib/types';
 
 export default function BranchMentorScreen() {
   const { data, loading, error, refetch } = useApiQuery<{ summary: MentorRosterSummary; students: MentorRosterStudentRow[] }>('/api/branch/mentor-roster');
+  const reqs = useApiQuery<{ requests: { id: string; studentName?: string; mentorName: string; status: string; requestedAt: string }[] }>('/api/branch/mentor-requests');
   const [busy, setBusy] = useState(false);
   async function autoAssign() {
     setBusy(true);
@@ -22,6 +23,14 @@ export default function BranchMentorScreen() {
         <StatTile icon="mail" label="Bekleyen" value={String(data?.summary.pendingRequestCount ?? 0)} />
       </View>
       <Button title="Atanmamışları Otomatik Ata" onPress={autoAssign} loading={busy} />
+      <Subtitle>Randevu Talepleri</Subtitle>
+      {(reqs.data?.requests.length ?? 0) === 0 && <MutedText>Talep yok.</MutedText>}
+      {reqs.data?.requests.map((r) => (
+        <Card key={r.id} style={{ gap: 2 }}>
+          <Label>{r.studentName ?? 'Öğrenci'} → {r.mentorName}</Label>
+          <MutedText>{r.status} · {new Date(r.requestedAt).toLocaleDateString('tr-TR')}</MutedText>
+        </Card>
+      ))}
       <Subtitle>Öğrenciler</Subtitle>
       {(data?.students.length ?? 0) === 0 && <EmptyState message="Öğrenci yok." />}
       {data?.students.map((s) => (
