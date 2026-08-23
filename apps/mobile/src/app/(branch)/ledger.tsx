@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FlatList, RefreshControl, View } from 'react-native';
+import { FlatList, RefreshControl, View, Pressable } from 'react-native';
 
 import {
   Button,
@@ -38,6 +38,13 @@ export default function LedgerScreen() {
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  async function del(id: string) {
+    setDeletingId(id);
+    try { await api.del(`/api/branch/accounting-ledger/${id}`); await refetch(); }
+    catch { /* yut */ } finally { setDeletingId(null); }
+  }
 
   async function handleSubmit() {
     const parsedAmount = parseFloat(amount.replace(',', '.'));
@@ -94,14 +101,16 @@ export default function LedgerScreen() {
       keyExtractor={(item) => item.id}
       ListEmptyComponent={!loading ? <EmptyState message="Henüz muhasebe kaydı yok." /> : null}
       renderItem={({ item }) => (
-        <Card style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <View style={{ gap: 4 }}>
-            <Label>{item.category}</Label>
-            <MutedText>{new Date(item.entryDate).toLocaleDateString('tr-TR')}</MutedText>
-            {item.note ? <MutedText>{item.note}</MutedText> : null}
-          </View>
-          <Chip label={tl(item.amount)} tone={item.type === 'GELIR' ? 'success' : 'critical'} />
-        </Card>
+        <Pressable onLongPress={() => del(item.id)}>
+          <Card style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <View style={{ gap: 4, flex: 1 }}>
+              <Label>{item.category}</Label>
+              <MutedText>{new Date(item.entryDate).toLocaleDateString('tr-TR')}{deletingId === item.id ? ' · siliniyor…' : ' · (sil: uzun bas)'}</MutedText>
+              {item.note ? <MutedText>{item.note}</MutedText> : null}
+            </View>
+            <Chip label={tl(item.amount)} tone={item.type === 'GELIR' ? 'success' : 'critical'} />
+          </Card>
+        </Pressable>
       )}
     />
   );
