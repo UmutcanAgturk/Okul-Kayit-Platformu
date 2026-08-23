@@ -19,7 +19,7 @@ function RootNavigator() {
 
   const role = user?.role;
   const isStudentOrParent = role === 'STUDENT' || role === 'PARENT';
-  const isBranch = role === 'BRANCH_ADMIN' || role === 'ACCOUNTING';
+  const isBranch = role === 'BRANCH_ADMIN' || role === 'ACCOUNTING' || role === 'GUIDANCE_COORDINATOR';
   const isOther = !!user && !isStudentOrParent && role !== 'TEACHER' && !isBranch && role !== 'SUPERADMIN';
 
   return (

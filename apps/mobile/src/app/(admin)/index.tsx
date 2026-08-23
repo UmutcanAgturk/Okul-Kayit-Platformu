@@ -10,6 +10,7 @@ const MODULES: HubModule[] = [
   { title: 'Global Analytics', description: 'Org geneli başarı', icon: 'analytics', route: '/(admin)/analytics' },
   { title: 'Konsolide Muhasebe', description: 'Tüm kurumlar mali', icon: 'wallet', route: '/(admin)/muhasebe' },
   { title: 'İletişim', description: 'Gelen mesajlar', icon: 'mail', route: '/(admin)/iletisim' },
+  { title: 'Güvenlik', description: '2FA kurulumu', icon: 'lock-closed', route: '/(admin)/guvenlik' },
 ];
 
 export default function AdminHubScreen() {

@@ -14,7 +14,9 @@ const MODULES: HubModule[] = [
   { title: 'Veli Görüşmeleri', description: 'Randevu onayı', icon: 'chatbubbles', route: '/(teacher)/veli-gorusme' },
   { title: 'Mentörlük', description: 'Danışan öğrenciler', icon: 'person-add', route: '/(teacher)/mentorluk' },
   { title: 'Kulüplerim', description: 'Danışman kulüpler', icon: 'star', route: '/(teacher)/kulupler' },
+  { title: 'Yoklama Al', description: 'Sınıf yoklaması', icon: 'checkbox', route: '/(teacher)/yoklama' },
   { title: 'İletişim', description: 'Gelen mesajlar', icon: 'mail', route: '/(teacher)/iletisim' },
+  { title: 'Güvenlik', description: '2FA kurulumu', icon: 'lock-closed', route: '/(teacher)/guvenlik' },
 ];
 
 export default function TeacherHubScreen() {

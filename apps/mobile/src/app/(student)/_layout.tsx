@@ -49,6 +49,8 @@ export default function StudentPortalLayout() {
         <Tabs.Screen name="quiz" options={{ ...hidden, title: 'Pratik Quiz' }} />
         <Tabs.Screen name="mentor" options={{ ...hidden, title: 'Seviye Mentör' }} />
         <Tabs.Screen name="etut-randevularim" options={{ ...hidden, title: 'Etüt Randevularım' }} />
+        <Tabs.Screen name="kulupler" options={{ ...hidden, title: 'Kulüpler' }} />
+        <Tabs.Screen name="guvenlik" options={{ ...hidden, title: 'Güvenlik' }} />
       </Tabs>
     </StudentSelectionProvider>
   );

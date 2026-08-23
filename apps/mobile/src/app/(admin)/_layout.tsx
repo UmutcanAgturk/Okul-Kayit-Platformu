@@ -23,6 +23,7 @@ export default function AdminPortalLayout() {
       <Tabs.Screen name="analytics" options={{ ...hidden, title: 'Global Analytics' }} />
       <Tabs.Screen name="sube-haritasi" options={{ ...hidden, title: 'Şube Performansı' }} />
       <Tabs.Screen name="iletisim" options={{ ...hidden, title: 'İletişim' }} />
+      <Tabs.Screen name="guvenlik" options={{ ...hidden, title: 'Güvenlik' }} />
     </Tabs>
   );
 }

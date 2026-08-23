@@ -19,7 +19,9 @@ const MODULES: HubModule[] = [
   { title: 'Pratik Quiz', description: 'Deneme sonuçları', icon: 'help-circle', route: '/(student)/quiz' },
   { title: 'Seviye Mentör', description: 'Mentör randevusu', icon: 'people', route: '/(student)/mentor' },
   { title: 'Etüt Randevularım', description: 'Etüt seansları', icon: 'book', route: '/(student)/etut-randevularim' },
+  { title: 'Kulüpler', description: 'Üyelik', icon: 'star', route: '/(student)/kulupler' },
   { title: 'Ödeme İşlemleri', description: 'Taksit durumu', icon: 'wallet', route: '/(student)/installments' },
+  { title: 'Güvenlik', description: '2FA kurulumu', icon: 'lock-closed', route: '/(student)/guvenlik' },
 ];
 
 export default function StudentHubScreen() {

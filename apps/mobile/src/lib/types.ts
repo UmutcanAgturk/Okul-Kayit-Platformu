@@ -233,3 +233,9 @@ export interface BranchMapRow {
   id: string; name: string; city: string | null; district: string | null; capacity: number | null;
   studentCount: number; occupancyPct: number; collectionPct: number; revenue: number;
 }
+
+// ---- Dalga 6: yoklama, kulüpler, 2FA ----
+export type AttendanceStatus2 = 'VAR' | 'GEC' | 'IZINLI' | 'YOK';
+export interface ClassroomOption { id: string; name: string; }
+export interface AttendanceRow { studentId: string; name: string; status: AttendanceStatus2; note: string | null; }
+export interface StudentClub { id: string; name: string; description: string | null; advisorName: string | null; memberCount: number; isMember: boolean; }
