@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import * as ImagePicker from 'expo-image-picker';
 import { FlatList, RefreshControl, View } from 'react-native';
 
 import { Button, Card, Chip, EmptyState, ErrorBanner, Label, MutedText, Screen, Subtitle, Title } from '@/components/ui';
@@ -21,6 +22,22 @@ export default function InstallmentsScreen() {
   const { data, loading, refreshing, error, refetch } = useApiQuery<{ installments: PaymentInstallment[] }>(path);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [payErr, setPayErr] = useState<string | null>(null);
+
+  async function uploadReceipt(installmentId: string) {
+    if (!selectedStudent) return;
+    const res = await ImagePicker.launchImageLibraryAsync({ base64: true, quality: 0.6, mediaTypes: ImagePicker.MediaTypeOptions.Images });
+    if (res.canceled || !res.assets?.[0]?.base64) return;
+    const a = res.assets[0];
+    const mime = a.mimeType ?? 'image/jpeg';
+    setBusyId(installmentId); setPayErr(null);
+    try {
+      await api.post(`/api/students/${selectedStudent.studentId}/payment-receipts`, {
+        installmentId, fileName: a.fileName ?? 'dekont.jpg', mimeType: mime, dataUrl: `data:${mime};base64,${a.base64}`,
+      });
+      await refetch();
+    } catch (e) { setPayErr(e instanceof ApiError ? e.message : 'Dekont yüklenemedi'); }
+    finally { setBusyId(null); }
+  }
 
   async function pay(installmentId: string) {
     if (!selectedStudent) return;
@@ -66,7 +83,10 @@ export default function InstallmentsScreen() {
             </View>
           </View>
           {isParent && item.status === 'PENDING' && (
-            <Button title="Online Öde" onPress={() => pay(item.id)} loading={busyId === item.id} />
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <Button title="Online Öde" onPress={() => pay(item.id)} loading={busyId === item.id} />
+              <Button title="Dekont Yükle" variant="secondary" onPress={() => uploadReceipt(item.id)} loading={busyId === item.id} />
+            </View>
           )}
         </Card>
       )}

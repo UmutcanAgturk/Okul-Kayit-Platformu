@@ -18,6 +18,7 @@ const MODULES: HubModule[] = [
   { title: 'Vergi Ayarları', description: 'Vergi no/dairesi', icon: 'settings', route: '/(branch)/vergi-ayarlari' },
   { title: 'Risk Öğrenciler', description: 'Kritik kazanım zayıf', icon: 'alert-circle', route: '/(branch)/risk-ogrenciler' },
   { title: 'Kazanım Özeti', description: 'Sınav kazanım analizi', icon: 'analytics', route: '/(branch)/kazanim-ozeti' },
+  { title: 'Kazanımlar', description: 'Müfredat kazanım listesi', icon: 'library', route: '/(branch)/kazanimlar' },
   { title: 'Senetler', description: 'Senet takibi + ödendi', icon: 'document', route: '/(branch)/senetler' },
   { title: 'Personel', description: 'Kadro', icon: 'people', route: '/(branch)/personel' },
   { title: 'Öğretmen Performansı', description: 'Başarı ortalaması', icon: 'stats-chart', route: '/(branch)/ogretmen-performansi' },
