@@ -21,6 +21,7 @@ const MODULES: HubModule[] = [
   { title: 'Etüt Randevularım', description: 'Etüt seansları', icon: 'book', route: '/(student)/etut-randevularim' },
   { title: 'Kulüpler', description: 'Üyelik', icon: 'star', route: '/(student)/kulupler' },
   { title: 'Ödeme İşlemleri', description: 'Taksit durumu', icon: 'wallet', route: '/(student)/installments' },
+  { title: 'Veli Görüşmesi', description: 'Randevu talepleri', icon: 'chatbubbles', route: '/(student)/veli-gorusme' },
   { title: 'Güvenlik', description: '2FA kurulumu', icon: 'lock-closed', route: '/(student)/guvenlik' },
 ];
 

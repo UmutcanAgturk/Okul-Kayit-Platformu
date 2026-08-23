@@ -264,3 +264,9 @@ export interface MentorRosterSummary { mentorCount: number; unassignedCount: num
 export interface BranchExam { id: string; name: string; type: string; examDate: string; questionCount: number; resultCount: number; avgNet: number | null; }
 export interface RoleStudentRow { id: string; name: string; studentNo: string; classroomName: string | null; username: string; }
 export interface PaymentStudentOverviewRow { id: string; studentNo: string; name: string; guardianName: string | null; totalTuition: number; paymentStatus: string; methodType: string; }
+
+// ---- Dalga 9: HQ + raporlar + öğrenci pta ----
+export interface HqRoleStudentRow { id: string; name: string; studentNo: string; classroomName: string | null; username: string; tenantId: string; tenantName: string; }
+export interface HqExam { id: string; name: string; examDate: string; bookletTypes: string[]; eligibleGradeLevels: string[]; feePerStudent: number | null; branchCount: number; studentCount: number; opticFormCount: number; totalFee: number; }
+export interface FinancialSummary { rows: { type: 'GELIR' | 'GIDER'; category: string; amount: number }[]; totalIncome: number; totalExpense: number; netProfit: number; recordCount: number; }
+export interface StudentPtaRequest { id: string; teacherId: string; teacherName: string; requestedAt: string; topic: string | null; status: string; createdAt: string; }

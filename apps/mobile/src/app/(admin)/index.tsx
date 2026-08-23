@@ -10,6 +10,8 @@ const MODULES: HubModule[] = [
   { title: 'Global Analytics', description: 'Org geneli başarı', icon: 'analytics', route: '/(admin)/analytics' },
   { title: 'Konsolide Muhasebe', description: 'Tüm kurumlar mali', icon: 'wallet', route: '/(admin)/muhasebe' },
   { title: 'İletişim', description: 'Gelen mesajlar', icon: 'mail', route: '/(admin)/iletisim' },
+  { title: 'Roller', description: 'Tüm kullanıcılar', icon: 'key', route: '/(admin)/roller' },
+  { title: 'Genel Sınav Merkezi', description: 'Ağ sınavları', icon: 'clipboard', route: '/(admin)/olcme-degerlendirme' },
   { title: 'Güvenlik', description: '2FA kurulumu', icon: 'lock-closed', route: '/(admin)/guvenlik' },
 ];
 
