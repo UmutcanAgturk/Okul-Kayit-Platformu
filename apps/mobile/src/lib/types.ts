@@ -162,3 +162,28 @@ export interface ExamTicketRow {
   examId: string; examName: string; examType: 'DENEME' | 'YAZILI' | 'VIP_OLCME'; examDate: string;
   bookletType: string | null; seatingRoomId: string | null; seatNo: string | null; studentNo: string; studentName: string;
 }
+
+// ---- Dalga 2: kalan öğrenci modülleri ----
+export interface InboxMessage {
+  id: string; senderLabel: string; title: string; body: string;
+  audienceLabel: string; createdAt: string; readAt: string | null;
+}
+export interface StudentBusRoute {
+  route: { id: string; name: string; driverName: string | null; driverPhone: string | null; stops: string | null } | null;
+}
+export interface QuizAttemptRow {
+  id: string; subject: string; achievementCode: string | null; achievementLabel: string | null;
+  correctCount: number; totalCount: number; createdAt: string;
+}
+export type MentorRequestStatus = 'BEKLIYOR' | 'ONAYLANDI' | 'REDDEDILDI' | 'TAMAMLANDI';
+export interface StudentMentorInfo {
+  mentor: { id: string; name: string; branch: string } | null;
+  quota: { used: number; limit: number } | null;
+}
+export interface MentorRequestRow {
+  id: string; mentorName: string; requestedAt: string; note: string | null; status: MentorRequestStatus;
+}
+export interface EtutSessionRow {
+  id: string; status: StudySessionStatus; scheduledStart: string;
+  teacherName: string; achievement: { code: string; label: string } | null;
+}

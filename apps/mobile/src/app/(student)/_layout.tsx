@@ -44,6 +44,11 @@ export default function StudentPortalLayout() {
         <Tabs.Screen name="basari" options={{ ...hidden, title: 'Başarı Rozetlerim' }} />
         <Tabs.Screen name="davranis-notlarim" options={{ ...hidden, title: 'Davranış Notlarım' }} />
         <Tabs.Screen name="sinav-belgesi" options={{ ...hidden, title: 'QR Sınav Belgesi' }} />
+        <Tabs.Screen name="iletisim" options={{ ...hidden, title: 'İletişim' }} />
+        <Tabs.Screen name="servis" options={{ ...hidden, title: 'Servis' }} />
+        <Tabs.Screen name="quiz" options={{ ...hidden, title: 'Pratik Quiz' }} />
+        <Tabs.Screen name="mentor" options={{ ...hidden, title: 'Seviye Mentör' }} />
+        <Tabs.Screen name="etut-randevularim" options={{ ...hidden, title: 'Etüt Randevularım' }} />
       </Tabs>
     </StudentSelectionProvider>
   );

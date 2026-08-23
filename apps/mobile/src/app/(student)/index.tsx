@@ -14,6 +14,11 @@ const MODULES: HubModule[] = [
   { title: 'Başarı Rozetlerim', description: 'XP, seviye, rozetler', icon: 'trophy', route: '/(student)/basari' },
   { title: 'Davranış Notlarım', description: 'Olumlu/olumsuz', icon: 'shield-checkmark', route: '/(student)/davranis-notlarim' },
   { title: 'QR Sınav Belgesi', description: 'Salon/sıra bilgisi', icon: 'qr-code', route: '/(student)/sinav-belgesi' },
+  { title: 'İletişim', description: 'Gelen mesajlar', icon: 'mail', route: '/(student)/iletisim' },
+  { title: 'Servisim', description: 'Güzergah/şoför', icon: 'bus', route: '/(student)/servis' },
+  { title: 'Pratik Quiz', description: 'Deneme sonuçları', icon: 'help-circle', route: '/(student)/quiz' },
+  { title: 'Seviye Mentör', description: 'Mentör randevusu', icon: 'people', route: '/(student)/mentor' },
+  { title: 'Etüt Randevularım', description: 'Etüt seansları', icon: 'book', route: '/(student)/etut-randevularim' },
   { title: 'Ödeme İşlemleri', description: 'Taksit durumu', icon: 'wallet', route: '/(student)/installments' },
 ];
 
