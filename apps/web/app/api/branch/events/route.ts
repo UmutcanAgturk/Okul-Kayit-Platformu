@@ -11,7 +11,8 @@ const acting = (a: { role: UserRole; actingTenantId?: string | null }) => a.role
 export async function GET(request: NextRequest) {
   const actor = await getSessionActor(request);
   if (!actor) return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
-  if (!ROLES.includes(actor.role) && !acting(actor)) return NextResponse.json({ message: "Bu rol etkinlikleri görüntüleyemez" }, { status: 403 });
+  // Etkinlikler okul geneli bilgidir — kimliği doğrulanan HERKESE okunabilir
+  // (öğrenci/veli etkinlikleri görür). Oluşturma (POST) yönetim/öğretmen rolleriyle sınırlı.
   const events = await withBranchTenantContext(actor, (tx) =>
     tx.schoolEvent.findMany({ include: { _count: { select: { participations: true } } }, orderBy: { startAt: "desc" } }),
   );

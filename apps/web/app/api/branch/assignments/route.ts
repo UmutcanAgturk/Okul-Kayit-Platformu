@@ -11,7 +11,9 @@ const acting = (a: { role: UserRole; actingTenantId?: string | null }) => a.role
 export async function GET(request: NextRequest) {
   const actor = await getSessionActor(request);
   if (!actor) return NextResponse.json({ message: "Oturum açmanız gerekiyor" }, { status: 401 });
-  if (!ROLES.includes(actor.role) && !acting(actor)) return NextResponse.json({ message: "Bu rol ödev listesini görüntüleyemez" }, { status: 403 });
+  // Ödev listesi kimliği doğrulanan HERKESE okunabilir (öğrenci/veli kendi
+  // sınıflarının ödevlerini görür — Takvim/Yemekhane ile aynı desen). Oluşturma
+  // (POST) ise yönetim/öğretmen rolleriyle sınırlıdır.
   const assignments = await withBranchTenantContext(actor, (tx) =>
     tx.assignment.findMany({ include: { _count: { select: { submissions: true } } }, orderBy: { createdAt: "desc" } }),
   );

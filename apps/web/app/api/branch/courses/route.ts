@@ -5,7 +5,8 @@ import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { actorLabel, logActivity } from "@/lib/audit-log";
 
 /** Kurs / Ders Kataloğu — kredili ders/kurs tanımları (tenant_isolation). */
-const READ_ROLES: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.GUIDANCE_COORDINATOR, UserRole.TEACHER];
+// Kurs kataloğu yalnızca Şube Yöneticisi'ne açık (nav kartıyla tutarlı).
+const READ_ROLES: UserRole[] = [UserRole.BRANCH_ADMIN];
 const WRITE_ROLES: UserRole[] = [UserRole.BRANCH_ADMIN];
 const acting = (a: { role: UserRole; actingTenantId?: string | null }) => a.role === UserRole.SUPERADMIN && !!a.actingTenantId;
 

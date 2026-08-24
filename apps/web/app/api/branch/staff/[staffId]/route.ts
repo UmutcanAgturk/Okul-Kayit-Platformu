@@ -42,7 +42,12 @@ export async function PATCH(request: NextRequest, { params }: { params: { staffI
   if (hasRole && !role) {
     return NextResponse.json({ message: `role şunlardan biri olmalı: ${STAFF_USER_ROLES.join(", ")}` }, { status: 400 });
   }
-  if (hasRole && !ROLE_CHANGE_ALLOWED.includes(actor.role)) {
+  // Rol değişimi yüksek yetki ister: BRANCH_ADMIN veya bir şubeyi yöneten
+  // SUPERADMIN (acting). Bare SUPERADMIN (şube seçmemiş) çapraz-şube salt-okunur
+  // moddadır ve zaten buraya yazma isteği göndermez. Profil düzenleme (aşağıda)
+  // ile aynı acting-SUPERADMIN muamelesi — tutarlılık için.
+  const canChangeRole = ROLE_CHANGE_ALLOWED.includes(actor.role) || (actor.role === UserRole.SUPERADMIN && !!actor.actingTenantId);
+  if (hasRole && !canChangeRole) {
     return NextResponse.json({ message: "Bu rol personelin sistem rolünü değiştiremez" }, { status: 403 });
   }
 
@@ -51,7 +56,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { staffI
   if (hasUsername && (!username || !username.includes("@"))) {
     return NextResponse.json({ message: "Geçerli bir kullanıcı adı (e-posta) zorunludur" }, { status: 400 });
   }
-  if (hasUsername && !ROLE_CHANGE_ALLOWED.includes(actor.role)) {
+  if (hasUsername && !canChangeRole) {
     return NextResponse.json({ message: "Bu rol personelin kullanıcı adını değiştiremez" }, { status: 403 });
   }
 

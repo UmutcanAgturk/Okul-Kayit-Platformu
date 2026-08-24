@@ -5,7 +5,8 @@ import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { actorLabel, logActivity } from "@/lib/audit-log";
 
 /** Mezun Yönetimi — mezun profili + üniversite/iş takibi (tenant_isolation). */
-const ROLES: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.GUIDANCE_COORDINATOR];
+// Mezun yönetimi yalnızca Şube Yöneticisi'ne açık (nav kartıyla tutarlı).
+const ROLES: UserRole[] = [UserRole.BRANCH_ADMIN];
 const acting = (a: { role: UserRole; actingTenantId?: string | null }) => a.role === UserRole.SUPERADMIN && !!a.actingTenantId;
 
 export async function GET(request: NextRequest) {
