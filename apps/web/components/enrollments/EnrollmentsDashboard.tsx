@@ -8,6 +8,7 @@ import { ApiError } from "@/lib/api/client";
 import {
   cancelEnrollment,
   completeEnrollment,
+  type CompleteEnrollmentResult,
   createEnrollment,
   EnrollmentRow,
   enrollmentKeys,
@@ -18,6 +19,7 @@ import {
   updateEnrollment,
 } from "@/lib/api/enrollments";
 import { HqBranchSelector } from "@/components/hq/HqBranchSelector";
+import { RegistrationCredentialsModal } from "@/components/normal-kayit/RegistrationCredentialsModal";
 
 const ALLOWED_ROLES = ["BRANCH_ADMIN", "GUIDANCE_COORDINATOR"];
 const GRADE_OPTIONS = Object.keys(GRADE_LEVEL_LABEL);
@@ -76,9 +78,9 @@ export function EnrollmentsDashboard() {
 
   const [cancelingId, setCancelingId] = useState<string | null>(null);
   const [completingId, setCompletingId] = useState<string | null>(null);
-  const [completeDraft, setCompleteDraft] = useState({ installmentCount: "1", installmentAmount: "", firstDueDate: "", nationalId: "", guardianNationalId: "" });
+  const [completeDraft, setCompleteDraft] = useState({ installmentCount: "1", installmentAmount: "", firstDueDate: "", nationalId: "", guardianNationalId: "", guardianEmail: "" });
   const [completeError, setCompleteError] = useState<string | null>(null);
-  const [credentials, setCredentials] = useState<{ username: string; password: string } | null>(null);
+  const [completedResult, setCompletedResult] = useState<CompleteEnrollmentResult | null>(null);
 
   const createMutation = useMutation({
     mutationFn: createEnrollment,
@@ -116,7 +118,7 @@ export function EnrollmentsDashboard() {
       queryClient.invalidateQueries({ queryKey: enrollmentKeys.list() });
       setCompletingId(null);
       setCompleteError(null);
-      setCredentials(data.credentials);
+      setCompletedResult(data);
     },
     onError: (err) => setCompleteError(err instanceof ApiError ? err.message : "Kayıt tamamlanamadı."),
   });
@@ -154,7 +156,7 @@ export function EnrollmentsDashboard() {
     setEditingId(null);
     setCancelingId(null);
     setCompleteError(null);
-    setCompleteDraft({ installmentCount: "1", installmentAmount: "", firstDueDate: new Date().toISOString().slice(0, 10), nationalId: "", guardianNationalId: "" });
+    setCompleteDraft({ installmentCount: "1", installmentAmount: "", firstDueDate: new Date().toISOString().slice(0, 10), nationalId: "", guardianNationalId: "", guardianEmail: "" });
   }
 
   function submitComplete(id: string) {
@@ -171,7 +173,7 @@ export function EnrollmentsDashboard() {
       setCompleteError("Öğrenci ve veli T.C. Kimlik No'su 11 haneli olmalıdır (giriş bununla yapılır).");
       return;
     }
-    completeMutation.mutate({ id, input: { installmentCount: count, installmentAmount: amount, firstDueDate, nationalId, guardianNationalId } });
+    completeMutation.mutate({ id, input: { installmentCount: count, installmentAmount: amount, firstDueDate, nationalId, guardianNationalId, guardianEmail: completeDraft.guardianEmail.trim() || undefined } });
   }
 
   if (isLoading) {
@@ -258,24 +260,6 @@ export function EnrollmentsDashboard() {
             </form>
           </div>
 
-          {credentials && (
-            <div className="card card-pad" style={{ borderColor: "var(--strong)", background: "var(--strong-bg)" }}>
-              <h3 style={{ margin: 0, fontSize: "var(--text-base)", fontWeight: 700, color: "var(--strong)" }}>Kayıt Tamamlandı — Giriş Bilgileri</h3>
-              <p style={{ margin: "4px 0 0", fontSize: "var(--text-xs)", color: "var(--strong)" }}>
-                Bu şifre yalnızca burada gösterilir — hemen veliye/öğrenciye iletin, tekrar görüntülenemez.
-              </p>
-              <dl style={{ margin: "8px 0 0", display: "flex", flexDirection: "column", gap: 4, fontSize: "var(--text-xs)", color: "var(--strong)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <dt>Kullanıcı adı</dt>
-                  <dd style={{ margin: 0, fontFamily: "monospace" }}>{credentials.username}</dd>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <dt>Şifre</dt>
-                  <dd style={{ margin: 0, fontFamily: "monospace" }}>{credentials.password}</dd>
-                </div>
-              </dl>
-            </div>
-          )}
         </div>
 
         <div className="card card-pad">
@@ -399,6 +383,17 @@ export function EnrollmentsDashboard() {
                         />
                       </div>
                     </div>
+                    <div className="field">
+                      <label>Veli E-postası (opsiyonel)</label>
+                      <input
+                        type="email"
+                        value={completeDraft.guardianEmail}
+                        onChange={(e) => setCompleteDraft((d) => ({ ...d, guardianEmail: e.target.value }))}
+                        placeholder="ornek@eposta.com — girilirse giriş bilgileri otomatik gönderilir"
+                        inputMode="email"
+                        autoCapitalize="none"
+                      />
+                    </div>
                     {completeError && <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--critical)" }}>{completeError}</p>}
                     <div style={{ display: "flex", gap: 8 }}>
                       <button type="button" onClick={() => submitComplete(row.id)} disabled={completeMutation.isPending} className="btn success solid xs">
@@ -457,6 +452,9 @@ export function EnrollmentsDashboard() {
           </div>
         </div>
       </div>
+      {completedResult && (
+        <RegistrationCredentialsModal result={completedResult} onClose={() => setCompletedResult(null)} />
+      )}
     </div>
   );
 }

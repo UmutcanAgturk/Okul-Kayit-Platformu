@@ -111,6 +111,9 @@ export interface CompleteEnrollmentInput {
   // app/api/auth/login) her ikisi de zorunludur (11 hane).
   nationalId: string;
   guardianNationalId: string;
+  // Velinin GERÇEK e-postası (opsiyonel) — verilirse giriş bilgileri kayıt
+  // tamamlanınca bu adrese otomatik gönderilir.
+  guardianEmail?: string;
   birthDate?: string;
   gender?: string;
   busRouteId?: string;
@@ -130,6 +133,10 @@ export interface CompleteEnrollmentResult {
   credentials: { username: string; password: string };
   parentCredentials: { username: string; password: string } | null;
   parentLinkedExisting: boolean;
+  // Veli e-postasına giriş bilgileri gönderim durumu.
+  guardianEmailProvided: boolean;
+  emailSent: boolean;
+  emailSkipped: boolean;
 }
 
 export function completeEnrollment(enrollmentId: string, input: CompleteEnrollmentInput) {

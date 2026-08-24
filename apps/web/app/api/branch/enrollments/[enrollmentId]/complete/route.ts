@@ -3,7 +3,8 @@ import { PaymentMethodType, UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
 import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { hashPassword } from "@/lib/auth";
-import { generateParentEmail, generateStudentEmail, generateStudentNo, generateTempPassword } from "@/lib/enrollment";
+import { generateParentEmail, generateStudentEmail, generateStudentNo } from "@/lib/enrollment";
+import { sendEmail } from "@/lib/notifications";
 import { actorLabel, logActivity } from "@/lib/audit-log";
 import { formatDocumentNo } from "@/lib/documents";
 
@@ -92,6 +93,14 @@ export async function POST(request: NextRequest, { params }: { params: { enrollm
   if (!/^\d{11}$/.test(guardianNationalId)) {
     return NextResponse.json({ message: "Velinin T.C. Kimlik No'su zorunludur (11 hane)" }, { status: 400 });
   }
+  // Veli e-postası OPSİYONEL — verilirse kayıt tamamlanınca giriş bilgileri
+  // (öğrenci + yeni açılan veli hesabı) bu adrese otomatik gönderilir. Bu,
+  // velinin GERÇEK e-postasıdır; User.email ise dahili/teknik bir alandır
+  // (bkz. lib/enrollment.ts generateParentEmail) — ikisi karıştırılmamalıdır.
+  const guardianEmail = typeof body.guardianEmail === "string" && body.guardianEmail.trim() ? body.guardianEmail.trim() : null;
+  if (guardianEmail && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(guardianEmail)) {
+    return NextResponse.json({ message: "Veli e-postası geçerli bir adres olmalıdır" }, { status: 400 });
+  }
   const birthDate = typeof body.birthDate === "string" && body.birthDate.trim() && !isNaN(Date.parse(body.birthDate)) ? new Date(body.birthDate) : null;
   const gender = typeof body.gender === "string" && GENDER_OPTIONS.includes(body.gender) ? body.gender : null;
   const busRouteId = typeof body.busRouteId === "string" && body.busRouteId ? body.busRouteId : null;
@@ -165,13 +174,14 @@ export async function POST(request: NextRequest, { params }: { params: { enrollm
       if (attempt > 20) throw new Error("Benzersiz öğrenci numarası üretilemedi");
     }
 
-    const tempPassword = generateTempPassword();
-    const passwordHash = await hashPassword(tempPassword);
+    // İlk giriş şifresi = öğrencinin kendi T.C. Kimlik No'su. mustChangePassword
+    // ile ilk girişte zorunlu değişim tetiklenir (bkz. app/api/auth/login).
+    const passwordHash = await hashPassword(nationalId);
     const [firstName, ...rest] = enrollment.candidateFullName.trim().split(/\s+/);
     const lastName = rest.join(" ") || firstName;
 
     const user = await tx.user.create({
-      data: { tenantId: effectiveTenantId(actor), email, passwordHash, role: "STUDENT", firstName, lastName, phone },
+      data: { tenantId: effectiveTenantId(actor), email, passwordHash, role: "STUDENT", firstName, lastName, phone, mustChangePassword: true },
     });
     const student = await tx.studentProfile.create({
       data: {
@@ -226,8 +236,9 @@ export async function POST(request: NextRequest, { params }: { params: { enrollm
             select: { id: true },
           })
         : null;
-      const parentTempPassword = generateTempPassword();
-      const parentPasswordHash = await hashPassword(parentTempPassword);
+      // İlk giriş şifresi = velinin kendi T.C. Kimlik No'su (öğrenciyle aynı
+      // desen); ilk girişte zorunlu değişim.
+      const parentPasswordHash = await hashPassword(guardianNationalId);
       const [parentFirstName, ...parentRest] = enrollment.guardianFullName.trim().split(/\s+/);
       const parentLastName = parentRest.join(" ") || parentFirstName;
       const parentUser = await tx.user.create({
@@ -239,10 +250,11 @@ export async function POST(request: NextRequest, { params }: { params: { enrollm
           firstName: parentFirstName,
           lastName: parentLastName,
           phone: phoneOwner ? null : guardianPhoneNormalized,
+          mustChangePassword: true,
         },
       });
       parentUserId = parentUser.id;
-      parentCredentials = { username: guardianNationalId, password: parentTempPassword };
+      parentCredentials = { username: guardianNationalId, password: guardianNationalId };
     }
     const parentProfile = await tx.parentProfile.upsert({
       where: { userId: parentUserId },
@@ -334,7 +346,6 @@ export async function POST(request: NextRequest, { params }: { params: { enrollm
       student,
       installments,
       email,
-      tempPassword,
       promissoryNotes,
       paymentMethod,
       parentCredentials,
@@ -364,6 +375,44 @@ export async function POST(request: NextRequest, { params }: { params: { enrollm
     return NextResponse.json({ message: "Seçilen sınıfın seviyesi adayın seviyesiyle uyuşmuyor" }, { status: 400 });
   }
 
+  // Kayıt tamamlandı — veli e-postası verildiyse giriş bilgilerini otomatik
+  // gönder. İlk giriş şifreleri T.C. Kimlik No'dur ve ilk girişte değiştirilmesi
+  // zorunludur; e-posta bunu açıkça belirtir. Gönderim best-effort'tur — SMTP
+  // yapılandırılmamışsa sessizce atlanır (emailSent=false, skipped).
+  let emailSent = false;
+  let emailSkipped = false;
+  if (guardianEmail) {
+    const lines: string[] = [
+      `Sayın ${outcome.enrollment.guardianFullName},`,
+      ``,
+      `${outcome.enrollment.candidateFullName} adına Seviye 360 kaydınız tamamlanmıştır. Uygulamaya ve web portalına aşağıdaki bilgilerle giriş yapabilirsiniz.`,
+      ``,
+      `ÖĞRENCİ GİRİŞİ`,
+      `  Kullanıcı adı (T.C. Kimlik No): ${nationalId}`,
+      `  İlk şifre: ${nationalId}`,
+    ];
+    if (outcome.parentCredentials) {
+      lines.push(
+        ``,
+        `VELİ GİRİŞİ`,
+        `  Kullanıcı adı (T.C. Kimlik No): ${outcome.parentCredentials.username}`,
+        `  İlk şifre: ${outcome.parentCredentials.password}`,
+      );
+    } else if (outcome.parentLinkedExisting) {
+      lines.push(``, `Veli hesabınız zaten mevcut olduğundan yeni bir veli şifresi oluşturulmadı — önceki şifrenizle giriş yapabilirsiniz.`);
+    }
+    lines.push(
+      ``,
+      `GÜVENLİK: İlk şifreniz T.C. Kimlik Numaranızdır. Güvenliğiniz için ilk girişte sistem sizden yeni bir şifre belirlemenizi isteyecektir.`,
+      ``,
+      `Seviye 360 Eğitim Kurumları`,
+    );
+    const text = lines.join("\n");
+    const res = await sendEmail(guardianEmail, "Seviye 360 — Giriş Bilgileriniz", text).catch(() => ({ ok: false }) as { ok: boolean; skipped?: boolean });
+    emailSent = res.ok;
+    emailSkipped = !res.ok && !!(res as { skipped?: boolean }).skipped;
+  }
+
   return NextResponse.json(
     {
       enrollment: outcome.enrollment,
@@ -372,14 +421,19 @@ export async function POST(request: NextRequest, { params }: { params: { enrollm
       promissoryNotes: outcome.promissoryNotes,
       paymentMethod: outcome.paymentMethod,
       // username artık öğrencinin TC Kimlik No'sudur — giriş bununla yapılır
-      // (bkz. app/api/auth/login); outcome.email yalnızca dahili/teknik bir
-      // alandır, kullanıcıya hiç gösterilmez.
-      credentials: { username: nationalId, password: outcome.tempPassword },
+      // (bkz. app/api/auth/login); şifre de ilk giriş için T.C. Kimlik No'dur
+      // (ilk girişte değiştirilmesi zorunlu). outcome.email yalnızca dahili/
+      // teknik bir alandır, kullanıcıya hiç gösterilmez.
+      credentials: { username: nationalId, password: nationalId },
       // Veli hesabı YENİ oluşturulduysa giriş bilgileri döner; kardeş kaydı
       // gibi mevcut bir veli hesabına bağlanıldıysa null (yeni şifre YOKTUR —
       // veli zaten mevcut hesabıyla giriş yapabilir).
       parentCredentials: outcome.parentCredentials,
       parentLinkedExisting: outcome.parentLinkedExisting,
+      // Veli e-postasına giriş bilgileri gönderim durumu (modal'da gösterilir).
+      guardianEmailProvided: !!guardianEmail,
+      emailSent,
+      emailSkipped,
     },
     { status: 201 },
   );

@@ -5,10 +5,12 @@ import { Button, ErrorBanner, Field, MutedText, Screen } from '@/components/ui';
 import { useAuth } from '@/lib/auth-context';
 
 export default function LoginScreen() {
-  const { login, verifyMfa, cancelMfa, mfaRequired, error } = useAuth();
+  const { login, verifyMfa, cancelMfa, mfaRequired, passwordChangeRequired, setInitialPassword, cancelPasswordChange, error } = useAuth();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [newPassword2, setNewPassword2] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -44,6 +46,26 @@ export default function LoginScreen() {
     }
   }
 
+  async function handleSetPassword() {
+    if (newPassword.length < 8) {
+      setLocalError('Yeni şifre en az 8 karakter olmalıdır');
+      return;
+    }
+    if (newPassword !== newPassword2) {
+      setLocalError('Yeni şifreler eşleşmiyor');
+      return;
+    }
+    setLocalError(null);
+    setSubmitting(true);
+    try {
+      await setInitialPassword(newPassword);
+    } catch {
+      // hata useAuth().error üzerinden gösterilir
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
@@ -54,7 +76,44 @@ export default function LoginScreen() {
             accessibilityLabel="Seviye 360"
           />
 
-          {!mfaRequired ? (
+          {passwordChangeRequired ? (
+            <>
+              <MutedText>
+                İlk giriş — güvenliğiniz için yeni bir şifre belirleyin. En az 8 karakter olmalı ve T.C. Kimlik Numaranızdan farklı olmalıdır.
+              </MutedText>
+
+              <Field
+                label="Yeni Şifre"
+                value={newPassword}
+                onChangeText={setNewPassword}
+                secureTextEntry
+                autoComplete="password-new"
+                placeholder="••••••••"
+              />
+              <Field
+                label="Yeni Şifre (Tekrar)"
+                value={newPassword2}
+                onChangeText={setNewPassword2}
+                secureTextEntry
+                autoComplete="password-new"
+                placeholder="••••••••"
+              />
+
+              {(localError || error) && <ErrorBanner message={localError ?? error ?? ''} />}
+
+              <Button title="Şifreyi Belirle ve Giriş Yap" onPress={handleSetPassword} loading={submitting} />
+              <Button
+                title="Geri"
+                variant="secondary"
+                onPress={() => {
+                  setNewPassword('');
+                  setNewPassword2('');
+                  setLocalError(null);
+                  cancelPasswordChange();
+                }}
+              />
+            </>
+          ) : !mfaRequired ? (
             <>
               <MutedText>Kurs Merkezi otomasyon platformuna giriş yapın</MutedText>
 

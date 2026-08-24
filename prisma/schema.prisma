@@ -159,6 +159,13 @@ model User {
   lastName     String
   isActive     Boolean  @default(true)
 
+  // İlk giriş zorunlu şifre değişimi. Öğrenci/veli hesapları kayıtta geçici
+  // şifre olarak kendi T.C. Kimlik No'larıyla oluşturulur (bkz. lib/enrollment.ts,
+  // enrollments/[id]/complete). Bu bayrak true iken giriş, oturum AÇMADAN önce
+  // yeni bir şifre belirlemeyi zorunlu kılar (bkz. app/api/auth/login ve
+  // app/api/auth/login/set-password) — MFA ara-adımıyla aynı desen.
+  mustChangePassword Boolean @default(false)
+
   // İki faktörlü kimlik doğrulama (TOTP — authenticator uygulaması). Herkes
   // için kullanılabilir (bkz. lib/totp.ts, app/api/me/2fa/*). totpSecret
   // kurulum başlatıldığında yazılır ama giriş ancak totpEnabled=true iken

@@ -15,6 +15,10 @@ interface AuthContextValue {
   mfaRequired: boolean;
   verifyMfa: (code: string) => Promise<void>;
   cancelMfa: () => void;
+  // İlk giriş zorunlu şifre değişimi (geçici şifre = T.C. Kimlik No)
+  passwordChangeRequired: boolean;
+  setInitialPassword: (newPassword: string) => Promise<void>;
+  cancelPasswordChange: () => void;
   logout: () => Promise<void>;
   logoutAll: () => Promise<void>;
   refreshMe: () => Promise<void>;
@@ -27,6 +31,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [mfaToken, setMfaToken] = useState<string | null>(null);
+  const [changeToken, setChangeToken] = useState<string | null>(null);
 
   const refreshMe = useCallback(async () => {
     try {
@@ -67,13 +72,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (identifier: string, password: string) => {
       setError(null);
       try {
-        const res = await api.post<{ mfaRequired?: boolean; mfaToken?: string }>('/api/auth/login', {
+        const res = await api.post<{ mfaRequired?: boolean; mfaToken?: string; passwordChangeRequired?: boolean; changeToken?: string }>('/api/auth/login', {
           identifier,
           password,
         });
         // İki faktörlü doğrulama açıksa oturum HENÜZ açılmadı — ikinci adıma geç.
         if (res?.mfaRequired && res.mfaToken) {
           setMfaToken(res.mfaToken);
+          return;
+        }
+        // İlk giriş: geçici şifre (T.C. Kimlik No) ile girildi — yeni şifre iste.
+        if (res?.passwordChangeRequired && res.changeToken) {
+          setChangeToken(res.changeToken);
           return;
         }
         await refreshMe();
@@ -91,8 +101,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setError(null);
       if (!mfaToken) throw new ApiError(400, 'Doğrulama oturumu bulunamadı');
       try {
-        await api.post('/api/auth/login/verify', { mfaToken, code });
+        const res = await api.post<{ passwordChangeRequired?: boolean; changeToken?: string }>('/api/auth/login/verify', { mfaToken, code });
         setMfaToken(null);
+        // TOTP doğru ama hesap ilk girişini geçici şifreyle yapıyorsa yeni şifre iste.
+        if (res?.passwordChangeRequired && res.changeToken) {
+          setChangeToken(res.changeToken);
+          return;
+        }
         await refreshMe();
       } catch (err) {
         const message = err instanceof ApiError ? err.message : 'Kod doğrulanamadı';
@@ -104,6 +119,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const cancelMfa = useCallback(() => {
+    setMfaToken(null);
+    setError(null);
+  }, []);
+
+  const setInitialPassword = useCallback(
+    async (newPassword: string) => {
+      setError(null);
+      if (!changeToken) throw new ApiError(400, 'Şifre değişim oturumu bulunamadı');
+      try {
+        await api.post('/api/auth/login/set-password', { changeToken, newPassword });
+        setChangeToken(null);
+        await refreshMe();
+      } catch (err) {
+        const message = err instanceof ApiError ? err.message : 'Şifre belirlenemedi';
+        setError(message);
+        throw err;
+      }
+    },
+    [changeToken, refreshMe],
+  );
+
+  const cancelPasswordChange = useCallback(() => {
+    setChangeToken(null);
     setMfaToken(null);
     setError(null);
   }, []);
@@ -130,8 +168,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [clearSession]);
 
   const value = useMemo(
-    () => ({ user, loading, error, login, mfaRequired: !!mfaToken, verifyMfa, cancelMfa, logout, logoutAll, refreshMe }),
-    [user, loading, error, login, mfaToken, verifyMfa, cancelMfa, logout, logoutAll, refreshMe],
+    () => ({
+      user, loading, error, login,
+      mfaRequired: !!mfaToken, verifyMfa, cancelMfa,
+      passwordChangeRequired: !!changeToken, setInitialPassword, cancelPasswordChange,
+      logout, logoutAll, refreshMe,
+    }),
+    [user, loading, error, login, mfaToken, verifyMfa, cancelMfa, changeToken, setInitialPassword, cancelPasswordChange, logout, logoutAll, refreshMe],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

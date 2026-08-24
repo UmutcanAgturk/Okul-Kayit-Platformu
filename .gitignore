@@ -12,3 +12,4 @@ demo/seviye360/tests/test/
 # Expo (apps/mobile)
 .expo/
 expo-env.d.ts
+.DS_Store

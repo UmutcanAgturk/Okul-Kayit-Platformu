@@ -3,7 +3,7 @@ import { GradeLevel, UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
 import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { hashPassword } from "@/lib/auth";
-import { generateStudentEmail, generateStudentNo, generateTempPassword } from "@/lib/enrollment";
+import { generateStudentEmail, generateStudentNo } from "@/lib/enrollment";
 import { actorLabel, logActivity } from "@/lib/audit-log";
 
 /**
@@ -128,13 +128,14 @@ export async function POST(request: NextRequest) {
           if (attempt > 20) throw new Error("Benzersiz öğrenci numarası üretilemedi");
         }
 
-        const tempPassword = generateTempPassword();
-        const passwordHash = await hashPassword(tempPassword);
+        // İlk giriş şifresi = öğrencinin T.C. Kimlik No'su; ilk girişte zorunlu
+        // değişim (bkz. app/api/auth/login, enrollments/[id]/complete ile aynı desen).
+        const passwordHash = await hashPassword(row.nationalId);
         const [firstName, ...rest] = row.candidateFullName.split(/\s+/);
         const lastName = rest.join(" ") || firstName;
 
         const user = await tx.user.create({
-          data: { tenantId: effectiveTenantId(actor), email, passwordHash, role: "STUDENT", firstName, lastName },
+          data: { tenantId: effectiveTenantId(actor), email, passwordHash, role: "STUDENT", firstName, lastName, mustChangePassword: true },
         });
         const student = await tx.studentProfile.create({
           data: {
@@ -178,7 +179,7 @@ export async function POST(request: NextRequest) {
           detail: `${row.candidateFullName} — Öğrenci No: ${studentNo}`,
         });
 
-        return { kind: "ok" as const, studentNo, tempPassword };
+        return { kind: "ok" as const, studentNo };
       });
 
       if (outcome.kind === "bad_classroom") {
@@ -193,9 +194,10 @@ export async function POST(request: NextRequest) {
           kind: "ok",
           candidateFullName: row.candidateFullName,
           studentNo: outcome.studentNo,
-          // username artık öğrencinin TC Kimlik No'su — giriş bununla yapılır.
+          // username ve ilk şifre artık öğrencinin T.C. Kimlik No'sudur — giriş
+          // bununla yapılır, ilk girişte değiştirilmesi zorunludur.
           username: row.nationalId,
-          password: outcome.tempPassword,
+          password: row.nationalId,
         });
       }
     } catch (err) {

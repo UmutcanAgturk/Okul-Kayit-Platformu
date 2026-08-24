@@ -25,9 +25,12 @@ export interface MeResponse {
 
 // identifier: personel için e-posta/kullanıcı adı, Öğrenci/Veli için T.C.
 // Kimlik No (11 haneli) — bkz. app/api/auth/login/route.ts.
+export type SessionUser = { id: string; email: string; role: UserRole; firstName: string; lastName: string };
+
 export type LoginResult =
-  | { user: { id: string; email: string; role: UserRole; firstName: string; lastName: string }; mfaRequired?: false }
-  | { mfaRequired: true; mfaToken: string };
+  | { user: SessionUser; mfaRequired?: false }
+  | { mfaRequired: true; mfaToken: string }
+  | { passwordChangeRequired: true; changeToken: string };
 
 export function login(identifier: string, password: string) {
   return apiFetch<LoginResult>("/api/auth/login", {
@@ -36,12 +39,28 @@ export function login(identifier: string, password: string) {
   });
 }
 
-/** İki faktörlü girişin ikinci adımı — TOTP kodunu doğrular, oturumu açar. */
+/**
+ * İki faktörlü girişin ikinci adımı — TOTP kodunu doğrular. Kullanıcı ilk
+ * girişini geçici şifreyle (T.C. Kimlik No) yapıyorsa oturum açmak yerine
+ * `passwordChangeRequired` döner (bkz. setInitialPassword).
+ */
 export function verifyLogin2fa(mfaToken: string, code: string) {
-  return apiFetch<{ user: { id: string; email: string; role: UserRole; firstName: string; lastName: string } }>(
+  return apiFetch<{ user: SessionUser } | { passwordChangeRequired: true; changeToken: string }>(
     "/api/auth/login/verify",
     { method: "POST", body: JSON.stringify({ mfaToken, code }) },
   );
+}
+
+/**
+ * İlk giriş zorunlu şifre değişiminin ikinci adımı — geçici şifre (T.C. Kimlik
+ * No) ile giriş yapan kullanıcı yeni şifresini belirler ve oturum açılır
+ * (bkz. app/api/auth/login/set-password).
+ */
+export function setInitialPassword(changeToken: string, newPassword: string) {
+  return apiFetch<{ user: SessionUser }>("/api/auth/login/set-password", {
+    method: "POST",
+    body: JSON.stringify({ changeToken, newPassword }),
+  });
 }
 
 // ---- 2FA yönetimi (oturum açmış kullanıcı, tüm roller) ----

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { createSessionToken, verifyMfaToken, SESSION_COOKIE_NAME, SESSION_TTL_SECONDS } from "@/lib/auth";
+import { createPasswordChangeToken, createSessionToken, verifyMfaToken, SESSION_COOKIE_NAME, SESSION_TTL_SECONDS } from "@/lib/auth";
 import { verifyTotp } from "@/lib/totp";
 import { peekRateLimit, recordAttempt } from "@/lib/rate-limit";
 
@@ -48,6 +48,13 @@ export async function POST(request: NextRequest) {
   if (!verifyTotp(code, user.totpSecret)) {
     recordAttempt(rateLimitKey, MFA_LIMIT, MFA_WINDOW_MS);
     return NextResponse.json({ message: "Kod hatalı veya süresi dolmuş." }, { status: 401 });
+  }
+
+  // TOTP doğru — ama hesap hâlâ geçici şifreyle (T.C. Kimlik No) ilk girişini
+  // yapıyorsa oturumu açmadan önce yeni şifre belirlet (bkz. login/route.ts'teki
+  // aynı kontrol; MFA açık kullanıcılarda buraya düşer).
+  if (user.mustChangePassword) {
+    return NextResponse.json({ passwordChangeRequired: true, changeToken: createPasswordChangeToken(user.id) });
   }
 
   const session = await prisma.userSession.create({

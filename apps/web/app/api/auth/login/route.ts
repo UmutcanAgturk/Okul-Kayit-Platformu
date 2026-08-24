@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { prismaSuperadmin } from "@/lib/prisma-superadmin";
-import { createMfaToken, createSessionToken, verifyPassword, SESSION_COOKIE_NAME, SESSION_TTL_SECONDS } from "@/lib/auth";
+import { createMfaToken, createPasswordChangeToken, createSessionToken, verifyPassword, SESSION_COOKIE_NAME, SESSION_TTL_SECONDS } from "@/lib/auth";
 import { peekRateLimit, recordAttempt } from "@/lib/rate-limit";
 
 // Hesap bazlı kilitlenme: middleware.ts'teki IP bazlı limitten BAĞIMSIZ bir
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let user: { id: string; email: string; passwordHash: string; role: UserRole; firstName: string; lastName: string; isActive: boolean; totpEnabled: boolean } | null = null;
+  let user: { id: string; email: string; passwordHash: string; role: UserRole; firstName: string; lastName: string; isActive: boolean; totpEnabled: boolean; mustChangePassword: boolean } | null = null;
 
   if (NATIONAL_ID_RE.test(identifier)) {
     // StudentProfile RLS ile korunur (tenant_isolation) — hangi tenant'a ait
@@ -90,6 +90,14 @@ export async function POST(request: NextRequest) {
   // /api/auth/login/verify). Başarılı şifre girişi sayaca dokunmaz.
   if (user.totpEnabled) {
     return NextResponse.json({ mfaRequired: true, mfaToken: createMfaToken(user.id) });
+  }
+
+  // İlk giriş: hesap geçici şifreyle (T.C. Kimlik No) oluşturulduysa oturumu
+  // HENÜZ açma — kısa ömürlü bir şifre-değişim token'ı dönüp yeni şifre iste
+  // (ikinci adım: /api/auth/login/set-password). MFA açık DEĞİLSE burada,
+  // açıksa TOTP doğrulandıktan sonra login/verify'da yakalanır.
+  if (user.mustChangePassword) {
+    return NextResponse.json({ passwordChangeRequired: true, changeToken: createPasswordChangeToken(user.id) });
   }
 
   const session = await prisma.userSession.create({

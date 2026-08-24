@@ -19,6 +19,7 @@ import { fetchBusRoutes } from "@/lib/api/bus-routes";
 import { fetchBranchClassrooms } from "@/lib/api/students-roster";
 import { Icon } from "@/components/ui/icons";
 import { BulkImportPanel } from "./BulkImportPanel";
+import { RegistrationCredentialsModal } from "./RegistrationCredentialsModal";
 import { PrintDocumentViewer } from "@/components/documents/PrintDocumentViewer";
 import { EnrollmentContractPrintBody } from "@/components/documents/DocumentPrintBodies";
 import { HqBranchSelector } from "@/components/hq/HqBranchSelector";
@@ -50,6 +51,7 @@ export function NormalKayitView() {
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [nationalId, setNationalId] = useState("");
   const [guardianNationalId, setGuardianNationalId] = useState("");
+  const [guardianEmail, setGuardianEmail] = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [gender, setGender] = useState("");
   const [phone, setPhone] = useState("");
@@ -61,6 +63,7 @@ export function NormalKayitView() {
   const [credentials, setCredentials] = useState<CompleteEnrollmentResult["credentials"] | null>(null);
   const [lastCompleted, setLastCompleted] = useState<CompleteEnrollmentResult | null>(null);
   const [showContract, setShowContract] = useState(false);
+  const [showCredentials, setShowCredentials] = useState(false);
 
   const { data: me, isLoading, isError, error } = useQuery({
     queryKey: authKeys.me(),
@@ -83,11 +86,13 @@ export function NormalKayitView() {
     onSuccess: (result) => {
       setCredentials(result.credentials);
       setLastCompleted(result);
+      setShowCredentials(true);
       setFormError(null);
       setPhotoDataUrl(null);
       setPhotoError(null);
       setNationalId("");
       setGuardianNationalId("");
+      setGuardianEmail("");
       setBirthDate("");
       setGender("");
       setPhone("");
@@ -175,6 +180,7 @@ export function NormalKayitView() {
         firstDueDate,
         nationalId,
         guardianNationalId,
+        guardianEmail: guardianEmail.trim() || undefined,
         birthDate: birthDate || undefined,
         gender: gender || undefined,
         phone: phone || undefined,
@@ -295,6 +301,20 @@ export function NormalKayitView() {
                         <input value={guardianNationalId} onChange={(e) => setGuardianNationalId(e.target.value.replace(/\D/g, ""))} maxLength={11} placeholder="11 haneli" inputMode="numeric" />
                       </div>
                     </div>
+                    <div className="field">
+                      <label>Veli E-postası (opsiyonel)</label>
+                      <input
+                        type="email"
+                        value={guardianEmail}
+                        onChange={(e) => setGuardianEmail(e.target.value)}
+                        placeholder="ornek@eposta.com"
+                        inputMode="email"
+                        autoCapitalize="none"
+                      />
+                      <p style={{ margin: "4px 0 0", fontSize: "var(--text-2xs)", color: "var(--ink-faint)" }}>
+                        Girilirse öğrenci ve veli giriş bilgileri kayıt tamamlanınca bu adrese otomatik gönderilir.
+                      </p>
+                    </div>
                     <div className="grid cols-2">
                       <div className="field">
                         <label>Doğum Tarihi</label>
@@ -396,48 +416,13 @@ export function NormalKayitView() {
                 {credentials && (
                   <div className="card card-pad" style={{ borderColor: "var(--strong)", background: "var(--strong-bg)" }}>
                     <h3 style={{ margin: 0, fontSize: "var(--text-base)", fontWeight: 700, color: "var(--strong)" }}>
-                      Kayıt Tamamlandı — Giriş Bilgileri
+                      Kayıt Tamamlandı
                     </h3>
                     <p style={{ margin: "4px 0 0", fontSize: "var(--text-xs)", color: "var(--strong)" }}>
-                      Bu şifre yalnızca burada gösterilir — hemen veliye/öğrenciye iletin.
+                      Giriş bilgileri penceresi açıldı.
                     </p>
-                    <dl style={{ margin: "8px 0 0", display: "flex", flexDirection: "column", gap: 4, fontSize: "var(--text-xs)", color: "var(--strong)" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between" }}>
-                        <dt>T.C. Kimlik No (kullanıcı adı)</dt>
-                        <dd style={{ margin: 0, fontFamily: "monospace" }}>{credentials.username}</dd>
-                      </div>
-                      <div style={{ display: "flex", justifyContent: "space-between" }}>
-                        <dt>Şifre</dt>
-                        <dd style={{ margin: 0, fontFamily: "monospace" }}>{credentials.password}</dd>
-                      </div>
-                    </dl>
-                    {lastCompleted && lastCompleted.promissoryNotes.length > 0 && (
-                      <p style={{ margin: "8px 0 0", fontSize: "var(--text-xs)", color: "var(--strong)" }}>
-                        Senet ödeme yöntemi seçildi — {lastCompleted.promissoryNotes.length} senet oluşturuldu (bkz. Muhasebe &gt; Belgeler &gt; Senetler).
-                      </p>
-                    )}
-                    {lastCompleted?.parentLinkedExisting && (
-                      <p style={{ margin: "8px 0 0", fontSize: "var(--text-xs)", color: "var(--strong)" }}>
-                        Bu T.C. Kimlik No ile kayıtlı bir veli hesabı zaten vardı — yeni hesap açılmadı, öğrenci mevcut veli hesabına bağlandı (kardeş kaydı).
-                      </p>
-                    )}
-                    {lastCompleted?.parentCredentials && (
-                      <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px dashed var(--strong)" }}>
-                        <p style={{ margin: 0, fontSize: "var(--text-xs)", fontWeight: 700, color: "var(--strong)" }}>Veli Portalı Girişi</p>
-                        <dl style={{ margin: "6px 0 0", display: "flex", flexDirection: "column", gap: 4, fontSize: "var(--text-xs)", color: "var(--strong)" }}>
-                          <div style={{ display: "flex", justifyContent: "space-between" }}>
-                            <dt>T.C. Kimlik No (kullanıcı adı)</dt>
-                            <dd style={{ margin: 0, fontFamily: "monospace" }}>{lastCompleted.parentCredentials.username}</dd>
-                          </div>
-                          <div style={{ display: "flex", justifyContent: "space-between" }}>
-                            <dt>Şifre</dt>
-                            <dd style={{ margin: 0, fontFamily: "monospace" }}>{lastCompleted.parentCredentials.password}</dd>
-                          </div>
-                        </dl>
-                      </div>
-                    )}
-                    <button type="button" className="btn xs" style={{ marginTop: 10 }} onClick={() => setShowContract(true)}>
-                      Kayıt Sözleşmesini Yazdır
+                    <button type="button" className="btn xs" style={{ marginTop: 10 }} onClick={() => setShowCredentials(true)}>
+                      Giriş Bilgilerini Tekrar Göster
                     </button>
                   </div>
                 )}
@@ -446,6 +431,13 @@ export function NormalKayitView() {
           )}
         </div>
       </div>
+      )}
+      {showCredentials && lastCompleted && (
+        <RegistrationCredentialsModal
+          result={lastCompleted}
+          onClose={() => setShowCredentials(false)}
+          onPrintContract={() => { setShowCredentials(false); setShowContract(true); }}
+        />
       )}
       <PrintDocumentViewer open={showContract && !!lastCompleted} onClose={() => setShowContract(false)} documentNo={lastCompleted?.enrollment.candidateFullName ?? ""}>
         {lastCompleted && (

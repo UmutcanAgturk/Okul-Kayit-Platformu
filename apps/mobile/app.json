@@ -33,7 +33,9 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 220
         }
-      ]
+      ],
+      "expo-sharing",
+      "@sentry/react-native"
     ],
     "experiments": {
       "typedRoutes": true,

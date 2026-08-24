@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { login, verifyLogin2fa } from "@/lib/api/auth";
+import { login, verifyLogin2fa, setInitialPassword } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
+
+const MIN_PASSWORD_LENGTH = 8;
 
 /**
  * Bu depodaki ilk gerçek giriş ekranı — demo/seviye360-app.html'in
@@ -30,6 +32,11 @@ export default function LoginPage() {
   const [mfaToken, setMfaToken] = useState<string | null>(null);
   const [code, setCode] = useState("");
 
+  // İlk giriş zorunlu şifre değişimi durumu
+  const [changeToken, setChangeToken] = useState<string | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [newPassword2, setNewPassword2] = useState("");
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -38,6 +45,11 @@ export default function LoginPage() {
       const res = await login(identifier, password);
       if ("mfaRequired" in res && res.mfaRequired) {
         setMfaToken(res.mfaToken);
+        setSubmitting(false);
+        return;
+      }
+      if ("passwordChangeRequired" in res && res.passwordChangeRequired) {
+        setChangeToken(res.changeToken);
         setSubmitting(false);
         return;
       }
@@ -55,11 +67,41 @@ export default function LoginPage() {
     setError(null);
     setSubmitting(true);
     try {
-      await verifyLogin2fa(mfaToken, code);
+      const res = await verifyLogin2fa(mfaToken, code);
+      if (res && "passwordChangeRequired" in res && res.passwordChangeRequired) {
+        setMfaToken(null);
+        setCode("");
+        setChangeToken(res.changeToken);
+        setSubmitting(false);
+        return;
+      }
       router.push("/dashboard");
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Kod doğrulanamadı.");
+      setSubmitting(false);
+    }
+  }
+
+  async function handleSetPassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (!changeToken) return;
+    setError(null);
+    if (newPassword.length < MIN_PASSWORD_LENGTH) {
+      setError(`Yeni şifre en az ${MIN_PASSWORD_LENGTH} karakter olmalıdır.`);
+      return;
+    }
+    if (newPassword !== newPassword2) {
+      setError("Yeni şifreler eşleşmiyor.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await setInitialPassword(changeToken, newPassword);
+      router.push("/dashboard");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Şifre belirlenemedi. Lütfen tekrar giriş yapın.");
       setSubmitting(false);
     }
   }
@@ -71,11 +113,50 @@ export default function LoginPage() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/seviye360-logo.png" alt="Seviye 360" style={{ height: 60, width: "auto", display: "block" }} />
           <p style={{ margin: "6px 0 0", fontSize: "var(--text-sm)", color: "var(--ink-muted)" }}>
-            {mfaToken ? "İki faktörlü doğrulama" : "Kurum yönetim paneline giriş yapın."}
+            {changeToken ? "İlk giriş — yeni şifre belirleyin" : mfaToken ? "İki faktörlü doğrulama" : "Kurum yönetim paneline giriş yapın."}
           </p>
         </div>
 
-        {!mfaToken ? (
+        {changeToken ? (
+          <form onSubmit={handleSetPassword} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--ink-muted)" }}>
+              Güvenliğiniz için ilk girişte yeni bir şifre belirlemeniz gerekiyor. Şifreniz en az {MIN_PASSWORD_LENGTH} karakter olmalı ve T.C. Kimlik Numaranızdan farklı olmalıdır.
+            </p>
+            <div className="field">
+              <label htmlFor="newPassword">Yeni Şifre</label>
+              <input
+                id="newPassword"
+                type="password"
+                required
+                autoComplete="new-password"
+                autoFocus
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="newPassword2">Yeni Şifre (Tekrar)</label>
+              <input
+                id="newPassword2"
+                type="password"
+                required
+                autoComplete="new-password"
+                value={newPassword2}
+                onChange={(e) => setNewPassword2(e.target.value)}
+              />
+            </div>
+
+            {error && (
+              <p className="chip critical" style={{ display: "block", width: "100%", boxSizing: "border-box", padding: "8px 12px", fontWeight: 600 }}>
+                {error}
+              </p>
+            )}
+
+            <button type="submit" disabled={submitting} className="btn primary" style={{ width: "100%", justifyContent: "center" }}>
+              {submitting ? "Kaydediliyor…" : "Şifreyi Belirle ve Giriş Yap"}
+            </button>
+          </form>
+        ) : !mfaToken ? (
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div className="field">
               <label htmlFor="identifier">Kullanıcı Adı / T.C. Kimlik No</label>

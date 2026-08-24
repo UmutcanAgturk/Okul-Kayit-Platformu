@@ -78,4 +78,26 @@ export function verifyMfaToken(token: string): { userId: string } | null {
   }
 }
 
+// İlk giriş zorunlu şifre değişimi ara-token'ı: şifre (ve varsa TOTP) doğru
+// girildikten SONRA, kullanıcı `mustChangePassword` ise oturum HENÜZ açılmadan
+// verilen KISA ÖMÜRLÜ (15dk) token. Tek başına oturum açmaya yetmez — yalnızca
+// "bu kullanıcı kimliğini doğruladı, şimdi yeni şifre belirlemeli" durumunu
+// taşır. `pwc: true` claim'i bir oturum/MFA token'ının buraya geçmesini engeller
+// (bkz. app/api/auth/login/set-password).
+const PW_CHANGE_TOKEN_TTL_SECONDS = 15 * 60;
+
+export function createPasswordChangeToken(userId: string): string {
+  return jwt.sign({ sub: userId, pwc: true }, JWT_SECRET, { expiresIn: PW_CHANGE_TOKEN_TTL_SECONDS });
+}
+
+export function verifyPasswordChangeToken(token: string): { userId: string } | null {
+  try {
+    const payload = jwt.verify(token, JWT_SECRET) as jwt.JwtPayload;
+    if (payload.pwc !== true || typeof payload.sub !== "string") return null;
+    return { userId: payload.sub };
+  } catch {
+    return null;
+  }
+}
+
 export { SESSION_COOKIE_NAME, SESSION_TTL_SECONDS };
