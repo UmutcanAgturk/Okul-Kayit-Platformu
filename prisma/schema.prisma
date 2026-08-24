@@ -124,6 +124,22 @@ model Tenant {
   institutionPaymentMethods InstitutionPaymentMethod[]
   staffAttendanceRecords    StaffAttendanceRecord[]
 
+  mealItems        MealItem[]
+  menuPlans        MenuPlan[]
+  medicalCases     MedicalCase[]
+  healthScreenings HealthScreening[]
+  alumni           Alumnus[]
+  surveys          Survey[]
+  assignments      Assignment[]
+  tasks            Task[]
+  counselingCases  CounselingCase[]
+  schoolEvents     SchoolEvent[]
+  visitorLogs      VisitorLog[]
+  calendarEvents   CalendarEvent[]
+  courses          Course[]
+  academicYears    AcademicYear[]
+  promotionRuns    PromotionRun[]
+
   @@index([parentId])
 }
 
@@ -1514,4 +1530,380 @@ model PushToken {
   createdAt DateTime @default(now())
 
   @@index([userId])
+}
+
+// ===========================================================================
+// K12NET PARİTE MODÜLLERİ — Yemekhane, Sağlık, Mezun, Anket, Ödev, Görev/Onay,
+// Rehberlik Olay Takibi, Sosyal Etkinlik, Ziyaretçi, Takvim, Kurs, Dönem
+// Geçişleri. Hepsi tenant-scoped (RLS: tenant_isolation). Sağlık ve Rehberlik
+// tabloları rol-kısıtlıdır (tenant_and_role_isolation) — bkz. migration.
+// studentId/createdByUserId/classroomId alanları bilinçli olarak düz String
+// (Prisma relation değil) tutulur: bu yardımcı modüller çekirdek tablolara
+// geri-ilişki eklemeden bağımsız kalır; tenantId RLS zaten korur.
+// ===========================================================================
+
+enum SurveyAudience {
+  STUDENT
+  PARENT
+  TEACHER
+  STAFF
+  ALL
+}
+
+enum SurveyQuestionType {
+  TEXT
+  SINGLE
+  MULTI
+  RATING
+}
+
+enum AssignmentStatus {
+  ASSIGNED
+  SUBMITTED
+  GRADED
+}
+
+enum TaskPriority {
+  LOW
+  NORMAL
+  HIGH
+}
+
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+enum TaskApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum MedicalSeverity {
+  DUSUK
+  ORTA
+  YUKSEK
+}
+
+enum CaseStatus {
+  ACIK
+  KAPALI
+}
+
+// --- Yemekhane ---
+model MealItem {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  name      String
+  category  String?
+  barcode   String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([tenantId])
+}
+
+model MenuPlan {
+  id                    String   @id @default(cuid())
+  tenantId              String
+  tenant                Tenant   @relation(fields: [tenantId], references: [id])
+  date                  DateTime
+  mealType              String? // Kahvaltı / Öğle / İkindi
+  gradeLevels           String[]
+  items                 String[]
+  expectedParticipation Int?
+  note                  String?
+  published             Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  @@index([tenantId, date])
+}
+
+// --- Sağlık / Revir (rol-kısıtlı) ---
+model MedicalCase {
+  id              String          @id @default(cuid())
+  tenantId        String
+  tenant          Tenant          @relation(fields: [tenantId], references: [id])
+  studentId       String?
+  patientName     String?
+  severity        MedicalSeverity @default(DUSUK)
+  description     String?
+  notes           String?
+  status          CaseStatus      @default(ACIK)
+  openedAt        DateTime        @default(now())
+  closedAt        DateTime?
+  createdByUserId String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  @@index([tenantId])
+  @@index([studentId])
+}
+
+model HealthScreening {
+  id            String    @id @default(cuid())
+  tenantId      String
+  tenant        Tenant    @relation(fields: [tenantId], references: [id])
+  name          String
+  source        String?
+  targetGrades  String[]
+  scheduledDate DateTime?
+  note          String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  @@index([tenantId])
+}
+
+// --- Mezun ---
+model Alumnus {
+  id             String   @id @default(cuid())
+  tenantId       String
+  tenant         Tenant   @relation(fields: [tenantId], references: [id])
+  firstName      String
+  lastName       String
+  studentNo      String?
+  graduationYear String?
+  university     String?
+  employment     String?
+  phone          String?
+  email          String?
+  note           String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  @@index([tenantId])
+}
+
+// --- Anket ---
+model Survey {
+  id              String           @id @default(cuid())
+  tenantId        String
+  tenant          Tenant           @relation(fields: [tenantId], references: [id])
+  title           String
+  description     String?
+  audience        SurveyAudience   @default(ALL)
+  anonymous       Boolean          @default(false)
+  startAt         DateTime?
+  endAt           DateTime?
+  active          Boolean          @default(true)
+  createdByUserId String?
+  questions       SurveyQuestion[]
+  responses       SurveyResponse[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  @@index([tenantId])
+}
+
+model SurveyQuestion {
+  id       String             @id @default(cuid())
+  surveyId String
+  survey   Survey             @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  order    Int
+  text     String
+  type     SurveyQuestionType @default(SINGLE)
+  options  String[]
+  @@index([surveyId])
+}
+
+model SurveyResponse {
+  id               String   @id @default(cuid())
+  surveyId         String
+  survey           Survey   @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  respondentUserId String?
+  answers          Json
+  createdAt        DateTime @default(now())
+  @@index([surveyId])
+}
+
+// --- Ödev ---
+model Assignment {
+  id              String                 @id @default(cuid())
+  tenantId        String
+  tenant          Tenant                 @relation(fields: [tenantId], references: [id])
+  title           String
+  description     String?
+  classroomId     String?
+  dueDate         DateTime?
+  startDate       DateTime?
+  attachments     String[]
+  createdByUserId String?
+  submissions     AssignmentSubmission[]
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  @@index([tenantId])
+  @@index([classroomId])
+}
+
+model AssignmentSubmission {
+  id           String           @id @default(cuid())
+  assignmentId String
+  assignment   Assignment       @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  studentId    String
+  status       AssignmentStatus @default(ASSIGNED)
+  submittedAt  DateTime?
+  note         String?
+  grade        String?
+  @@unique([assignmentId, studentId])
+  @@index([assignmentId])
+}
+
+// --- Görev / Onay iş akışı ---
+model Task {
+  id               String         @id @default(cuid())
+  tenantId         String
+  tenant           Tenant         @relation(fields: [tenantId], references: [id])
+  title            String
+  description      String?
+  priority         TaskPriority   @default(NORMAL)
+  status           TaskStatus     @default(OPEN)
+  dueDate          DateTime?
+  createdByUserId  String?
+  assigneeUserId   String?
+  requiresApproval Boolean        @default(false)
+  approvals        TaskApproval[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  @@index([tenantId])
+  @@index([assigneeUserId])
+}
+
+model TaskApproval {
+  id             String             @id @default(cuid())
+  taskId         String
+  task           Task               @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  approverUserId String
+  status         TaskApprovalStatus @default(PENDING)
+  decidedAt      DateTime?
+  note           String?
+  @@index([taskId])
+  @@index([approverUserId])
+}
+
+// --- Rehberlik Olay Takibi (rol-kısıtlı) ---
+model CounselingCase {
+  id              String     @id @default(cuid())
+  tenantId        String
+  tenant          Tenant     @relation(fields: [tenantId], references: [id])
+  studentId       String?
+  subjectName     String?
+  reason          String
+  counselors      String[]
+  description     String?
+  status          CaseStatus @default(ACIK)
+  openedAt        DateTime   @default(now())
+  closedAt        DateTime?
+  closureReason   String?
+  createdByUserId String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  @@index([tenantId])
+  @@index([studentId])
+}
+
+// --- Sosyal Etkinlik ---
+model SchoolEvent {
+  id              String               @id @default(cuid())
+  tenantId        String
+  tenant          Tenant               @relation(fields: [tenantId], references: [id])
+  title           String
+  description     String?
+  eventType       String?
+  location        String?
+  startAt         DateTime
+  endAt           DateTime?
+  createdByUserId String?
+  participations  EventParticipation[]
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  @@index([tenantId])
+}
+
+model EventParticipation {
+  id       String      @id @default(cuid())
+  eventId  String
+  event    SchoolEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  studentId String
+  attended Boolean?
+  @@unique([eventId, studentId])
+  @@index([eventId])
+}
+
+// --- Ziyaretçi Yönetimi ---
+model VisitorLog {
+  id              String    @id @default(cuid())
+  tenantId        String
+  tenant          Tenant    @relation(fields: [tenantId], references: [id])
+  visitorName     String
+  reason          String?
+  hostName        String?
+  phone           String?
+  checkInAt       DateTime  @default(now())
+  checkOutAt      DateTime?
+  createdByUserId String?
+  createdAt       DateTime  @default(now())
+  @@index([tenantId])
+}
+
+// --- Okul Takvimi / Ajanda ---
+model CalendarEvent {
+  id              String    @id @default(cuid())
+  tenantId        String
+  tenant          Tenant    @relation(fields: [tenantId], references: [id])
+  title           String
+  eventType       String?
+  location        String?
+  description     String?
+  startAt         DateTime
+  endAt           DateTime?
+  allDay          Boolean   @default(false)
+  createdByUserId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  @@index([tenantId, startAt])
+}
+
+// --- Kurs / Ders Kataloğu ---
+model Course {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  code        String
+  name        String
+  description String?
+  credit      Int?
+  weeklyHours Int?
+  mandatory   Boolean  @default(false)
+  gradeLevels String[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@index([tenantId])
+}
+
+// --- Dönem Geçişleri: Akademik Yıl + Sınıf Geçişi (Promotion) ---
+model AcademicYear {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  label     String // "2026-2027"
+  startYear Int // 2026
+  active    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  @@unique([tenantId, label])
+  @@index([tenantId])
+}
+
+model PromotionRun {
+  id             String   @id @default(cuid())
+  tenantId       String
+  tenant         Tenant   @relation(fields: [tenantId], references: [id])
+  fromYearLabel  String
+  toYearLabel    String
+  runByUserId    String?
+  promotedCount  Int      @default(0)
+  graduatedCount Int      @default(0)
+  note           String?
+  runAt          DateTime @default(now())
+  @@index([tenantId])
 }

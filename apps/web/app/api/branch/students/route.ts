@@ -20,8 +20,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: "Bu rol öğrenci listesini görüntüleyemez" }, { status: 403 });
   }
 
+  // Varsayılan olarak yalnızca AKTİF öğrenciler döner; arşivlenenler (pasife
+  // alınmış, User.isActive=false) gizlenir. `?includeArchived=1` ile arşiv
+  // görünümü için hepsi döner (her satırda `archived` alanıyla).
+  const includeArchived = request.nextUrl.searchParams.get("includeArchived") === "1";
+
   const students = await withBranchTenantContext(actor, (tx) =>
     tx.studentProfile.findMany({
+      where: includeArchived ? undefined : { user: { isActive: true } },
       include: {
         user: true,
         classroom: true,
@@ -44,6 +50,7 @@ export async function GET(request: NextRequest) {
         classroomName: s.classroom?.name ?? null,
         guardianName: guardianUser ? `${guardianUser.firstName} ${guardianUser.lastName}` : null,
         guardianPhone: guardianUser?.phone ?? null,
+        archived: !s.user.isActive,
       };
     }),
   });

@@ -9,6 +9,8 @@ export interface BranchStudentRow {
   classroomName: string | null;
   guardianName: string | null;
   guardianPhone: string | null;
+  // Arşivlenmiş (pasife alınmış) öğrenci — yalnızca arşiv görünümünde döner.
+  archived?: boolean;
 }
 
 export interface BranchClassroom {
@@ -25,6 +27,13 @@ export const studentsRosterKeys = {
 
 export function fetchBranchStudents() {
   return apiFetch<{ students: BranchStudentRow[] }>("/api/branch/students", { cache: "no-store" });
+}
+
+// Arşivlenenler dahil TÜM öğrenciler (arşiv görünümü için) — ayrı bir fonksiyon,
+// çünkü fetchBranchStudents doğrudan React Query queryFn'i olarak kullanılıyor
+// (parametre eklemek context nesnesini argümana geçirir).
+export function fetchBranchStudentsIncludingArchived() {
+  return apiFetch<{ students: BranchStudentRow[] }>("/api/branch/students?includeArchived=1", { cache: "no-store" });
 }
 
 export function fetchBranchClassrooms() {
@@ -81,6 +90,18 @@ export function updateStudentOwnContact(studentId: string, input: Partial<{ phon
 
 export function deleteStudentPermanently(studentId: string) {
   return apiFetch<{ ok: true }>(`/api/branch/students/${studentId}?permanent=true`, { method: "DELETE" });
+}
+
+/**
+ * Öğrenciyi arşivler (pasife alır) veya arşivden geri alır. Kalıcı silmenin
+ * güvenli, geri alınabilir alternatifi — kayıtlar korunur, öğrenci yalnızca
+ * roster'dan gizlenir ve girişi kapanır (bkz. app/api/branch/students/[id] PATCH).
+ */
+export function setStudentArchived(studentId: string, archived: boolean) {
+  return apiFetch<{ studentId: string; archived: boolean }>(`/api/branch/students/${studentId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ archived }),
+  });
 }
 
 // task #91 — Öğrenci Hızlı Görüntüle/Düzenle Çekmecesi'nin zengin detay verisi

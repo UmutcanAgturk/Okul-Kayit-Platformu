@@ -10,6 +10,8 @@ import {
   assignStudentClassroom,
   fetchBranchClassrooms,
   fetchBranchStudents,
+  fetchBranchStudentsIncludingArchived,
+  setStudentArchived,
   studentsRosterKeys,
 } from "@/lib/api/students-roster";
 import { GRADE_LEVEL_LABEL } from "@/lib/api/enrollments";
@@ -34,6 +36,7 @@ export function StudentsRosterDashboard() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
 
   const { data: me, isLoading, isError, error } = useQuery({
@@ -48,7 +51,19 @@ export function StudentsRosterDashboard() {
     }
   }, [isError, error, router]);
 
-  const studentsQuery = useQuery({ queryKey: studentsRosterKeys.all(), queryFn: fetchBranchStudents, enabled: !!me });
+  const studentsQuery = useQuery({
+    queryKey: [...studentsRosterKeys.all(), { archived: showArchived }],
+    queryFn: showArchived ? fetchBranchStudentsIncludingArchived : fetchBranchStudents,
+    enabled: !!me,
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: ({ studentId, archived }: { studentId: string; archived: boolean }) => setStudentArchived(studentId, archived),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: studentsRosterKeys.all() });
+      queryClient.invalidateQueries({ queryKey: activityLogKeys.list() });
+    },
+  });
 
   // Komut Paleti'nden gelen derin bağlantı (task #93) — bkz. CommandPalette.tsx.
   useEffect(() => {
@@ -209,14 +224,23 @@ export function StudentsRosterDashboard() {
       </div>
 
       <div className="card card-pad">
-        <div className="field" style={{ maxWidth: 340, marginBottom: 16 }}>
-          <label>Ara</label>
-          <input
-            type="text"
-            placeholder="İsim veya öğrenci no…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+          <div className="field" style={{ maxWidth: 340, flex: 1, margin: 0 }}>
+            <label>Ara</label>
+            <input
+              type="text"
+              placeholder="İsim veya öğrenci no…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <button
+            type="button"
+            className={`btn sm ${showArchived ? "primary" : ""}`}
+            onClick={() => setShowArchived((v) => !v)}
+          >
+            {showArchived ? "Aktif Öğrencilere Dön" : "Arşivi Göster"}
+          </button>
         </div>
 
         {studentsQuery.isLoading ? (
@@ -235,40 +259,56 @@ export function StudentsRosterDashboard() {
                   <th>Ad Soyad</th>
                   <th>Sınıf Seviyesi</th>
                   <th>Veli</th>
-                  <th>Şube</th>
+                  <th>{showArchived ? "Durum" : "Şube"}</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((s) => {
                   const options = classroomsByGrade.get(s.gradeLevel) ?? [];
                   return (
-                    <tr key={s.id} className="row-clickable" onClick={() => setSelectedStudentId(s.id)}>
+                    <tr key={s.id} className="row-clickable" onClick={() => setSelectedStudentId(s.id)} style={s.archived ? { opacity: 0.6 } : undefined}>
                       <td>{s.studentNo}</td>
-                      <td style={{ fontWeight: 600 }}>{s.name}</td>
+                      <td style={{ fontWeight: 600 }}>
+                        {s.name}
+                        {s.archived && <span className="chip neutral" style={{ marginLeft: 8 }}>Arşivli</span>}
+                      </td>
                       <td>{GRADE_LEVEL_LABEL[s.gradeLevel] ?? s.gradeLevel}</td>
                       <td>
                         {s.guardianName ?? "—"}
                         {s.guardianPhone && <div style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>{s.guardianPhone}</div>}
                       </td>
-                      <td onClick={(e) => e.stopPropagation()}>
-                        <select
-                          value={s.classroomId ?? ""}
-                          disabled={assignMutation.isPending}
-                          onChange={(e) =>
-                            assignMutation.mutate({ studentId: s.id, classroomId: e.target.value || null })
-                          }
-                        >
-                          <option value="">— Atanmamış —</option>
-                          {options.map((c) => {
-                            const full = c.studentCount >= c.capacity && c.id !== s.classroomId;
-                            return (
-                              <option key={c.id} value={c.id} disabled={full}>
-                                {c.name} ({c.studentCount}/{c.capacity}){full ? " — Dolu" : ""}
-                              </option>
-                            );
-                          })}
-                        </select>
-                      </td>
+                      {s.archived ? (
+                        <td onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            className="btn xs"
+                            disabled={archiveMutation.isPending}
+                            onClick={() => archiveMutation.mutate({ studentId: s.id, archived: false })}
+                          >
+                            Arşivden Geri Al
+                          </button>
+                        </td>
+                      ) : (
+                        <td onClick={(e) => e.stopPropagation()}>
+                          <select
+                            value={s.classroomId ?? ""}
+                            disabled={assignMutation.isPending}
+                            onChange={(e) =>
+                              assignMutation.mutate({ studentId: s.id, classroomId: e.target.value || null })
+                            }
+                          >
+                            <option value="">— Atanmamış —</option>
+                            {options.map((c) => {
+                              const full = c.studentCount >= c.capacity && c.id !== s.classroomId;
+                              return (
+                                <option key={c.id} value={c.id} disabled={full}>
+                                  {c.name} ({c.studentCount}/{c.capacity}){full ? " — Dolu" : ""}
+                                </option>
+                              );
+                            })}
+                          </select>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}

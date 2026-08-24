@@ -30,6 +30,36 @@ export async function PATCH(request: NextRequest, { params }: { params: { studen
   }
 
   const body = await request.json().catch(() => ({}));
+
+  // Arşivleme (pasife alma) — "Öğrenci Kaydını Sil" yerine kullanılan güvenli,
+  // geri alınabilir eylem: öğrenci kalıcı silinmez, User.isActive=false yapılır
+  // (böylece giriş kapanır ve roster'da görünmez, bkz. GET filtresi), tüm
+  // finansal/akademik kayıtları KORUNUR. `archived: false` ile geri alınır.
+  if (typeof body.archived === "boolean") {
+    const archived = body.archived as boolean;
+    const result = await withBranchTenantContext(actor, async (tx) => {
+      const student = await tx.studentProfile.findUnique({ where: { id: params.studentId }, include: { user: true } });
+      if (!student) return { kind: "not_found" as const };
+      await tx.user.update({ where: { id: student.userId }, data: { isActive: !archived } });
+      if (archived) {
+        // Arşivlenen öğrencinin açık oturumları anında iptal edilir.
+        await tx.userSession.updateMany({ where: { userId: student.userId, revokedAt: null }, data: { revokedAt: new Date() } });
+      }
+      await logActivity(tx, {
+        tenantId: effectiveTenantId(actor),
+        actorUserId: actor.id,
+        actorLabel: actorLabel(actor),
+        action: archived ? "Öğrenci kaydı arşivlendi (pasife alındı)" : "Öğrenci kaydı arşivden geri alındı",
+        detail: `${student.user.firstName} ${student.user.lastName} (${student.studentNo})`,
+      });
+      return { kind: "archived" as const, archived };
+    });
+    if (result.kind === "not_found") {
+      return NextResponse.json({ message: "Öğrenci bulunamadı" }, { status: 404 });
+    }
+    return NextResponse.json({ studentId: params.studentId, archived: result.archived });
+  }
+
   const hasClassroomChange = "classroomId" in body;
   if (hasClassroomChange && body.classroomId !== null && typeof body.classroomId !== "string") {
     return NextResponse.json({ message: "classroomId string veya null olmalı" }, { status: 400 });

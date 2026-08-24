@@ -44,6 +44,18 @@ const MODULES: HubModule[] = [
   { title: 'Devamsızlık', description: 'Sınıf yoklama özeti', icon: 'calendar', route: '/(branch)/devamsizlik' },
   { title: 'Karne', description: 'Öğrenci karnesi', icon: 'document-text', route: '/(branch)/karne' },
   { title: 'Raporlar', description: 'Mali özet', icon: 'download', route: '/(branch)/raporlar' },
+  { title: 'Takvim', description: 'Etkinlik takvimi', icon: 'calendar-outline', route: '/(branch)/takvim' },
+  { title: 'Ödevler', description: 'Ödev takibi', icon: 'book-outline', route: '/(branch)/odevler' },
+  { title: 'Kurslar', description: 'Ders kataloğu', icon: 'library-outline', route: '/(branch)/kurslar' },
+  { title: 'Yemekhane', description: 'Menü planı', icon: 'restaurant-outline', route: '/(branch)/yemekhane' },
+  { title: 'Sağlık / Revir', description: 'Vaka & tarama', icon: 'medkit-outline', route: '/(branch)/saglik' },
+  { title: 'Sosyal Etkinlik', description: 'Etkinlik & katılım', icon: 'sparkles-outline', route: '/(branch)/etkinlikler' },
+  { title: 'Rehberlik Olay', description: 'Vaka takibi', icon: 'flag-outline', route: '/(branch)/rehberlik-olay' },
+  { title: 'Anketler', description: 'Memnuniyet anketi', icon: 'stats-chart-outline', route: '/(branch)/anketler' },
+  { title: 'Görevler & Onaylar', description: 'İş akışı', icon: 'checkbox-outline', route: '/(branch)/gorevler' },
+  { title: 'Ziyaretçi', description: 'Giriş/çıkış kaydı', icon: 'people-outline', route: '/(branch)/ziyaretci' },
+  { title: 'Mezunlar', description: 'Mezun takibi', icon: 'ribbon-outline', route: '/(branch)/mezunlar' },
+  { title: 'Dönem Geçişleri', description: 'Akademik yıl & geçiş', icon: 'swap-horizontal-outline', route: '/(branch)/donem-gecisleri' },
   { title: 'Güvenlik', description: '2FA kurulumu', icon: 'lock-closed', route: '/(branch)/guvenlik' },
 ];
 

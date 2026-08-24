@@ -59,6 +59,20 @@ export default function BranchPortalLayout() {
       <Tabs.Screen name="odeme-analizi" options={{ ...hidden, title: 'Ödeme Analizi' }} />
       <Tabs.Screen name="raporlar" options={{ ...hidden, title: 'Raporlar' }} />
       <Tabs.Screen name="guvenlik" options={{ ...hidden, title: 'Güvenlik' }} />
+
+      {/* K12NET parite modülleri */}
+      <Tabs.Screen name="takvim" options={{ ...hidden, title: 'Takvim' }} />
+      <Tabs.Screen name="odevler" options={{ ...hidden, title: 'Ödevler' }} />
+      <Tabs.Screen name="kurslar" options={{ ...hidden, title: 'Kurslar' }} />
+      <Tabs.Screen name="yemekhane" options={{ ...hidden, title: 'Yemekhane' }} />
+      <Tabs.Screen name="saglik" options={{ ...hidden, title: 'Sağlık / Revir' }} />
+      <Tabs.Screen name="etkinlikler" options={{ ...hidden, title: 'Sosyal Etkinlik' }} />
+      <Tabs.Screen name="rehberlik-olay" options={{ ...hidden, title: 'Rehberlik Olay Takibi' }} />
+      <Tabs.Screen name="anketler" options={{ ...hidden, title: 'Anketler' }} />
+      <Tabs.Screen name="gorevler" options={{ ...hidden, title: 'Görevler & Onaylar' }} />
+      <Tabs.Screen name="ziyaretci" options={{ ...hidden, title: 'Ziyaretçi' }} />
+      <Tabs.Screen name="mezunlar" options={{ ...hidden, title: 'Mezun Yönetimi' }} />
+      <Tabs.Screen name="donem-gecisleri" options={{ ...hidden, title: 'Dönem Geçişleri' }} />
     </Tabs>
   );
 }

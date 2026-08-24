@@ -66,16 +66,30 @@ const SINAV_BELGESI_CARD: ModuleCard = { href: "/sinav-belgesi", title: "QR Sın
 const OLCME_CARD: ModuleCard = { href: "/olcme-degerlendirme", title: "Ölçme-Değerlendirme", description: "Sınav uygulaması oluşturma, sonuç girişi ve kazanım analizi.", icon: "chart", group: "Akademik" };
 const SINAV_SONUCLARIM_CARD: ModuleCard = { href: "/sinav-sonuclarim", title: "Sınav Sonuçlarım", description: "Sınav bazlı doğru/yanlış/boş, kazanım kırılımı ve kazanım gelişimi.", icon: "chart", group: "Akademik" };
 
+// --- K12NET parite modülleri (12 yeni modül) ---
+const TAKVIM_CARD: ModuleCard = { href: "/takvim", title: "Takvim", description: "Kurum geneli etkinlik takvimi ve kişisel ajanda.", icon: "calendar", group: "Genel Bakış" };
+const ODEVLER_CARD: ModuleCard = { href: "/odevler", title: "Ödevler", description: "Ödev verme, kazanım bağlama ve tamamlanma takibi.", icon: "book", group: "Akademik" };
+const KURSLAR_CARD: ModuleCard = { href: "/kurslar", title: "Kurslar", description: "Kredili ders/kurs kataloğu ve sınıf seviyeleri.", icon: "book", group: "Akademik" };
+const YEMEKHANE_CARD: ModuleCard = { href: "/yemekhane", title: "Yemekhane", description: "Yemek ürünleri ve seviyeye göre günlük menü planı.", icon: "grid", group: "Öğrenci Yaşamı" };
+const SAGLIK_CARD: ModuleCard = { href: "/saglik", title: "Sağlık / Revir", description: "Tıbbi vaka takibi ve sağlık tarama kampanyaları.", icon: "heart", group: "Öğrenci Yaşamı" };
+const ETKINLIKLER_CARD: ModuleCard = { href: "/etkinlikler", title: "Sosyal Etkinlik", description: "Gezi/tören/etkinlik ve katılım yönetimi.", icon: "star", group: "Öğrenci Yaşamı" };
+const REHBERLIK_OLAY_CARD: ModuleCard = { href: "/rehberlik-olay", title: "Rehberlik Olay Takibi", description: "Rehberlik vaka/olay kaydı ve iş akışı.", icon: "flag", group: "Öğrenci Yaşamı" };
+const ANKETLER_CARD: ModuleCard = { href: "/anketler", title: "Anketler", description: "Veli/öğrenci/personel memnuniyet anketleri.", icon: "chart", group: "Yönetim & Finans" };
+const GOREVLER_CARD: ModuleCard = { href: "/gorevler", title: "Görevler & Onaylar", description: "Kurumsal görev ve onay iş akışı.", icon: "kanban", group: "Yönetim & Finans" };
+const ZIYARETCI_CARD: ModuleCard = { href: "/ziyaretci", title: "Ziyaretçi", description: "Okul girişinde ziyaretçi giriş/çıkış kaydı.", icon: "users", group: "Yönetim & Finans" };
+const MEZUNLAR_CARD: ModuleCard = { href: "/mezunlar", title: "Mezun Yönetimi", description: "Mezun profili, üniversite ve iş takibi.", icon: "trophy", group: "Yönetim & Finans" };
+const DONEM_GECISLERI_CARD: ModuleCard = { href: "/donem-gecisleri", title: "Dönem Geçişleri", description: "Akademik yıl yönetimi ve sınıf geçişi (2050'ye kadar).", icon: "clock", group: "Yönetim & Finans" };
+
 export const MODULES_BY_ROLE: Record<UserRole, ModuleCard[]> = {
-  BRANCH_ADMIN: [BUGUN_CARD, GUNLUK_OPS_CARD, CRM_CARD, ON_KAYIT_CARD, NORMAL_KAYIT_CARD, OGRENCILER_CARD, ODEME_YONTEMLERI_CARD, MUHASEBE_CARD, PERSONEL_CARD, ROLLER_CARD, OGRETMEN_PERF_CARD, OLCME_CARD, KARNE_CARD, DEVAMSIZLIK_CARD, DERS_PROGRAMI_CARD, DISIPLIN_CARD, VELI_GORUSME_CARD, KULUPLER_CARD, ETUT_CARD, SERVIS_CARD, AKTIVITE_CARD, RAPORLAR_CARD, ILETISIM_CARD, MENTOR_CARD, LEADERBOARD_CARD, GUVENLIK_CARD, PROFILIM_CARD],
-  ACCOUNTING: [GUNLUK_OPS_CARD, ODEME_YONTEMLERI_CARD, MUHASEBE_CARD, PERSONEL_CARD, ILETISIM_CARD, GUVENLIK_CARD, PROFILIM_CARD],
+  BRANCH_ADMIN: [BUGUN_CARD, TAKVIM_CARD, GUNLUK_OPS_CARD, CRM_CARD, ON_KAYIT_CARD, NORMAL_KAYIT_CARD, OGRENCILER_CARD, DONEM_GECISLERI_CARD, ODEME_YONTEMLERI_CARD, MUHASEBE_CARD, PERSONEL_CARD, ROLLER_CARD, OGRETMEN_PERF_CARD, OLCME_CARD, KARNE_CARD, ODEVLER_CARD, KURSLAR_CARD, DEVAMSIZLIK_CARD, DERS_PROGRAMI_CARD, DISIPLIN_CARD, VELI_GORUSME_CARD, REHBERLIK_OLAY_CARD, KULUPLER_CARD, ETKINLIKLER_CARD, ETUT_CARD, SERVIS_CARD, YEMEKHANE_CARD, SAGLIK_CARD, ANKETLER_CARD, GOREVLER_CARD, ZIYARETCI_CARD, MEZUNLAR_CARD, AKTIVITE_CARD, RAPORLAR_CARD, ILETISIM_CARD, MENTOR_CARD, LEADERBOARD_CARD, GUVENLIK_CARD, PROFILIM_CARD],
+  ACCOUNTING: [GUNLUK_OPS_CARD, TAKVIM_CARD, ODEME_YONTEMLERI_CARD, MUHASEBE_CARD, PERSONEL_CARD, GOREVLER_CARD, ILETISIM_CARD, GUVENLIK_CARD, PROFILIM_CARD],
   // 3. denetim bulgusu — GUIDANCE_COORDINATOR zaten hem mesaj gelen kutusuna
   // (app/api/messages/inbox rol kısıtsız) hem Karne'ye (report-card route
   // STAFF_ROLES'ta zaten vardı) erişebiliyordu, yalnızca nav kartı eksikti.
-  GUIDANCE_COORDINATOR: [CRM_CARD, ON_KAYIT_CARD, NORMAL_KAYIT_CARD, OGRENCILER_CARD, OLCME_CARD, KARNE_CARD, DEVAMSIZLIK_CARD, DISIPLIN_CARD, VELI_GORUSME_CARD, ETUT_CARD, ILETISIM_CARD, GUVENLIK_CARD, PROFILIM_CARD],
-  TEACHER: [SINIFLARIM_CARD, OLCME_CARD, KARNE_CARD, DEVAMSIZLIK_CARD, DERS_PROGRAMI_CARD, DISIPLIN_CARD, VELI_GORUSME_CARD, KULUPLER_CARD, ETUT_ONAYI_CARD, ILETISIM_CARD, MENTOR_CARD, LEADERBOARD_CARD, GUVENLIK_CARD, PROFILIM_CARD],
-  STUDENT: [KARNE_CARD, SINAV_SONUCLARIM_CARD, DEVAMSIZLIGIM_CARD, DERS_PROGRAMI_CARD, ROADMAP_CARD, SINAV_BELGESI_CARD, DAVRANIS_NOTLARIM_CARD, KULUPLER_CARD, SERVIS_CARD, QUIZ_CARD, ETUT_RANDEVU_CARD, ILETISIM_CARD, MENTOR_CARD, BASARI_CARD, GUVENLIK_CARD, PROFILIM_CARD],
-  PARENT: [KARNE_CARD, SINAV_SONUCLARIM_CARD, DEVAMSIZLIGIM_CARD, DERS_PROGRAMI_CARD, ROADMAP_CARD, SINAV_BELGESI_CARD, DAVRANIS_NOTLARIM_CARD, VELI_GORUSME_CARD, KULUPLER_CARD, SERVIS_CARD, QUIZ_CARD, ETUT_RANDEVU_CARD, ILETISIM_CARD, MENTOR_CARD, BASARI_CARD, ODEME_ISLEMLERIM_CARD, GUVENLIK_CARD, PROFILIM_CARD],
+  GUIDANCE_COORDINATOR: [TAKVIM_CARD, CRM_CARD, ON_KAYIT_CARD, NORMAL_KAYIT_CARD, OGRENCILER_CARD, OLCME_CARD, KARNE_CARD, DEVAMSIZLIK_CARD, DISIPLIN_CARD, VELI_GORUSME_CARD, REHBERLIK_OLAY_CARD, SAGLIK_CARD, ANKETLER_CARD, GOREVLER_CARD, ETUT_CARD, ILETISIM_CARD, GUVENLIK_CARD, PROFILIM_CARD],
+  TEACHER: [TAKVIM_CARD, SINIFLARIM_CARD, OLCME_CARD, KARNE_CARD, ODEVLER_CARD, DEVAMSIZLIK_CARD, DERS_PROGRAMI_CARD, DISIPLIN_CARD, VELI_GORUSME_CARD, KULUPLER_CARD, ETKINLIKLER_CARD, GOREVLER_CARD, ANKETLER_CARD, ETUT_ONAYI_CARD, ILETISIM_CARD, MENTOR_CARD, LEADERBOARD_CARD, GUVENLIK_CARD, PROFILIM_CARD],
+  STUDENT: [TAKVIM_CARD, KARNE_CARD, SINAV_SONUCLARIM_CARD, ODEVLER_CARD, DEVAMSIZLIGIM_CARD, DERS_PROGRAMI_CARD, ROADMAP_CARD, SINAV_BELGESI_CARD, DAVRANIS_NOTLARIM_CARD, KULUPLER_CARD, ETKINLIKLER_CARD, YEMEKHANE_CARD, SERVIS_CARD, QUIZ_CARD, ANKETLER_CARD, ETUT_RANDEVU_CARD, ILETISIM_CARD, MENTOR_CARD, BASARI_CARD, GUVENLIK_CARD, PROFILIM_CARD],
+  PARENT: [TAKVIM_CARD, KARNE_CARD, SINAV_SONUCLARIM_CARD, ODEVLER_CARD, DEVAMSIZLIGIM_CARD, DERS_PROGRAMI_CARD, ROADMAP_CARD, SINAV_BELGESI_CARD, DAVRANIS_NOTLARIM_CARD, VELI_GORUSME_CARD, KULUPLER_CARD, ETKINLIKLER_CARD, YEMEKHANE_CARD, SERVIS_CARD, QUIZ_CARD, ANKETLER_CARD, ETUT_RANDEVU_CARD, ILETISIM_CARD, MENTOR_CARD, BASARI_CARD, ODEME_ISLEMLERIM_CARD, GUVENLIK_CARD, PROFILIM_CARD],
   SUPERADMIN: [SUBE_HARITASI_CARD, KURUMLAR_CARD, ROLLER_HQ_CARD, OLCME_CARD, ILETISIM_HQ_CARD, GUVENLIK_CARD, PROFILIM_CARD],
 };
 

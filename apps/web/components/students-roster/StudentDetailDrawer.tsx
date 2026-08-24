@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/lib/api/client";
 import {
-  deleteStudentPermanently,
+  setStudentArchived,
   fetchStudentDetail,
   updateStudentGuardianContact,
   updateStudentOwnContact,
@@ -132,14 +132,14 @@ export function StudentDetailDrawer({
   });
 
   const deleteMutation = useMutation({
-    mutationFn: () => deleteStudentPermanently(student!.id),
+    mutationFn: () => setStudentArchived(student!.id, true),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: studentsRosterKeys.all() });
       setDeleteArmed(false);
       setDeleteError(null);
       onClose();
     },
-    onError: (err) => setDeleteError(err instanceof ApiError ? err.message : "Öğrenci kaydı silinemedi."),
+    onError: (err) => setDeleteError(err instanceof ApiError ? err.message : "Öğrenci kaydı arşivlenemedi."),
   });
 
   const open = !!student;
@@ -385,13 +385,13 @@ export function StudentDetailDrawer({
               <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
                 {deleteArmed ? (
                   <>
-                    <p style={{ margin: "0 0 8px", fontSize: "var(--text-xs)", color: "var(--critical)" }}>
-                      Bu öğrenci kaydı kalıcı olarak silinsin mi? Bu işlem geri alınamaz.
+                    <p style={{ margin: "0 0 8px", fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>
+                      Bu öğrenci pasife alınsın (arşivlensin) mi? Listeden kaldırılır ve girişi kapanır; taksit, ödeme, sınav vb. tüm kayıtları korunur ve gerektiğinde arşivden geri alınabilir.
                     </p>
                     {deleteError && <p style={{ margin: "0 0 8px", fontSize: "var(--text-xs)", color: "var(--critical)" }}>{deleteError}</p>}
                     <div style={{ display: "flex", gap: 8 }}>
                       <button type="button" className="btn sm danger solid" disabled={deleteMutation.isPending} onClick={() => deleteMutation.mutate()}>
-                        {deleteMutation.isPending ? "Siliniyor…" : "Evet, Kaydı Sil"}
+                        {deleteMutation.isPending ? "Arşivleniyor…" : "Evet, Pasife Al"}
                       </button>
                       <button type="button" className="btn sm" onClick={() => setDeleteArmed(false)}>
                         Vazgeç
@@ -400,7 +400,7 @@ export function StudentDetailDrawer({
                   </>
                 ) : (
                   <button type="button" className="btn sm danger" onClick={() => setDeleteArmed(true)}>
-                    Öğrenci Kaydını Sil
+                    Öğrenci Kaydını Arşivle (Pasife Al)
                   </button>
                 )}
               </div>
