@@ -197,31 +197,41 @@ export function ErrorBanner({ message }: { message: string }) {
   );
 }
 
-export function EmptyState({ message, icon = 'file-tray-outline' }: { message: string; icon?: keyof typeof Ionicons.glyphMap }) {
+export function EmptyState({
+  message,
+  hint,
+  icon = 'file-tray-outline',
+}: {
+  message: string;
+  hint?: string;
+  icon?: keyof typeof Ionicons.glyphMap;
+}) {
   const theme = useTheme();
   return (
-    <View style={{ padding: Spacing.four, alignItems: 'center', gap: 10 }}>
+    <View style={{ padding: Spacing.four, alignItems: 'center', gap: 8 }}>
       <View
         style={{
-          width: 52,
-          height: 52,
-          borderRadius: 26,
+          width: 56,
+          height: 56,
+          borderRadius: 28,
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: theme.backgroundSelected,
         }}>
-        <Ionicons name={icon} size={24} color={theme.brand} />
+        <Ionicons name={icon} size={26} color={theme.brand} />
       </View>
-      <Text style={{ color: theme.textSecondary, textAlign: 'center', fontSize: 13.5 }}>{message}</Text>
+      <Text style={{ color: theme.text, textAlign: 'center', fontSize: 14.5, fontWeight: '600' }}>{message}</Text>
+      {hint ? <Text style={{ color: theme.textSecondary, textAlign: 'center', fontSize: 12.5, maxWidth: 260 }}>{hint}</Text> : null}
     </View>
   );
 }
 
-export function CenterLoading() {
+export function CenterLoading({ label = 'Yükleniyor…' }: { label?: string }) {
   const theme = useTheme();
   return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.background }}>
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: theme.background }}>
       <ActivityIndicator color={theme.brand} size="large" />
+      {label ? <Text style={{ color: theme.textSecondary, fontSize: 13.5 }}>{label}</Text> : null}
     </View>
   );
 }
