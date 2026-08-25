@@ -625,7 +625,6 @@ model Enrollment {
   targetClassroomId   String?
   targetClassroom     Classroom? @relation(fields: [targetClassroomId], references: [id])
 
-  depositAmount    Decimal?  @db.Decimal(10, 2) // Ön kayıt kaporası
   contractSignedAt DateTime?
 
   studentId String?         @unique // Normal kayıt tamamlanınca StudentProfile'a bağlanır

@@ -36,7 +36,6 @@ export async function PATCH(request: NextRequest, { params }: { params: { enroll
   const guardianFullName = typeof body.guardianFullName === "string" && body.guardianFullName.trim() ? body.guardianFullName.trim() : undefined;
   const guardianPhone = typeof body.guardianPhone === "string" && body.guardianPhone.trim() ? body.guardianPhone.trim() : undefined;
   const targetClassroomId = body.targetClassroomId === null ? null : typeof body.targetClassroomId === "string" && body.targetClassroomId ? body.targetClassroomId : undefined;
-  const depositAmount = body.depositAmount === null ? null : typeof body.depositAmount === "number" && body.depositAmount > 0 ? body.depositAmount : undefined;
   const programType = typeof body.programType === "string" && PROGRAM_TYPE_OPTIONS.includes(body.programType) ? body.programType : undefined;
 
   const outcome = await withBranchTenantContext(actor, async (tx) => {
@@ -54,7 +53,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { enroll
 
     const updated = await tx.enrollment.update({
       where: { id: enrollment.id },
-      data: { candidateFullName, candidateGradeLevel, guardianFullName, guardianPhone, targetClassroomId, depositAmount, programType },
+      data: { candidateFullName, candidateGradeLevel, guardianFullName, guardianPhone, targetClassroomId, programType },
     });
 
     await logActivity(tx, {

@@ -65,7 +65,6 @@ export function EnrollmentsDashboard() {
   const [programType, setProgramType] = useState(PROGRAM_TYPE_OPTIONS[0]);
   const [guardianFullName, setGuardianFullName] = useState("");
   const [guardianPhone, setGuardianPhone] = useState("");
-  const [depositAmount, setDepositAmount] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -89,7 +88,6 @@ export function EnrollmentsDashboard() {
       setCandidateFullName("");
       setGuardianFullName("");
       setGuardianPhone("");
-      setDepositAmount("");
       setProgramType(PROGRAM_TYPE_OPTIONS[0]);
       setFormError(null);
     },
@@ -136,7 +134,6 @@ export function EnrollmentsDashboard() {
       programType,
       guardianFullName: guardianFullName.trim(),
       guardianPhone: guardianPhone.trim(),
-      depositAmount: depositAmount ? Number(depositAmount) : undefined,
     });
   }
 
@@ -246,10 +243,6 @@ export function EnrollmentsDashboard() {
                   <label>Veli Telefonu</label>
                   <input value={guardianPhone} onChange={(e) => setGuardianPhone(e.target.value)} placeholder="05xx xxx xx xx" />
                 </div>
-              </div>
-              <div className="field">
-                <label>Kapora (₺, opsiyonel)</label>
-                <input type="number" min="0" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} />
               </div>
 
               {formError && <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--critical)" }}>{formError}</p>}

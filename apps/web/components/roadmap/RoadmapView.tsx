@@ -128,8 +128,13 @@ export function RoadmapView() {
           <div className="card card-pad" style={{ borderColor: "var(--brand)", background: "var(--brand-tint)" }}>
             <div className="card-head">
               <h3>AI Tavsiyesi</h3>
+              {roadmap.aiComment && (
+                <span className="chip strong" style={{ fontSize: "var(--text-xs)" }}>Claude ile</span>
+              )}
             </div>
-            {roadmap.criticalAchievements.length > 0 ? (
+            {roadmap.aiComment ? (
+              <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--ink)", lineHeight: 1.6 }}>{roadmap.aiComment}</p>
+            ) : roadmap.criticalAchievements.length > 0 ? (
               <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--ink)" }}>
                 Şu konulara odaklanırsan netin artacak:{" "}
                 {roadmap.criticalAchievements.map((a, i) => (

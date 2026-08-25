@@ -3,6 +3,7 @@ import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
 import { withTenantContext } from "@/lib/db-context";
 import { ratioToMastery, subjectFromCode } from "@/lib/curriculum";
+import { askClaude, aiEnabled } from "@/lib/anthropic";
 import type {
   AchievementColumn,
   ClassXRayResponse,
@@ -145,5 +146,18 @@ export async function GET(
     return NextResponse.json({ message: "Sınav veya sınıf bulunamadı" }, { status: 404 });
   }
 
-  return NextResponse.json(data);
+  // Gerçek AI değerlendirmesi (Anthropic) — DB tx kapandıktan sonra. Anahtar
+  // yoksa aiComment null döner; arayüz mevcut en zayıf/en güçlü kazanım özetine
+  // düşer.
+  let aiComment: string | null = null;
+  if (aiEnabled()) {
+    const withResults = data.students.filter((s) => s.cells.length > 0).length;
+    aiComment = await askClaude(
+      "Sen deneyimli bir zümre başkanı ve ölçme-değerlendirme uzmanısın. Bir sınıfın sınav sonucuna bakıp öğretmene 2-3 cümlelik, somut ve eyleme dönük bir sınıf değerlendirmesi yaz. Hangi kazanıma tekrar/etüt gerektiğini ve güçlü yönü vurgula. Türkçe, düz paragraf; madde işareti kullanma.",
+      `Sınav: ${data.examName}\nSınıf: ${data.classroomName}\nSonucu olan öğrenci sayısı: ${withResults}\nSınıf ortalama net: ${data.classSummary.averageNet}\nEn zayıf kazanım: ${data.classSummary.weakestAchievement.label} (sınıf ort. %${Math.round(data.classSummary.weakestAchievement.classAverageRatio * 100)})\nEn güçlü kazanım: ${data.classSummary.strongestAchievement.label} (sınıf ort. %${Math.round(data.classSummary.strongestAchievement.classAverageRatio * 100)})`,
+      { maxTokens: 350 },
+    );
+  }
+
+  return NextResponse.json({ ...data, aiComment, aiEnabled: aiEnabled() });
 }

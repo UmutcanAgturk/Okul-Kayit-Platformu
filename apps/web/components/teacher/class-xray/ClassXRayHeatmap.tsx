@@ -98,6 +98,16 @@ export function ClassXRayHeatmap({ examId, classroomId }: ClassXRayHeatmapProps)
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
         <ClassSummaryStats summary={data.classSummary} />
 
+        {data.aiComment && (
+          <div className="card card-pad" style={{ borderColor: "var(--brand)", background: "var(--brand-tint)" }}>
+            <div className="card-head">
+              <h3>AI Değerlendirmesi</h3>
+              <span className="chip strong" style={{ fontSize: "var(--text-xs)" }}>Claude ile</span>
+            </div>
+            <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--ink)", lineHeight: 1.6 }}>{data.aiComment}</p>
+          </div>
+        )}
+
         <div>
           <div className="card-head">
             <h3>Ortak Eksik Kazanım Matrisi</h3>

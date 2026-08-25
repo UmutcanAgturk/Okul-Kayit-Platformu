@@ -3,6 +3,7 @@ import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
 import { withTenantContext } from "@/lib/db-context";
 import { subjectFromCode } from "@/lib/curriculum";
+import { askClaude, aiEnabled } from "@/lib/anthropic";
 
 const STAFF_ROLES: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.GUIDANCE_COORDINATOR, UserRole.TEACHER];
 
@@ -100,5 +101,22 @@ export async function GET(request: NextRequest, { params }: { params: { studentI
   if (result.kind === "forbidden") {
     return NextResponse.json({ message: "Bu öğrencinin akademik yol haritasını görüntüleyemezsiniz" }, { status: 403 });
   }
-  return NextResponse.json(result);
+
+  // Gerçek AI yorumu (Anthropic) — yalnız ANTHROPIC_API_KEY tanımlıysa. Ağ
+  // çağrısını DB tx'i KAPANDIKTAN sonra yaparız (tx'i ağ gecikmesiyle tutmayalım).
+  // Anahtar yoksa `aiComment` null döner, arayüz mevcut heuristik özete düşer.
+  let aiComment: string | null = null;
+  if (aiEnabled()) {
+    const critList = result.criticalAchievements.length
+      ? result.criticalAchievements.map((a) => `- ${a.subject}: ${a.label} (başarı %${Math.round(a.avgRatio * 100)})`).join("\n")
+      : "- (Kritik eksik kazanım tespit edilmedi.)";
+    const trend = result.netTrend.map((t) => `${t.label}: ${t.value}`).join(", ") || "veri yok";
+    aiComment = await askClaude(
+      "Sen deneyimli bir eğitim koçusun. Bir öğrenciye 2-3 cümlelik, motive edici, somut ve uygulanabilir bir akademik yol haritası tavsiyesi yaz. Türkçe, sıcak ama profesyonel bir dille. Madde işareti veya başlık kullanma; düz paragraf yaz.",
+      `Öğrenci: ${result.studentName}\nSınıf: ${result.gradeLevel ?? "?"}\nHedef: ${result.targetGoal ?? "belirtilmemiş"}\nSon net: ${result.latestNet ?? "?"} / ${result.maxPossibleNet ?? "?"}\nNet gelişimi: ${trend}\nEn zayıf kazanımlar:\n${critList}`,
+      { maxTokens: 350 },
+    );
+  }
+
+  return NextResponse.json({ ...result, aiComment, aiEnabled: aiEnabled() });
 }

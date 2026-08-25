@@ -19,6 +19,9 @@ export interface StudentRoadmap {
   netPct: number;
   netTrend: { label: string; value: number }[];
   criticalAchievements: CriticalAchievement[];
+  /** Anthropic (Claude) tarafından üretilmiş kişisel tavsiye. Anahtar yoksa null. */
+  aiComment?: string | null;
+  aiEnabled?: boolean;
 }
 
 export function fetchRoadmap(studentId: string) {

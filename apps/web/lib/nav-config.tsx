@@ -48,6 +48,7 @@ const QUIZ_CARD: ModuleCard = { href: "/quiz", title: "Pratik Quiz", description
 const RAPORLAR_CARD: ModuleCard = { href: "/raporlar", title: "Raporlar", description: "Öğrenci, personel, devamsızlık, sınav ve mali özet raporları.", icon: "download", group: "Yönetim & Finans" };
 const KURUMLAR_CARD: ModuleCard = { href: "/kurumlar", title: "Kurum Yönetimi", description: "Tüm şubelerin öğrenci/personel/sınıf sayıları ve konsolide mali özet.", icon: "briefcase", group: "Genel Bakış" };
 const SUBE_HARITASI_CARD: ModuleCard = { href: "/sube-haritasi", title: "Şube Performans Haritası", description: "Türkiye haritasında gerçek doluluk/tahsilat/ciro verisi.", icon: "map", group: "Genel Bakış" };
+const ANALYTICS_CARD: ModuleCard = { href: "/analytics", title: "Global Analytics", description: "Tüm şubelerin konsolide akademik başarı ve gelir analizi.", icon: "chart", group: "Genel Bakış" };
 const ILETISIM_CARD: ModuleCard = { href: "/iletisim", title: "İletişim", description: "Öğrenci/veli/öğretmenlere mesaj gönderme ve gelen kutusu.", icon: "bell", group: "Diğer" };
 // Bare SUPERADMIN için AYNI /iletisim sayfası "Tüm Sistem" yayın moduna geçer
 // (task #101, bkz. MessagesDashboard.tsx isHqBroadcast) — kart metni buna göre.
@@ -90,7 +91,7 @@ export const MODULES_BY_ROLE: Record<UserRole, ModuleCard[]> = {
   TEACHER: [TAKVIM_CARD, SINIFLARIM_CARD, OLCME_CARD, KARNE_CARD, ODEVLER_CARD, DEVAMSIZLIK_CARD, DERS_PROGRAMI_CARD, DISIPLIN_CARD, VELI_GORUSME_CARD, KULUPLER_CARD, ETKINLIKLER_CARD, GOREVLER_CARD, ETUT_ONAYI_CARD, ILETISIM_CARD, MENTOR_CARD, LEADERBOARD_CARD, GUVENLIK_CARD, PROFILIM_CARD],
   STUDENT: [TAKVIM_CARD, KARNE_CARD, SINAV_SONUCLARIM_CARD, ODEVLER_CARD, DEVAMSIZLIGIM_CARD, DERS_PROGRAMI_CARD, ROADMAP_CARD, SINAV_BELGESI_CARD, DAVRANIS_NOTLARIM_CARD, KULUPLER_CARD, ETKINLIKLER_CARD, YEMEKHANE_CARD, SERVIS_CARD, QUIZ_CARD, ETUT_RANDEVU_CARD, ILETISIM_CARD, MENTOR_CARD, BASARI_CARD, GUVENLIK_CARD, PROFILIM_CARD],
   PARENT: [TAKVIM_CARD, KARNE_CARD, SINAV_SONUCLARIM_CARD, ODEVLER_CARD, DEVAMSIZLIGIM_CARD, DERS_PROGRAMI_CARD, ROADMAP_CARD, SINAV_BELGESI_CARD, DAVRANIS_NOTLARIM_CARD, VELI_GORUSME_CARD, KULUPLER_CARD, ETKINLIKLER_CARD, YEMEKHANE_CARD, SERVIS_CARD, QUIZ_CARD, ETUT_RANDEVU_CARD, ILETISIM_CARD, MENTOR_CARD, BASARI_CARD, ODEME_ISLEMLERIM_CARD, GUVENLIK_CARD, PROFILIM_CARD],
-  SUPERADMIN: [SUBE_HARITASI_CARD, KURUMLAR_CARD, ROLLER_HQ_CARD, OLCME_CARD, ILETISIM_HQ_CARD, GUVENLIK_CARD, PROFILIM_CARD],
+  SUPERADMIN: [SUBE_HARITASI_CARD, ANALYTICS_CARD, KURUMLAR_CARD, ROLLER_HQ_CARD, OLCME_CARD, ILETISIM_HQ_CARD, GUVENLIK_CARD, PROFILIM_CARD],
 };
 
 /**
@@ -131,6 +132,7 @@ export function modulesForActor(role: UserRole, _actingTenantId?: string | null)
     const seen = new Set<string>();
     const all = [
       SUBE_HARITASI_CARD,
+      ANALYTICS_CARD,
       KURUMLAR_CARD,
       ROLLER_HQ_CARD,
       ILETISIM_HQ_CARD,

@@ -42,7 +42,6 @@ export interface EnrollmentRow {
   guardianFullName: string;
   guardianPhone: string;
   targetClassroomId: string | null;
-  depositAmount: number | null;
   contractSignedAt: string | null;
   studentId: string | null;
   createdAt: string;
@@ -62,7 +61,6 @@ export interface CreateEnrollmentInput {
   guardianFullName: string;
   guardianPhone: string;
   targetClassroomId?: string;
-  depositAmount?: number;
 }
 
 export function createEnrollment(input: CreateEnrollmentInput) {
@@ -78,7 +76,6 @@ export interface UpdateEnrollmentInput {
   guardianFullName?: string;
   guardianPhone?: string;
   targetClassroomId?: string | null;
-  depositAmount?: number | null;
   programType?: string;
 }
 

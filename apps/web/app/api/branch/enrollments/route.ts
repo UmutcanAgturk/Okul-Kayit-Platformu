@@ -61,7 +61,6 @@ export async function POST(request: NextRequest) {
   const guardianFullName = typeof body.guardianFullName === "string" && body.guardianFullName.trim() ? body.guardianFullName.trim() : null;
   const guardianPhone = typeof body.guardianPhone === "string" && body.guardianPhone.trim() ? body.guardianPhone.trim() : null;
   const targetClassroomId = typeof body.targetClassroomId === "string" && body.targetClassroomId ? body.targetClassroomId : null;
-  const depositAmount = typeof body.depositAmount === "number" && body.depositAmount > 0 ? body.depositAmount : null;
   const programType = typeof body.programType === "string" && PROGRAM_TYPE_OPTIONS.includes(body.programType) ? body.programType : PROGRAM_TYPE_OPTIONS[0];
 
   if (!type || !candidateFullName || !candidateGradeLevel || !guardianFullName || !guardianPhone) {
@@ -86,7 +85,6 @@ export async function POST(request: NextRequest) {
         guardianFullName,
         guardianPhone,
         targetClassroomId,
-        depositAmount,
       },
     });
 

@@ -200,7 +200,6 @@ async function main() {
         candidateGradeLevel: GradeLevel.SINIF_9,
         guardianFullName: "Nur Şahin",
         guardianPhone: "05321234567",
-        depositAmount: 2500,
       },
     });
   }

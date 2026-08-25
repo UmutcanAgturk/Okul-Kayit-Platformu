@@ -7,6 +7,7 @@ import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { modulesForActor, groupModules, type ModuleCard } from "@/lib/nav-config";
 import { Icon } from "@/components/ui/icons";
+import { GuidedTour } from "@/components/onboarding/GuidedTour";
 
 const USAGE_KEY = "seviye360.hub-usage";
 
@@ -130,6 +131,8 @@ export function DashboardHub() {
           <p>&quot;{query}&quot; ile eşleşen modül yok.</p>
         </div>
       )}
+
+      <GuidedTour modules={modules} />
     </div>
   );
 }

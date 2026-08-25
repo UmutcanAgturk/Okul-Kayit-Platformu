@@ -82,7 +82,6 @@ async function main() {
       candidateGradeLevel: "SINIF_9",
       guardianFullName: "Test Veli",
       guardianPhone: "05551112233",
-      depositAmount: 1000,
     }),
   });
   const createBody = await createRes.json();

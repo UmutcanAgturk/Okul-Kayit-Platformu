@@ -45,4 +45,8 @@ export interface ClassXRayResponse {
       classAverageRatio: number;
     };
   };
+  /** Anthropic (Claude) tarafından üretilmiş sınıf değerlendirmesi. Anahtar yoksa null. */
+  aiComment?: string | null;
+  /** ANTHROPIC_API_KEY tanımlı mı — arayüz "AI etkin" rozeti için kullanır. */
+  aiEnabled?: boolean;
 }

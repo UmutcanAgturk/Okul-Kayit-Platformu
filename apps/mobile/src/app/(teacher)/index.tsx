@@ -17,6 +17,7 @@ const MODULES: HubModule[] = [
   { title: 'Yoklama Al', description: 'Sınıf yoklaması', icon: 'checkbox', route: '/(teacher)/yoklama' },
   { title: 'İletişim', description: 'Gelen mesajlar', icon: 'mail', route: '/(teacher)/iletisim' },
   { title: 'Ölçme-Değerlendirme', description: 'Sınavlar', icon: 'clipboard', route: '/(teacher)/olcme-degerlendirme' },
+  { title: 'Mobil Optik Okuyucu', description: 'Fotoğrafla AI optik okuma', icon: 'scan', route: '/(teacher)/optik-okuyucu' },
   { title: 'Disiplin', description: 'Davranış kayıtları', icon: 'shield-checkmark', route: '/(teacher)/disiplin' },
   { title: 'Karne', description: 'Öğrenci karnesi', icon: 'document-text', route: '/(teacher)/karne' },
   { title: 'Lider Tablosu', description: 'Sınıf sıralaması', icon: 'trophy', route: '/(teacher)/lider-tablosu' },
