@@ -17,6 +17,12 @@ function canWrite(actor: { role: UserRole; actingTenantId?: string | null }) {
   return WRITE_ROLES.includes(actor.role) || (actor.role === UserRole.SUPERADMIN && !!actor.actingTenantId);
 }
 
+// Etkinliği yöneten roller (şube yöneticisi/rehber/genel merkez) rol filtresinden
+// muaftır — görünürlüğü yönetebilmek için TÜM etkinlikleri görürler.
+function isManager(role: UserRole) {
+  return WRITE_ROLES.includes(role) || role === UserRole.SUPERADMIN;
+}
+
 export async function GET(request: NextRequest) {
   const actor = await getSessionActor(request);
   if (!actor) {
@@ -29,8 +35,14 @@ export async function GET(request: NextRequest) {
     }),
   );
 
+  // Rol bazlı görünürlük: boş visibleRoles herkese açık; dolu ise yalnızca
+  // listelenen roller görür. Yöneticiler (şube yön./rehber/GM) her zaman görür.
+  const visible = events.filter(
+    (e) => isManager(actor.role) || e.visibleRoles.length === 0 || e.visibleRoles.includes(actor.role),
+  );
+
   return NextResponse.json({
-    events: events.map((e) => ({
+    events: visible.map((e) => ({
       id: e.id,
       title: e.title,
       eventType: e.eventType,
@@ -39,6 +51,7 @@ export async function GET(request: NextRequest) {
       startAt: e.startAt.toISOString(),
       endAt: e.endAt ? e.endAt.toISOString() : null,
       allDay: e.allDay,
+      visibleRoles: e.visibleRoles,
     })),
   });
 }
@@ -60,6 +73,12 @@ export async function POST(request: NextRequest) {
   const startAtRaw = typeof body.startAt === "string" && body.startAt.trim() ? body.startAt.trim() : null;
   const endAtRaw = typeof body.endAt === "string" && body.endAt.trim() ? body.endAt.trim() : null;
   const allDay = body.allDay === true;
+  // Rol bazlı görünürlük — geçerli UserRole değerlerine süz; boş = herkes.
+  const validRoles = Object.values(UserRole) as UserRole[];
+  const rawRoles: unknown[] = Array.isArray(body.visibleRoles) ? body.visibleRoles : [];
+  const visibleRoles: UserRole[] = Array.from(
+    new Set(rawRoles.filter((r): r is UserRole => typeof r === "string" && validRoles.includes(r as UserRole))),
+  );
 
   if (!title) {
     return NextResponse.json({ message: "title zorunludur" }, { status: 400 });
@@ -90,6 +109,7 @@ export async function POST(request: NextRequest) {
         startAt,
         endAt,
         allDay,
+        visibleRoles,
         createdByUserId: actor.id,
       },
     });

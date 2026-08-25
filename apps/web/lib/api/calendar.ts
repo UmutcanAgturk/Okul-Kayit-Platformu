@@ -9,6 +9,7 @@ export interface CalendarEventSummary {
   startAt: string;
   endAt: string | null;
   allDay: boolean;
+  visibleRoles: string[];
 }
 
 export function fetchCalendarEvents() {
@@ -23,6 +24,7 @@ export function createCalendarEvent(input: {
   startAt: string;
   endAt?: string;
   allDay?: boolean;
+  visibleRoles?: string[];
 }) {
   return apiFetch<{ event: { id: string } }>("/api/branch/calendar", {
     method: "POST",

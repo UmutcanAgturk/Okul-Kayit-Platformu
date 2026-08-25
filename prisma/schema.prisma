@@ -1857,6 +1857,10 @@ model CalendarEvent {
   startAt         DateTime
   endAt           DateTime?
   allDay          Boolean   @default(false)
+  // Rol bazlı görünürlük: BOŞ ise herkes görür; dolu ise yalnızca listelenen
+  // roller (ve etkinliği yöneten şube yöneticisi/rehber) görür. Örn. yalnızca
+  // öğretmenlere özel bir toplantı: [TEACHER]. Bkz. GET /api/branch/calendar.
+  visibleRoles    UserRole[] @default([])
   createdByUserId String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
