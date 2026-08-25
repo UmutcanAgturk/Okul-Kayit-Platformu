@@ -26,6 +26,7 @@ const OGRENCILER_CARD: ModuleCard = { href: "/ogrenciler", title: "Öğrenciler"
 const NORMAL_KAYIT_CARD: ModuleCard = { href: "/normal-kayit", title: "Normal Kayıt", description: "Ön kaydı olan bir adayı sözleşme ve ödeme planıyla tam kayda dönüştürün.", icon: "check", group: "Kayıt İşlemleri" };
 const ODEME_YONTEMLERI_CARD: ModuleCard = { href: "/odeme-yontemleri", title: "Ödeme Yöntemleri", description: "Öğrenci bazında kayıtlı kart/havale/nakit ödeme aracı.", icon: "cardIcon", group: "Kayıt İşlemleri" };
 const MUHASEBE_CARD: ModuleCard = { href: "/muhasebe", title: "Muhasebe", description: "Kayıt defteri, tahsilat takibi, bordro, belgeler.", icon: "ledger", group: "Yönetim & Finans" };
+const RESMI_MUHASEBE_CARD: ModuleCard = { href: "/resmi-muhasebe", title: "Resmi Muhasebe", description: "Çift taraflı yevmiye, hesap planı, mizan, gelir tablosu ve bilanço.", icon: "ledger", group: "Yönetim & Finans" };
 const PERSONEL_CARD: ModuleCard = { href: "/personel", title: "Personel", description: "Öğretmen dışı personel (Şube Müdürü, Ön Büro, Muhasebe, Rehber Öğretmen).", icon: "users", group: "Yönetim & Finans" };
 const ROLLER_CARD: ModuleCard = { href: "/roller", title: "Roller", description: "Personelin sistem rolünü (yetki seviyesini) değiştirin.", icon: "shield", group: "Yönetim & Finans" };
 // Bare SUPERADMIN (henüz bir şubeye "Bu Şube Olarak Yönet" ile geçmemiş Genel
@@ -82,8 +83,8 @@ const MEZUNLAR_CARD: ModuleCard = { href: "/mezunlar", title: "Mezun Yönetimi",
 const DONEM_GECISLERI_CARD: ModuleCard = { href: "/donem-gecisleri", title: "Dönem Geçişleri", description: "Akademik yıl yönetimi ve sınıf geçişi (2050'ye kadar).", icon: "clock", group: "Yönetim & Finans" };
 
 export const MODULES_BY_ROLE: Record<UserRole, ModuleCard[]> = {
-  BRANCH_ADMIN: [BUGUN_CARD, TAKVIM_CARD, GUNLUK_OPS_CARD, CRM_CARD, ON_KAYIT_CARD, NORMAL_KAYIT_CARD, OGRENCILER_CARD, DONEM_GECISLERI_CARD, ODEME_YONTEMLERI_CARD, MUHASEBE_CARD, PERSONEL_CARD, ROLLER_CARD, OGRETMEN_PERF_CARD, OLCME_CARD, KARNE_CARD, ODEVLER_CARD, KURSLAR_CARD, DEVAMSIZLIK_CARD, DERS_PROGRAMI_CARD, DISIPLIN_CARD, VELI_GORUSME_CARD, REHBERLIK_OLAY_CARD, KULUPLER_CARD, ETKINLIKLER_CARD, ETUT_CARD, SERVIS_CARD, YEMEKHANE_CARD, SAGLIK_CARD, ANKETLER_CARD, GOREVLER_CARD, ZIYARETCI_CARD, MEZUNLAR_CARD, AKTIVITE_CARD, RAPORLAR_CARD, ILETISIM_CARD, MENTOR_CARD, LEADERBOARD_CARD, GUVENLIK_CARD, PROFILIM_CARD],
-  ACCOUNTING: [GUNLUK_OPS_CARD, TAKVIM_CARD, ODEME_YONTEMLERI_CARD, MUHASEBE_CARD, PERSONEL_CARD, GOREVLER_CARD, ILETISIM_CARD, GUVENLIK_CARD, PROFILIM_CARD],
+  BRANCH_ADMIN: [BUGUN_CARD, TAKVIM_CARD, GUNLUK_OPS_CARD, CRM_CARD, ON_KAYIT_CARD, NORMAL_KAYIT_CARD, OGRENCILER_CARD, DONEM_GECISLERI_CARD, ODEME_YONTEMLERI_CARD, MUHASEBE_CARD, RESMI_MUHASEBE_CARD, PERSONEL_CARD, ROLLER_CARD, OGRETMEN_PERF_CARD, OLCME_CARD, KARNE_CARD, ODEVLER_CARD, KURSLAR_CARD, DEVAMSIZLIK_CARD, DERS_PROGRAMI_CARD, DISIPLIN_CARD, VELI_GORUSME_CARD, REHBERLIK_OLAY_CARD, KULUPLER_CARD, ETKINLIKLER_CARD, ETUT_CARD, SERVIS_CARD, YEMEKHANE_CARD, SAGLIK_CARD, ANKETLER_CARD, GOREVLER_CARD, ZIYARETCI_CARD, MEZUNLAR_CARD, AKTIVITE_CARD, RAPORLAR_CARD, ILETISIM_CARD, MENTOR_CARD, LEADERBOARD_CARD, GUVENLIK_CARD, PROFILIM_CARD],
+  ACCOUNTING: [GUNLUK_OPS_CARD, TAKVIM_CARD, ODEME_YONTEMLERI_CARD, MUHASEBE_CARD, RESMI_MUHASEBE_CARD, PERSONEL_CARD, GOREVLER_CARD, ILETISIM_CARD, GUVENLIK_CARD, PROFILIM_CARD],
   // 3. denetim bulgusu — GUIDANCE_COORDINATOR zaten hem mesaj gelen kutusuna
   // (app/api/messages/inbox rol kısıtsız) hem Karne'ye (report-card route
   // STAFF_ROLES'ta zaten vardı) erişebiliyordu, yalnızca nav kartı eksikti.

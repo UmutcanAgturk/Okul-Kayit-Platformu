@@ -122,6 +122,9 @@ model Tenant {
   timetableSlots            TimetableSlot[]
   examBranchDispatches      ExamBranchDispatch[]
   institutionPaymentMethods InstitutionPaymentMethod[]
+  accountingAccounts        AccountingAccount[]
+  suppliers                 Supplier[]
+  journalEntries            JournalEntry[]
   staffAttendanceRecords    StaffAttendanceRecord[]
 
   mealItems        MealItem[]
@@ -376,6 +379,7 @@ model StudentProfile {
   installments       PaymentInstallment[]
   paymentMethods     PaymentMethod[]
   paymentReceipts    PaymentReceipt[]
+  accountingAccounts AccountingAccount[]
   enrollment         Enrollment?
   promissoryNotes    PromissoryNote[]
   attendanceRecords  AttendanceRecord[]
@@ -1909,4 +1913,114 @@ model PromotionRun {
   note           String?
   runAt          DateTime @default(now())
   @@index([tenantId])
+}
+
+// ---------------------------------------------------------------------------
+// ÇİFT TARAFLI MUHASEBE (Resmi) — Tekdüzen Hesap Planı, Yevmiye, Defter-i Kebir
+// ---------------------------------------------------------------------------
+// Çift taraflı (borç/alacak) kayıt. Mevcut tek AccountingLedgerEntry defteri
+// operasyonel özet olarak korunur; aşağıdaki tablolar resmi yevmiye / mizan /
+// gelir tablosu / bilançonun kaynağıdır. Her JournalEntry için Σborç = Σalacak
+// (uygulama katmanında zorlanır). RLS: tenant + rol
+// (SUPERADMIN/BRANCH_ADMIN/ACCOUNTING) — migration'da politika eklenir.
+
+enum AccountType {
+  VARLIK // 1-2: aktif
+  YABANCI_KAYNAK // 3-4: pasif (borçlar)
+  OZKAYNAK // 5: pasif (özkaynaklar)
+  GELIR // 6: gelir tablosu — gelir
+  GIDER // 6/7: gelir tablosu — gider
+  MALIYET // 7: maliyet
+}
+
+enum NormalBalance {
+  BORC
+  ALACAK
+}
+
+enum JournalSource {
+  MANUEL
+  ACILIS
+  TAHSILAT
+  GIDER
+  FATURA
+  BORDRO
+  KASA_BANKA
+}
+
+model Supplier {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  name      String
+  taxNo     String?
+  phone     String?
+  email     String?
+  note      String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  accounts AccountingAccount[]
+
+  @@index([tenantId])
+}
+
+model AccountingAccount {
+  id            String        @id @default(cuid())
+  tenantId      String
+  tenant        Tenant        @relation(fields: [tenantId], references: [id])
+  code          String // "100", "120.0001", "600"
+  name          String
+  type          AccountType
+  normalBalance NormalBalance
+  parentCode    String? // hesap hiyerarşisi
+  isActive      Boolean       @default(true)
+
+  // Cari alt hesap bağlantıları (opsiyonel): 120 alıcılar → öğrenci, 320 satıcılar → tedarikçi
+  studentId  String?
+  student    StudentProfile? @relation(fields: [studentId], references: [id])
+  supplierId String?
+  supplier   Supplier?       @relation(fields: [supplierId], references: [id])
+
+  createdAt DateTime      @default(now())
+  lines     JournalLine[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, type])
+  @@index([studentId])
+  @@index([supplierId])
+}
+
+model JournalEntry {
+  id              String        @id @default(cuid())
+  tenantId        String
+  tenant          Tenant        @relation(fields: [tenantId], references: [id])
+  no              String // "YEV-2026-000001"
+  entryDate       DateTime
+  description     String
+  source          JournalSource @default(MANUEL)
+  sourceRefId     String? // ilgili tahsilat/fatura/bordro id (idempotency + iz)
+  createdByUserId String?
+  createdAt       DateTime      @default(now())
+
+  lines JournalLine[]
+
+  @@unique([tenantId, no])
+  @@index([tenantId, entryDate])
+  @@index([tenantId, source, sourceRefId])
+}
+
+model JournalLine {
+  id             String       @id @default(cuid())
+  journalEntryId String
+  journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  accountId      String
+  account        AccountingAccount @relation(fields: [accountId], references: [id])
+  debit          Decimal      @default(0) @db.Decimal(14, 2) // borç
+  credit         Decimal      @default(0) @db.Decimal(14, 2) // alacak
+  description    String?
+
+  @@index([journalEntryId])
+  @@index([accountId])
 }

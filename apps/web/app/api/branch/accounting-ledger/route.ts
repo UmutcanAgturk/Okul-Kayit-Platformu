@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
+import { JournalSource } from "@prisma/client";
 import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { vatBreakdown, withholdingBreakdown } from "@/lib/tax";
+import { tryPostJournal } from "@/lib/accounting/posting";
+import { ACC, expenseCategoryToAccount } from "@/lib/accounting/chart";
 
 /**
  * Dördüncü gerçek modül: Muhasebe defteri. `AccountingLedgerEntry` tablosu
@@ -104,8 +107,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: "withholdingRate 0 ile 1 arasında bir sayı olmalıdır" }, { status: 400 });
   }
 
-  const entry = await withBranchTenantContext(actor, (tx) =>
-    tx.accountingLedgerEntry.create({
+  const entry = await withBranchTenantContext(actor, async (tx) => {
+    const created = await tx.accountingLedgerEntry.create({
       data: {
         tenantId: effectiveTenantId(actor),
         type,
@@ -117,8 +120,45 @@ export async function POST(request: NextRequest) {
         withholdingRate,
         createdByUserId: actor.id,
       },
-    }),
-  );
+    });
+
+    // Çift taraflı yevmiye kaydı (en iyi çaba, idempotent). KDV oranı varsa
+    // matrah/KDV ayrıştırılır (tutar KDV dahildir).
+    const gross = Number(amount);
+    const rate = vatRate === null ? 0 : Number(vatRate);
+    const base = rate > 0 ? Math.round((gross / (1 + rate)) * 100) / 100 : gross;
+    const kdv = Math.round((gross - base) * 100) / 100;
+    if (type === "GELIR") {
+      await tryPostJournal(tx, {
+        tenantId: effectiveTenantId(actor),
+        entryDate,
+        description: `Gelir — ${category}`,
+        source: JournalSource.TAHSILAT,
+        sourceRefId: created.id,
+        createdByUserId: actor.id,
+        lines: [
+          { code: ACC.KASA, debit: gross },
+          { code: ACC.SATISLAR, credit: base },
+          ...(kdv > 0 ? [{ code: ACC.HES_KDV, credit: kdv }] : []),
+        ],
+      });
+    } else {
+      await tryPostJournal(tx, {
+        tenantId: effectiveTenantId(actor),
+        entryDate,
+        description: `Gider — ${category}`,
+        source: JournalSource.GIDER,
+        sourceRefId: created.id,
+        createdByUserId: actor.id,
+        lines: [
+          { code: expenseCategoryToAccount(category), debit: base },
+          ...(kdv > 0 ? [{ code: ACC.IND_KDV, debit: kdv }] : []),
+          { code: ACC.KASA, credit: gross },
+        ],
+      });
+    }
+    return created;
+  });
 
   return NextResponse.json({ entry }, { status: 201 });
 }

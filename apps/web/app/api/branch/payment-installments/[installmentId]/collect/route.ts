@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { PaymentStatus, UserRole } from "@prisma/client";
 import { withTenantContext } from "@/lib/db-context";
 import { getSessionActor } from "@/lib/session";
+import { JournalSource } from "@prisma/client";
 import { actorLabel, logActivity } from "@/lib/audit-log";
 import { notify } from "@/lib/notifications";
+import { tryPostJournal } from "@/lib/accounting/posting";
+import { ACC } from "@/lib/accounting/chart";
 
 /**
  * Bir taksiti tahsil edilmiş olarak işaretler ve karşılığında bir Muhasebe
@@ -75,6 +78,21 @@ export async function POST(
         createdByUserId: actor.id,
         relatedInstallmentId: installment.id,
       },
+    });
+
+    // Çift taraflı yevmiye kaydı (en iyi çaba, idempotent): eğitim geliri KDV
+    // istisnası olduğundan tutarın tamamı 600'e; tahsilat 102 Bankalar'a.
+    await tryPostJournal(tx, {
+      tenantId: installment.tenantId,
+      entryDate: new Date(),
+      description: `Taksit tahsilatı — ${installment.installmentNo}. taksit`,
+      source: JournalSource.TAHSILAT,
+      sourceRefId: installment.id,
+      createdByUserId: actor.id,
+      lines: [
+        { code: ACC.BANKALAR, debit: Number(installment.amount), description: "Tahsilat" },
+        { code: ACC.SATISLAR, credit: Number(installment.amount), description: "Eğitim geliri" },
+      ],
     });
 
     // 3. denetim bulgusu — demo'nun "Taksit tahsil edildi" olayının karşılığı
