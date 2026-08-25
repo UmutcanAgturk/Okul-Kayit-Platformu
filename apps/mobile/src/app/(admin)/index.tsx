@@ -1,7 +1,8 @@
 import { ScrollView, View } from 'react-native';
 
 import { ModuleHub, type HubModule } from '@/components/module-hub';
-import { MutedText, Title } from '@/components/ui';
+import { HqBranchBar } from '@/components/hq-branch-bar';
+import { Label, MutedText, Title } from '@/components/ui';
 import { useAuth } from '@/lib/auth-context';
 
 const MODULES: HubModule[] = [
@@ -28,6 +29,15 @@ export default function AdminHubScreen() {
       <View>
         <Title>Merhaba, {user?.firstName}</Title>
         <MutedText>Genel Merkez · Superadmin</MutedText>
+      </View>
+
+      {/* Şube bağlamı: bir şube seçip o şubenin TÜM operasyonel modüllerini
+          (kayıt, sınıflar, personel, disiplin…) görüp düzenleyin. */}
+      <HqBranchBar mode="launcher" />
+
+      <View style={{ gap: 4 }}>
+        <Label>Genel (Tüm Şubeler)</Label>
+        <MutedText>Aşağıdaki modüller tüm şubelerin verisini birleşik (konsolide) gösterir.</MutedText>
       </View>
       <ModuleHub modules={MODULES} />
     </ScrollView>

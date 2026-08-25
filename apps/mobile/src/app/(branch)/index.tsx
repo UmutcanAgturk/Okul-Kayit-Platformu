@@ -1,6 +1,7 @@
 import { ScrollView, View } from 'react-native';
 
 import { ModuleHub, type HubModule } from '@/components/module-hub';
+import { HqBranchBar } from '@/components/hq-branch-bar';
 import { MutedText, Title } from '@/components/ui';
 import { useAuth } from '@/lib/auth-context';
 
@@ -63,6 +64,8 @@ export default function BranchHubScreen() {
   const { user } = useAuth();
   return (
     <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
+      {/* SUPERADMIN ise şube bağlamı çubuğu; şube rollerinde null döner. */}
+      <HqBranchBar mode="bar" />
       <View>
         <Title>Merhaba, {user?.firstName}</Title>
         <MutedText>Şube Yönetimi</MutedText>

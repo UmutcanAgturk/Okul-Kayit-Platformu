@@ -14,6 +14,10 @@ export interface SessionUser {
   lastName: string;
   role: UserRole;
   tenantId: string | null;
+  // Genel Merkez (SUPERADMIN) bir şube olarak yönetiyorsa dolu olur — bkz.
+  // /api/hq/acting-tenant ve components/hq-branch-bar.
+  actingTenantId?: string | null;
+  actingTenantName?: string | null;
 }
 
 export interface LinkedStudent {
@@ -221,7 +225,7 @@ export interface TeacherPerformanceRow { teacherId: string; name: string; branch
 export interface HqTenant {
   id: string; name: string; code: string; type: 'GENEL_MERKEZ' | 'SUBE' | 'BOLUM';
   city: string | null; district: string | null; phone: string | null; email: string | null;
-  capacity: number | null; isActive?: boolean;
+  capacity: number | null; isActive?: boolean; studentCount?: number;
 }
 export interface HqAnalytics {
   totalBranches: number; totalStudents: number; orgAvgNet: number | null;

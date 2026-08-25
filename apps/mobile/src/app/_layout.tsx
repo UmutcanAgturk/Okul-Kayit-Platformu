@@ -39,11 +39,15 @@ function RootNavigator() {
       <Stack.Protected guard={role === 'TEACHER'}>
         <Stack.Screen name="(teacher)" />
       </Stack.Protected>
-      <Stack.Protected guard={isBranch}>
-        <Stack.Screen name="(branch)" />
-      </Stack.Protected>
+      {/* (admin) SUPERADMIN'in açılış portalı (Genel/konsolide bölüm). ÖNCE
+          deklare edilir ki SUPERADMIN buraya düşsün. */}
       <Stack.Protected guard={role === 'SUPERADMIN'}>
         <Stack.Screen name="(admin)" />
+      </Stack.Protected>
+      {/* (branch) hem şube rolleri hem de SUPERADMIN için — HQ bir şube seçince
+          (acting tenant) o şubenin tüm operasyonel modüllerini burada yönetir. */}
+      <Stack.Protected guard={isBranch || role === 'SUPERADMIN'}>
+        <Stack.Screen name="(branch)" />
       </Stack.Protected>
       <Stack.Protected guard={isOther}>
         <Stack.Screen name="(other)" />
