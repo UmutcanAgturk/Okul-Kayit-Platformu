@@ -30,6 +30,10 @@ export function createCalendarEvent(input: {
   });
 }
 
+export function deleteCalendarEvent(eventId: string) {
+  return apiFetch<{ ok: true }>(`/api/branch/calendar/${eventId}`, { method: "DELETE" });
+}
+
 export const calendarKeys = {
   branchList: () => ["calendar", "branch-list"] as const,
 };

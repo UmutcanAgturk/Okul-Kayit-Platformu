@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
-import { calendarKeys, createCalendarEvent, fetchCalendarEvents } from "@/lib/api/calendar";
+import { calendarKeys, createCalendarEvent, deleteCalendarEvent, fetchCalendarEvents } from "@/lib/api/calendar";
 import { Icon } from "@/components/ui/icons";
 import { HqBranchSelector } from "@/components/hq/HqBranchSelector";
 import type { MeResponse } from "@/lib/api/auth";
@@ -60,6 +60,11 @@ function CalendarView({ me }: { me: MeResponse }) {
       setFormError(null);
     },
     onError: (err) => setFormError(err instanceof ApiError ? err.message : "Etkinlik oluşturulamadı."),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (eventId: string) => deleteCalendarEvent(eventId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: calendarKeys.branchList() }),
   });
 
   function handleSubmit(e: React.FormEvent) {
@@ -144,9 +149,23 @@ function CalendarView({ me }: { me: MeResponse }) {
         )}
         {events.map((ev) => (
           <div key={ev.id} className="card card-pad">
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
               <h3 style={{ margin: 0, fontSize: "var(--text-base)", fontWeight: 700 }}>{ev.title}</h3>
-              {ev.eventType && <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>{ev.eventType}</span>}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                {ev.eventType && <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>{ev.eventType}</span>}
+                {canWrite && (
+                  <button
+                    type="button"
+                    className="btn xs danger"
+                    disabled={deleteMutation.isPending}
+                    onClick={() => {
+                      if (window.confirm(`"${ev.title}" etkinliği silinsin mi?`)) deleteMutation.mutate(ev.id);
+                    }}
+                  >
+                    Sil
+                  </button>
+                )}
+              </div>
             </div>
             <p style={{ margin: "4px 0 0", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
               {formatDate(ev.startAt, ev.allDay)}

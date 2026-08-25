@@ -266,7 +266,7 @@ export function StudentsRosterDashboard() {
                 {filtered.map((s) => {
                   const options = classroomsByGrade.get(s.gradeLevel) ?? [];
                   return (
-                    <tr key={s.id} className="row-clickable" onClick={() => setSelectedStudentId(s.id)} style={s.archived ? { opacity: 0.6 } : undefined}>
+                    <tr key={s.id} className="row-clickable" onClick={() => router.push(`/ogrenciler/${s.id}`)} style={s.archived ? { opacity: 0.6 } : undefined}>
                       <td>{s.studentNo}</td>
                       <td style={{ fontWeight: 600 }}>
                         {s.name}

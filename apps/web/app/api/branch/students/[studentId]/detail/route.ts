@@ -36,6 +36,8 @@ export async function GET(request: NextRequest, { params }: { params: { studentI
       where: { id: params.studentId },
       include: {
         user: true,
+        classroom: true,
+        guardians: { include: { parent: { include: { user: true } } } },
         installments: true,
         examResults: {
           orderBy: { createdAt: "desc" },
@@ -45,6 +47,11 @@ export async function GET(request: NextRequest, { params }: { params: { studentI
       },
     });
     if (!student) return null;
+
+    // Faturadan sorumlu veli (yoksa ilk veli) — Öğrenci Detay sayfası tek
+    // başına yeterli olsun diye roster satırından değil doğrudan buradan gelir.
+    const billing = student.guardians.find((g) => g.isBillingResponsible) ?? student.guardians[0];
+    const guardianUser = billing?.parent.user ?? null;
 
     const hasOverdue = student.installments.some((i) => i.status === PaymentStatus.PENDING && i.dueDate < today);
     const hasPending = student.installments.some((i) => i.status === PaymentStatus.PENDING);
@@ -75,6 +82,13 @@ export async function GET(request: NextRequest, { params }: { params: { studentI
 
     return {
       id: student.id,
+      name: `${student.user.firstName} ${student.user.lastName}`,
+      gradeLevel: student.gradeLevel,
+      classroomId: student.classroomId,
+      classroomName: student.classroom?.name ?? null,
+      archived: !student.user.isActive,
+      guardianName: guardianUser ? `${guardianUser.firstName} ${guardianUser.lastName}` : null,
+      guardianPhone: guardianUser?.phone ?? null,
       studentNo: student.studentNo,
       nationalId: student.nationalId,
       birthDate: student.birthDate?.toISOString() ?? null,

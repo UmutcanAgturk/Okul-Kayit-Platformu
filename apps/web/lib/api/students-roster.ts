@@ -116,6 +116,15 @@ export interface AchievementTag {
 
 export interface StudentDetail {
   id: string;
+  // Öğrenci Detay sayfasının roster satırına ihtiyaç duymadan çalışması için
+  // detay API'si bu kimlik alanlarını da döner.
+  name: string;
+  gradeLevel: string;
+  classroomId: string | null;
+  classroomName: string | null;
+  archived: boolean;
+  guardianName: string | null;
+  guardianPhone: string | null;
   studentNo: string;
   nationalId: string | null;
   birthDate: string | null;
