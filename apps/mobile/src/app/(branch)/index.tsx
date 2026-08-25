@@ -14,6 +14,7 @@ const MODULES: HubModule[] = [
   { title: 'Belgeler', description: 'Fatura/dekont/senet/bordro', icon: 'document-text', route: '/(branch)/belgeler' },
   { title: 'Dekont Onayı', description: 'Veli dekontları', icon: 'receipt', route: '/(branch)/dekont-onay' },
   { title: 'Mali Özet', description: 'KDV/stopaj/yaşlandırma', icon: 'analytics', route: '/(branch)/mali-ozet' },
+  { title: 'Resmi Muhasebe', description: 'Bilanço/gelir tablosu/cari', icon: 'library', route: '/(branch)/resmi-muhasebe' },
   { title: 'Mesaj Şablonları', description: 'Hazır duyurular', icon: 'documents', route: '/(branch)/mesaj-sablonlari' },
   { title: 'Personel Yoklama', description: 'Günlük personel', icon: 'people-circle', route: '/(branch)/personel-yoklama' },
   { title: 'Vergi Ayarları', description: 'Vergi no/dairesi', icon: 'settings', route: '/(branch)/vergi-ayarlari' },
