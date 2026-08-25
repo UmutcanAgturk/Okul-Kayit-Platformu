@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
 import { effectiveTenantId, withBranchTenantContext, effectiveTenantIdOrNull } from "@/lib/db-context";
-import { toCsv } from "@/lib/csv";
+import { reportResponse } from "@/lib/report-export";
 import { actorLabel, logActivity } from "@/lib/audit-log";
 
 /**
@@ -20,7 +20,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: "Bu rol bu raporu indiremez" }, { status: 403 });
   }
 
-  const csv = await withBranchTenantContext(actor, async (tx) => {
+  const fmtLabel = ["xlsx", "excel"].includes((request.nextUrl.searchParams.get("format") ?? "").toLowerCase()) ? "Excel" : "CSV";
+  const report = await withBranchTenantContext(actor, async (tx) => {
     const students = await tx.studentProfile.findMany({
       include: { user: true, classroom: true, examResults: true },
       orderBy: { user: { firstName: "asc" } },
@@ -37,17 +38,11 @@ export async function GET(request: NextRequest) {
       actorUserId: actor.id,
       actorLabel: actorLabel(actor),
       action: "Rapor indirildi",
-      detail: "Sınav Sonuçları Özeti (CSV)",
+      detail: `Sınav Sonuçları Özeti ()`,
     });
 
-    return toCsv(["Öğrenci No", "Ad Soyad", "Sınıf", "Sınav Sayısı", "Genel Ortalama Net"], rows);
+    return { headers: ["Öğrenci No", "Ad Soyad", "Sınıf", "Sınav Sayısı", "Genel Ortalama Net"], rows };
   });
 
-  return new NextResponse(csv, {
-    status: 200,
-    headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": 'attachment; filename="sinav_sonuclari_ozeti.csv"',
-    },
-  });
+  return reportResponse(request, "sinav_sonuclari_ozeti", "Sınav Sonuçları Özeti", report.headers, report.rows);
 }

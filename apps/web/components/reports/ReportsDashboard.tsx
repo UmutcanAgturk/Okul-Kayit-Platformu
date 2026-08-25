@@ -17,7 +17,21 @@ function formatTl(n: number) {
   return `₺${n.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function ReportCard({ icon, title, description, actionLabel, onAction }: { icon: string; title: string; description: string; actionLabel: string; onAction: () => void }) {
+function ReportCard({
+  icon,
+  title,
+  description,
+  actionLabel,
+  onAction,
+  downloadPath,
+}: {
+  icon: string;
+  title: string;
+  description: string;
+  actionLabel?: string;
+  onAction?: () => void;
+  downloadPath?: string;
+}) {
   return (
     <div className="card card-pad">
       <div className="card-head">
@@ -26,9 +40,20 @@ function ReportCard({ icon, title, description, actionLabel, onAction }: { icon:
         </h3>
       </div>
       <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>{description}</p>
-      <button type="button" onClick={onAction} className="btn primary sm" style={{ marginTop: 14 }}>
-        {actionLabel}
-      </button>
+      {downloadPath ? (
+        <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+          <button type="button" onClick={() => downloadReport(downloadPath, "csv")} className="btn primary sm">
+            İndir (CSV)
+          </button>
+          <button type="button" onClick={() => downloadReport(downloadPath, "xlsx")} className="btn sm">
+            İndir (Excel)
+          </button>
+        </div>
+      ) : actionLabel && onAction ? (
+        <button type="button" onClick={onAction} className="btn primary sm" style={{ marginTop: 14 }}>
+          {actionLabel}
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -87,7 +112,7 @@ export function ReportsDashboard() {
   return (
     <div className="screen">
       <h1>Raporlar / Dışa Aktarım</h1>
-      <p className="lede">Mevcut kurum verinizden anında oluşan raporlar — CSV olarak indirin veya görüntüleyin.</p>
+      <p className="lede">Mevcut kurum verinizden anında oluşan raporlar — CSV veya Excel olarak indirin ya da görüntüleyin.</p>
       <HqBranchSelector role={me.role} activeTenantId={me.actingTenantId} />
 
       <div className="grid cols-3">
@@ -95,29 +120,25 @@ export function ReportsDashboard() {
           icon="👥"
           title="Öğrenci Listesi"
           description="Öğrenci no, ad, sınıf, veli, ödeme durumu."
-          actionLabel="İndir (CSV)"
-          onAction={() => downloadReport("/api/branch/reports/students")}
+          downloadPath="/api/branch/reports/students"
         />
         <ReportCard
           icon="🛡️"
           title="Personel Listesi"
           description="Ad, rol, branş/departman, telefon, durum."
-          actionLabel="İndir (CSV)"
-          onAction={() => downloadReport("/api/branch/reports/staff")}
+          downloadPath="/api/branch/reports/staff"
         />
         <ReportCard
           icon="📅"
           title="Devamsızlık Özeti"
           description="Sınıf bazlı alınan gün sayısı ve devamsızlık oranı."
-          actionLabel="İndir (CSV)"
-          onAction={() => downloadReport("/api/branch/reports/attendance-summary")}
+          downloadPath="/api/branch/reports/attendance-summary"
         />
         <ReportCard
           icon="📊"
           title="Sınav Sonuçları Özeti"
           description="Öğrenci bazlı genel ortalama net."
-          actionLabel="İndir (CSV)"
-          onAction={() => downloadReport("/api/branch/reports/exam-summary")}
+          downloadPath="/api/branch/reports/exam-summary"
         />
         <ReportCard
           icon="📒"

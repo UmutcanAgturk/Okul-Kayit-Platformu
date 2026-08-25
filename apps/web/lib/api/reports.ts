@@ -21,9 +21,9 @@ export function fetchFinancialSummary() {
 // CSV raporları büyük olabileceği ve doğrudan dosya indirmesi tetiklediği
 // için react-query yerine düz bir `<a download>` tetikleyicisi kullanılır —
 // tarayıcı, apiFetch'in fırlattığı hataları JSON olarak yorumlamaya çalışmaz.
-export function downloadReport(path: string) {
+export function downloadReport(path: string, format: "csv" | "xlsx" = "csv") {
   const link = document.createElement("a");
-  link.href = path;
+  link.href = format === "xlsx" ? `${path}?format=xlsx` : path;
   link.rel = "noopener";
   document.body.appendChild(link);
   link.click();
