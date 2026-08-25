@@ -5,7 +5,7 @@ import { getSessionActor } from "@/lib/session";
 import { JournalSource } from "@prisma/client";
 import { actorLabel, logActivity } from "@/lib/audit-log";
 import { notify } from "@/lib/notifications";
-import { tryPostJournal } from "@/lib/accounting/posting";
+import { ensureStudentCari, postJournal } from "@/lib/accounting/posting";
 import { ACC } from "@/lib/accounting/chart";
 
 /**
@@ -80,21 +80,6 @@ export async function POST(
       },
     });
 
-    // Çift taraflı yevmiye kaydı (en iyi çaba, idempotent): eğitim geliri KDV
-    // istisnası olduğundan tutarın tamamı 600'e; tahsilat 102 Bankalar'a.
-    await tryPostJournal(tx, {
-      tenantId: installment.tenantId,
-      entryDate: new Date(),
-      description: `Taksit tahsilatı — ${installment.installmentNo}. taksit`,
-      source: JournalSource.TAHSILAT,
-      sourceRefId: installment.id,
-      createdByUserId: actor.id,
-      lines: [
-        { code: ACC.BANKALAR, debit: Number(installment.amount), description: "Tahsilat" },
-        { code: ACC.SATISLAR, credit: Number(installment.amount), description: "Eğitim geliri" },
-      ],
-    });
-
     // 3. denetim bulgusu — demo'nun "Taksit tahsil edildi" olayının karşılığı
     // Aktivite Akışı'nda hiç yoktu (yalnızca AccountingLedgerEntry yazılıyordu).
     const student = await tx.studentProfile.findUnique({
@@ -112,6 +97,28 @@ export async function POST(
       action: "Taksit tahsil edildi",
       detail: `${student?.user.firstName} ${student?.user.lastName} — ${installment.installmentNo}. taksit — ₺${installment.amount}`,
     });
+
+    // Çift taraflı yevmiye (en iyi çaba, idempotent): tahsilat öğrenci carisini
+    // (120.xxxx) kapatır — Borç 102 Bankalar / Alacak 120 Alıcılar. Gelir,
+    // kayıt anında tahakkukla (120/600) tanınmıştır (bkz. enrollment complete).
+    try {
+      const studentName = student ? `${student.user.firstName} ${student.user.lastName}` : installment.studentId;
+      const cariCode = await ensureStudentCari(tx, installment.tenantId, installment.studentId, studentName);
+      await postJournal(tx, {
+        tenantId: installment.tenantId,
+        entryDate: new Date(),
+        description: `Taksit tahsilatı — ${installment.installmentNo}. taksit`,
+        source: JournalSource.TAHSILAT,
+        sourceRefId: installment.id,
+        createdByUserId: actor.id,
+        lines: [
+          { code: ACC.BANKALAR, debit: Number(installment.amount), description: "Tahsilat" },
+          { code: cariCode, credit: Number(installment.amount), description: studentName },
+        ],
+      });
+    } catch {
+      /* best-effort — otomatik kayıt başarısız olsa da tahsilat sürer */
+    }
 
     const billing = student?.guardians.find((g) => g.isBillingResponsible) ?? student?.guardians[0];
     const notifyTarget = billing

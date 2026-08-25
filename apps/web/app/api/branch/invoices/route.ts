@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Prisma, UserRole } from "@prisma/client";
+import { JournalSource, Prisma, UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
 import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { formatDocumentNo, invoiceTotals } from "@/lib/documents";
+import { tryPostJournal } from "@/lib/accounting/posting";
+import { ACC } from "@/lib/accounting/chart";
 
 /**
  * Fatura — demo/seviye360-app.html'deki createInvoice()'un gerçek karşılığı.
@@ -96,7 +98,7 @@ export async function POST(request: NextRequest) {
       no = formatDocumentNo("FT", year, count + 1 + attempt);
     }
 
-    return tx.invoice.create({
+    const created = await tx.invoice.create({
       data: {
         tenantId: effectiveTenantId(actor),
         no,
@@ -113,6 +115,23 @@ export async function POST(request: NextRequest) {
         createdByUserId: actor.id,
       },
     });
+
+    // Çift taraflı yevmiye (en iyi çaba): Borç 120 Alıcılar (toplam) /
+    // Alacak 600 Satışlar (matrah) / Alacak 391 Hesaplanan KDV.
+    await tryPostJournal(tx, {
+      tenantId: effectiveTenantId(actor),
+      entryDate: invoiceDate,
+      description: `Fatura ${no} — ${buyerName}`,
+      source: JournalSource.FATURA,
+      sourceRefId: created.id,
+      createdByUserId: actor.id,
+      lines: [
+        { code: ACC.ALICILAR, debit: total, description: buyerName },
+        { code: ACC.SATISLAR, credit: subtotal, description: "Satış" },
+        ...(kdvAmount > 0 ? [{ code: ACC.HES_KDV, credit: kdvAmount, description: "Hesaplanan KDV" }] : []),
+      ],
+    });
+    return created;
   });
 
   return NextResponse.json({ invoice }, { status: 201 });

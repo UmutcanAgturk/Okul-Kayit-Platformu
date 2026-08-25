@@ -46,6 +46,46 @@ function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 
+async function nextCariCode(tx: Tx, tenantId: string, parent: string): Promise<string> {
+  const subs = await tx.accountingAccount.findMany({
+    where: { tenantId, code: { startsWith: `${parent}.` } },
+    select: { code: true },
+  });
+  let max = 0;
+  for (const s of subs) {
+    const n = parseInt(s.code.split(".")[1] ?? "0", 10);
+    if (!Number.isNaN(n) && n > max) max = n;
+  }
+  return `${parent}.${String(max + 1).padStart(4, "0")}`;
+}
+
+/**
+ * Öğrenci cari alt hesabı (120.xxxx). Yoksa açar, kodunu döner. Hesap planının
+ * tohumlandığından emin olur.
+ */
+export async function ensureStudentCari(tx: Tx, tenantId: string, studentId: string, studentName: string): Promise<string> {
+  const existing = await tx.accountingAccount.findFirst({ where: { tenantId, studentId, code: { startsWith: "120." } }, select: { code: true } });
+  if (existing) return existing.code;
+  await seedChartForTenant(tx, tenantId);
+  const code = await nextCariCode(tx, tenantId, "120");
+  await tx.accountingAccount.create({
+    data: { tenantId, code, name: `Alıcı — ${studentName}`, type: "VARLIK", normalBalance: "BORC", parentCode: "120", studentId },
+  });
+  return code;
+}
+
+/** Tedarikçi cari alt hesabı (320.xxxx). Yoksa açar, kodunu döner. */
+export async function ensureSupplierCari(tx: Tx, tenantId: string, supplierId: string, supplierName: string): Promise<string> {
+  const existing = await tx.accountingAccount.findFirst({ where: { tenantId, supplierId, code: { startsWith: "320." } }, select: { code: true } });
+  if (existing) return existing.code;
+  await seedChartForTenant(tx, tenantId);
+  const code = await nextCariCode(tx, tenantId, "320");
+  await tx.accountingAccount.create({
+    data: { tenantId, code, name: `Satıcı — ${supplierName}`, type: "YABANCI_KAYNAK", normalBalance: "ALACAK", parentCode: "320", supplierId },
+  });
+  return code;
+}
+
 async function nextJournalNo(tx: Tx, tenantId: string, year: number): Promise<string> {
   const prefix = `YEV-${year}-`;
   const count = await tx.journalEntry.count({ where: { tenantId, no: { startsWith: prefix } } });

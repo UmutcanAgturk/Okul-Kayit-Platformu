@@ -84,7 +84,36 @@ export function fetchGeneralLedger(accountId: string, params?: { from?: string; 
   return apiFetch<GeneralLedger>(reportUrl("ledger", { ...params, accountId }), { cache: "no-store" });
 }
 
+export interface CariRow { accountId: string; code: string; name: string; balance: number; studentId?: string | null; supplierId?: string | null }
+export interface CariData { students: CariRow[]; suppliers: CariRow[] }
+export function fetchCari() {
+  return apiFetch<CariData>(`${BASE}/cari`, { cache: "no-store" });
+}
+
+export interface CashAccount { code: string; name: string; balance: number }
+export function fetchCashAccounts() {
+  return apiFetch<{ accounts: CashAccount[]; total: number }>(`${BASE}/cash`, { cache: "no-store" });
+}
+export function cashTransfer(input: { fromCode: string; toCode: string; amount: number }) {
+  return apiFetch<{ ok: true }>(`${BASE}/cash`, { method: "POST", body: JSON.stringify(input) });
+}
+
+export interface Supplier { id: string; name: string; taxNo: string | null; phone: string | null; email: string | null; note: string | null }
+export function fetchSuppliers() {
+  return apiFetch<{ suppliers: Supplier[] }>(`${BASE}/suppliers`, { cache: "no-store" });
+}
+export function createSupplier(input: { name: string; taxNo?: string; phone?: string; email?: string; note?: string }) {
+  return apiFetch<{ id: string }>(`${BASE}/suppliers`, { method: "POST", body: JSON.stringify(input) });
+}
+
+export function runBackfill() {
+  return apiFetch<{ accrued: number; collected: number; skipped: number; students: number }>(`${BASE}/backfill`, { method: "POST" });
+}
+
 export const doubleAccountingKeys = {
+  cari: () => ["acc2", "cari"] as const,
+  cash: () => ["acc2", "cash"] as const,
+  suppliers: () => ["acc2", "suppliers"] as const,
   chart: () => ["acc2", "chart"] as const,
   journal: (from?: string, to?: string) => ["acc2", "journal", from ?? "", to ?? ""] as const,
   trial: (from?: string, to?: string) => ["acc2", "trial", from ?? "", to ?? ""] as const,

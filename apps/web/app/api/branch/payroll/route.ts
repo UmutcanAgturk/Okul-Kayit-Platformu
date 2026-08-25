@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { UserRole } from "@prisma/client";
+import { JournalSource, UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
 import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
 import { computePayroll } from "@/lib/payroll";
+import { tryPostJournal } from "@/lib/accounting/posting";
+import { ACC } from "@/lib/accounting/chart";
 
 /**
  * Basitleştirilmiş bordro modülü — brüt maaştan SGK/işsizlik/gelir vergisi/
@@ -142,6 +144,26 @@ export async function POST(request: NextRequest) {
         ledgerEntryId: ledgerEntry.id,
         createdByUserId: actor.id,
       },
+    });
+
+    // Çift taraflı yevmiye (en iyi çaba): Borç 770.01 Personel Gideri (brüt +
+    // işveren payları) / Alacak 335 Personele Borçlar (net) / Alacak 360
+    // Ödenecek Vergi (gelir vergisi + damga) / Alacak 361 Ödenecek SGK
+    // (çalışan + işveren payları).
+    const employerShares = breakdown.sgkEmployerShare + breakdown.unemploymentEmployerShare;
+    await tryPostJournal(tx, {
+      tenantId: effectiveTenantId(actor),
+      entryDate: new Date(),
+      description: `Bordro — ${personName} (${period})`,
+      source: JournalSource.BORDRO,
+      sourceRefId: record.id,
+      createdByUserId: actor.id,
+      lines: [
+        { code: ACC.GYG_PERSONEL, debit: grossSalary + employerShares, description: "Personel gideri" },
+        { code: ACC.PERSONELE_BORC, credit: breakdown.netSalary, description: "Net maaş" },
+        { code: ACC.OD_VERGI, credit: breakdown.incomeTaxWithheld + breakdown.stampDutyWithheld, description: "Gelir vergisi + damga" },
+        { code: ACC.OD_SGK, credit: breakdown.sgkEmployeeShare + breakdown.unemploymentEmployeeShare + employerShares, description: "SGK (çalışan+işveren)" },
+      ],
     });
 
     return { kind: "created" as const, record };

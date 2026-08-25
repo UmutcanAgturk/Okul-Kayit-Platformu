@@ -7,22 +7,27 @@ import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { HqBranchSelector } from "@/components/hq/HqBranchSelector";
 import {
+  cashTransfer,
   createAccount,
   createJournalEntry,
+  createSupplier,
   deleteJournalEntry,
   doubleAccountingKeys,
   fetchBalanceSheet,
+  fetchCari,
+  fetchCashAccounts,
   fetchChart,
   fetchGeneralLedger,
   fetchIncomeStatement,
   fetchJournal,
   fetchTrialBalance,
+  runBackfill,
   tl,
   type ChartAccount,
 } from "@/lib/api/accounting-double";
 
 const ALLOWED = ["BRANCH_ADMIN", "ACCOUNTING", "SUPERADMIN"];
-const TABS = ["Yevmiye", "Mizan", "Gelir Tablosu", "Bilanço", "Defter-i Kebir", "Hesap Planı"] as const;
+const TABS = ["Yevmiye", "Cari Hesaplar", "Kasa/Banka", "Mizan", "Gelir Tablosu", "Bilanço", "Defter-i Kebir", "Hesap Planı"] as const;
 type Tab = (typeof TABS)[number];
 
 const TYPE_LABEL: Record<string, string> = {
@@ -70,6 +75,8 @@ export function ResmiMuhasebeDashboard() {
       )}
 
       {tab === "Yevmiye" && <JournalTab accounts={accounts} />}
+      {tab === "Cari Hesaplar" && <CariTab />}
+      {tab === "Kasa/Banka" && <CashTab />}
       {tab === "Mizan" && <TrialBalanceTab from={from} to={to} />}
       {tab === "Gelir Tablosu" && <IncomeTab from={from} to={to} />}
       {tab === "Bilanço" && <BalanceTab from={from} to={to} />}
@@ -371,6 +378,140 @@ function ChartTab({ accounts, loading }: { accounts: ChartAccount[]; loading: bo
             ))}
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+/* --------------------------- Cari Hesaplar --------------------------- */
+function CariExtract({ accountId }: { accountId: string }) {
+  const q = useQuery({ queryKey: doubleAccountingKeys.ledger(accountId), queryFn: () => fetchGeneralLedger(accountId) });
+  if (q.isLoading) return <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-xs)", padding: "6px 0" }}>Yükleniyor…</p>;
+  if (!q.data || q.data.rows.length === 0) return <p style={{ color: "var(--ink-faint)", fontSize: "var(--text-xs)", padding: "6px 0" }}>Hareket yok.</p>;
+  return (
+    <div style={{ overflowX: "auto", padding: "4px 0 8px" }}>
+      <table className="table" style={{ minWidth: 480, fontSize: "var(--text-xs)" }}>
+        <thead><tr><th>Tarih</th><th>Açıklama</th><th style={{ textAlign: "right" }}>Borç</th><th style={{ textAlign: "right" }}>Alacak</th><th style={{ textAlign: "right" }}>Bakiye</th></tr></thead>
+        <tbody>
+          {q.data.rows.map((r, i) => (
+            <tr key={i}><td>{new Date(r.entryDate).toLocaleDateString("tr-TR")}</td><td>{r.description}</td><td style={{ textAlign: "right" }}>{r.debit ? tl(r.debit) : ""}</td><td style={{ textAlign: "right" }}>{r.credit ? tl(r.credit) : ""}</td><td style={{ textAlign: "right", fontWeight: 600 }}>{tl(r.balance)}</td></tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function CariTab() {
+  const qc = useQueryClient();
+  const cari = useQuery({ queryKey: doubleAccountingKeys.cari(), queryFn: fetchCari });
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [showSupplier, setShowSupplier] = useState(false);
+  const [sName, setSName] = useState("");
+  const [sTax, setSTax] = useState("");
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const backfillMut = useMutation({
+    mutationFn: runBackfill,
+    onSuccess: (r) => { qc.invalidateQueries({ queryKey: ["acc2"] }); setMsg(`Açılış tamam: ${r.accrued} öğrenci tahakkuku, ${r.collected} tahsilat kaydı (${r.skipped} atlandı).`); },
+    onError: (e) => setMsg(e instanceof ApiError ? e.message : "Açılış başarısız"),
+  });
+  const supplierMut = useMutation({
+    mutationFn: () => createSupplier({ name: sName.trim(), taxNo: sTax.trim() || undefined }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: doubleAccountingKeys.suppliers() }); setShowSupplier(false); setSName(""); setSTax(""); },
+  });
+
+  const students = cari.data?.students ?? [];
+  const suppliers = cari.data?.suppliers ?? [];
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+        <button type="button" className="btn sm" disabled={backfillMut.isPending} onClick={() => { if (window.confirm("Mevcut taksit geçmişinden çift taraflı defter oluşturulsun mu? (Carisinde hareket olan öğrenci atlanır.)")) backfillMut.mutate(); }}>
+          {backfillMut.isPending ? "Oluşturuluyor…" : "Muhasebeyi Geçmişten Oluştur"}
+        </button>
+        <button type="button" className="btn sm primary" onClick={() => setShowSupplier((v) => !v)}>{showSupplier ? "Kapat" : "+ Tedarikçi"}</button>
+        {msg && <span style={{ fontSize: "var(--text-xs)", color: "var(--ink-muted)" }}>{msg}</span>}
+      </div>
+
+      {showSupplier && (
+        <div className="card card-pad">
+          <div className="grid cols-2" style={{ rowGap: 10 }}>
+            <div className="field"><label>Tedarikçi Adı</label><input value={sName} onChange={(e) => setSName(e.target.value)} /></div>
+            <div className="field"><label>Vergi No (ops.)</label><input value={sTax} onChange={(e) => setSTax(e.target.value)} /></div>
+          </div>
+          <button type="button" className="btn primary sm" style={{ marginTop: 10 }} disabled={!sName.trim() || supplierMut.isPending} onClick={() => supplierMut.mutate()}>{supplierMut.isPending ? "Ekleniyor…" : "Kaydet"}</button>
+        </div>
+      )}
+
+      <div className="card card-pad">
+        <div className="card-head"><h3>Öğrenci Carileri (120)</h3><span className="hint">Borç bakiye = tahsil edilecek</span></div>
+        {cari.isLoading ? <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p> : students.length === 0 ? (
+          <p style={{ color: "var(--ink-faint)", fontSize: "var(--text-sm)" }}>Henüz öğrenci carisi yok. Kayıt/tahsilat işledikçe veya &quot;Geçmişten Oluştur&quot; ile oluşur.</p>
+        ) : students.map((s) => (
+          <div key={s.accountId} style={{ borderBottom: "1px solid var(--border)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", cursor: "pointer" }} onClick={() => setExpanded(expanded === s.accountId ? null : s.accountId)}>
+              <span><b>{s.code}</b> {s.name.replace(/^Alıcı — /, "")}</span>
+              <span style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                <b style={{ color: s.balance > 0 ? "var(--critical)" : "var(--strong)" }}>{tl(s.balance)}</b>
+                <span className="btn xs">{expanded === s.accountId ? "Gizle" : "Ekstre"}</span>
+              </span>
+            </div>
+            {expanded === s.accountId && <CariExtract accountId={s.accountId} />}
+          </div>
+        ))}
+      </div>
+
+      <div className="card card-pad">
+        <div className="card-head"><h3>Tedarikçi Carileri (320)</h3><span className="hint">Alacak bakiye = ödenecek</span></div>
+        {suppliers.length === 0 ? <p style={{ color: "var(--ink-faint)", fontSize: "var(--text-sm)" }}>Henüz tedarikçi carisi yok.</p> : suppliers.map((s) => (
+          <div key={s.accountId} style={{ borderBottom: "1px solid var(--border)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", cursor: "pointer" }} onClick={() => setExpanded(expanded === s.accountId ? null : s.accountId)}>
+              <span><b>{s.code}</b> {s.name.replace(/^Satıcı — /, "")}</span>
+              <span style={{ display: "flex", gap: 10, alignItems: "center" }}><b>{tl(s.balance)}</b><span className="btn xs">{expanded === s.accountId ? "Gizle" : "Ekstre"}</span></span>
+            </div>
+            {expanded === s.accountId && <CariExtract accountId={s.accountId} />}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ----------------------------- Kasa/Banka ----------------------------- */
+function CashTab() {
+  const qc = useQueryClient();
+  const cash = useQuery({ queryKey: doubleAccountingKeys.cash(), queryFn: fetchCashAccounts });
+  const [fromCode, setFromCode] = useState("100");
+  const [toCode, setToCode] = useState("102");
+  const [amount, setAmount] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  const mut = useMutation({
+    mutationFn: () => cashTransfer({ fromCode, toCode, amount: Number(amount) }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["acc2"] }); setAmount(""); setErr(null); },
+    onError: (e) => setErr(e instanceof ApiError ? e.message : "Transfer başarısız"),
+  });
+  const accounts = cash.data?.accounts ?? [];
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div className="grid cols-3">
+        {accounts.map((a) => (
+          <div key={a.code} className="card stat-card"><p className="stat-label">{a.code} — {a.name}</p><p className="stat-value" style={{ fontSize: "var(--text-lg)" }}>{tl(a.balance)}</p></div>
+        ))}
+      </div>
+      <div className="card card-pad">
+        <div className="card-head"><h3>Virman (Hesaplar Arası Transfer)</h3></div>
+        <div className="grid cols-3" style={{ rowGap: 10, alignItems: "end" }}>
+          <div className="field"><label>Nereden</label>
+            <select value={fromCode} onChange={(e) => setFromCode(e.target.value)}>{accounts.map((a) => <option key={a.code} value={a.code}>{a.code} — {a.name}</option>)}</select>
+          </div>
+          <div className="field"><label>Nereye</label>
+            <select value={toCode} onChange={(e) => setToCode(e.target.value)}>{accounts.map((a) => <option key={a.code} value={a.code}>{a.code} — {a.name}</option>)}</select>
+          </div>
+          <div className="field"><label>Tutar</label><input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
+        </div>
+        {err && <p style={{ margin: "8px 0 0", fontSize: "var(--text-xs)", color: "var(--critical)" }}>{err}</p>}
+        <button type="button" className="btn primary sm" style={{ marginTop: 10 }} disabled={!Number(amount) || fromCode === toCode || mut.isPending} onClick={() => mut.mutate()}>{mut.isPending ? "Kaydediliyor…" : "Transferi Kaydet"}</button>
       </div>
     </div>
   );

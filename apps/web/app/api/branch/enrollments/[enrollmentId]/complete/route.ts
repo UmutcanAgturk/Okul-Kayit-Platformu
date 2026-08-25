@@ -7,6 +7,9 @@ import { generateParentEmail, generateStudentEmail, generateStudentNo } from "@/
 import { sendEmail } from "@/lib/notifications";
 import { actorLabel, logActivity } from "@/lib/audit-log";
 import { formatDocumentNo } from "@/lib/documents";
+import { JournalSource } from "@prisma/client";
+import { ensureStudentCari, postJournal } from "@/lib/accounting/posting";
+import { ACC } from "@/lib/accounting/chart";
 
 const GENDER_OPTIONS = ["Kadın", "Erkek"];
 const PAYMENT_METHOD_OPTIONS = [...Object.values(PaymentMethodType), "SENET"] as const;
@@ -291,6 +294,28 @@ export async function POST(request: NextRequest, { params }: { params: { enrollm
         ...(targetClassroomId ? { targetClassroomId } : {}),
       },
     });
+
+    // Çift taraflı muhasebe — TAHAKKUK (en iyi çaba, idempotent): eğitim geliri
+    // kayıt anında tanınır. Borç 120 Alıcılar (öğrenci carisi) / Alacak 600
+    // Satışlar (toplam ücret). Tahsilatlar bu cariyi kapatır (102/120).
+    try {
+      const total = installmentCount * installmentAmount;
+      const cariCode = await ensureStudentCari(tx, effectiveTenantId(actor), student.id, `${firstName} ${lastName}`);
+      await postJournal(tx, {
+        tenantId: effectiveTenantId(actor),
+        entryDate: new Date(),
+        description: `Kayıt tahakkuku — ${firstName} ${lastName} (${installmentCount} taksit)`,
+        source: JournalSource.TAHAKKUK,
+        sourceRefId: enrollment.id,
+        createdByUserId: actor.id,
+        lines: [
+          { code: cariCode, debit: total, description: "Eğitim ücreti tahakkuku" },
+          { code: ACC.SATISLAR, credit: total, description: "Eğitim geliri" },
+        ],
+      });
+    } catch {
+      /* best-effort */
+    }
 
     // Ödeme yöntemi: SENET seçilirse demo'daki generateSenetsForStudent() ile
     // birebir aynı şekilde HER taksit için bir PromissoryNote üretilir; diğer
