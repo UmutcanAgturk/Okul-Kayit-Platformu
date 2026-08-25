@@ -110,10 +110,19 @@ export function runBackfill() {
   return apiFetch<{ accrued: number; collected: number; skipped: number; students: number }>(`${BASE}/backfill`, { method: "POST" });
 }
 
+export interface BudgetRow { code: string; name: string; type: AccountType; planned: number; actual: number }
+export function fetchBudget(year: number) {
+  return apiFetch<{ year: number; rows: BudgetRow[] }>(`${BASE}/budget?year=${year}`, { cache: "no-store" });
+}
+export function setBudget(input: { year: number; accountCode: string; plannedAmount: number }) {
+  return apiFetch<{ ok: true }>(`${BASE}/budget`, { method: "POST", body: JSON.stringify(input) });
+}
+
 export const doubleAccountingKeys = {
   cari: () => ["acc2", "cari"] as const,
   cash: () => ["acc2", "cash"] as const,
   suppliers: () => ["acc2", "suppliers"] as const,
+  budget: (year: number) => ["acc2", "budget", year] as const,
   chart: () => ["acc2", "chart"] as const,
   journal: (from?: string, to?: string) => ["acc2", "journal", from ?? "", to ?? ""] as const,
   trial: (from?: string, to?: string) => ["acc2", "trial", from ?? "", to ?? ""] as const,

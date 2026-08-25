@@ -125,6 +125,7 @@ model Tenant {
   accountingAccounts        AccountingAccount[]
   suppliers                 Supplier[]
   journalEntries            JournalEntry[]
+  budgetLines               BudgetLine[]
   staffAttendanceRecords    StaffAttendanceRecord[]
 
   mealItems        MealItem[]
@@ -2024,4 +2025,19 @@ model JournalLine {
 
   @@index([journalEntryId])
   @@index([accountId])
+}
+
+// Bütçe — yıl + hesap bazlı planlanan tutar. Gerçekleşen, yevmiyeden türetilir.
+model BudgetLine {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  year          Int
+  accountCode   String // 600, 770.02 vb. (gelir/gider hesabı)
+  plannedAmount Decimal  @db.Decimal(14, 2)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([tenantId, year, accountCode])
+  @@index([tenantId, year])
 }

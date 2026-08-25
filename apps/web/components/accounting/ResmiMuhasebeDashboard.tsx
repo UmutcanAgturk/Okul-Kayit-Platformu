@@ -16,18 +16,20 @@ import {
   fetchBalanceSheet,
   fetchCari,
   fetchCashAccounts,
+  fetchBudget,
   fetchChart,
   fetchGeneralLedger,
   fetchIncomeStatement,
   fetchJournal,
   fetchTrialBalance,
   runBackfill,
+  setBudget,
   tl,
   type ChartAccount,
 } from "@/lib/api/accounting-double";
 
 const ALLOWED = ["BRANCH_ADMIN", "ACCOUNTING", "SUPERADMIN"];
-const TABS = ["Yevmiye", "Cari Hesaplar", "Kasa/Banka", "Mizan", "Gelir Tablosu", "Bilanço", "Defter-i Kebir", "Hesap Planı"] as const;
+const TABS = ["Yevmiye", "Cari Hesaplar", "Kasa/Banka", "Mizan", "Gelir Tablosu", "Bilanço", "Bütçe", "Defter-i Kebir", "Hesap Planı"] as const;
 type Tab = (typeof TABS)[number];
 
 const TYPE_LABEL: Record<string, string> = {
@@ -66,7 +68,7 @@ export function ResmiMuhasebeDashboard() {
         ))}
       </div>
 
-      {tab !== "Yevmiye" && tab !== "Hesap Planı" && (
+      {(["Mizan", "Gelir Tablosu", "Bilanço", "Defter-i Kebir"] as Tab[]).includes(tab) && (
         <div style={{ display: "flex", gap: 10, alignItems: "flex-end", marginBottom: 14, flexWrap: "wrap" }}>
           <div className="field" style={{ maxWidth: 170 }}><label>Başlangıç</label><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></div>
           <div className="field" style={{ maxWidth: 170 }}><label>Bitiş</label><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></div>
@@ -80,6 +82,7 @@ export function ResmiMuhasebeDashboard() {
       {tab === "Mizan" && <TrialBalanceTab from={from} to={to} />}
       {tab === "Gelir Tablosu" && <IncomeTab from={from} to={to} />}
       {tab === "Bilanço" && <BalanceTab from={from} to={to} />}
+      {tab === "Bütçe" && <BudgetTab />}
       {tab === "Defter-i Kebir" && <LedgerTab accounts={accounts} from={from} to={to} />}
       {tab === "Hesap Planı" && <ChartTab accounts={accounts} loading={chart.isLoading} />}
     </div>
@@ -516,3 +519,95 @@ function CashTab() {
     </div>
   );
 }
+
+/* ------------------------------- Bütçe ------------------------------- */
+function BudgetTab() {
+  const qc = useQueryClient();
+  const [year, setYear] = useState(() => new Date().getFullYear());
+  const q = useQuery({ queryKey: doubleAccountingKeys.budget(year), queryFn: () => fetchBudget(year) });
+  const [edit, setEdit] = useState<Record<string, string>>({});
+  const mut = useMutation({
+    mutationFn: (input: { accountCode: string; plannedAmount: number }) => setBudget({ year, ...input }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: doubleAccountingKeys.budget(year) }),
+  });
+
+  const rows = q.data?.rows ?? [];
+  const revenue = rows.filter((r) => r.type === "GELIR");
+  const expense = rows.filter((r) => r.type === "GIDER" || r.type === "MALIYET");
+  const sum = (arr: typeof rows, k: "planned" | "actual") => arr.reduce((s, r) => s + r[k], 0);
+
+  const Section = ({ title, data, positive }: { title: string; data: typeof rows; positive: boolean }) => (
+    <div className="card card-pad">
+      <div className="card-head"><h3>{title}</h3><span className="hint">Plan · Gerçekleşen · Fark</span></div>
+      <div style={{ overflowX: "auto" }}>
+        <table className="table" style={{ minWidth: 560 }}>
+          <thead><tr><th>Hesap</th><th style={{ textAlign: "right", width: 150 }}>Bütçe</th><th style={{ textAlign: "right" }}>Gerçekleşen</th><th style={{ textAlign: "right" }}>Fark</th><th style={{ width: 110 }}>%</th></tr></thead>
+          <tbody>
+            {data.length === 0 ? <tr><td colSpan={5} style={{ color: "var(--ink-faint)" }}>Kayıt yok.</td></tr> : data.map((r) => {
+              const variance = round2b(r.planned - r.actual);
+              const pct = r.planned > 0 ? Math.min(100, Math.round((r.actual / r.planned) * 100)) : 0;
+              // Gelirde gerçekleşen ≥ bütçe iyidir; giderde ≤ bütçe iyidir.
+              const good = positive ? r.actual >= r.planned : r.actual <= r.planned;
+              return (
+                <tr key={r.code}>
+                  <td>{r.code} — {r.name}</td>
+                  <td style={{ textAlign: "right" }}>
+                    <input type="number" min="0" step="100" defaultValue={r.planned || ""} placeholder="0"
+                      style={{ width: 120, textAlign: "right" }}
+                      onChange={(e) => setEdit((p) => ({ ...p, [r.code]: e.target.value }))}
+                      onBlur={(e) => { const v = Number(e.target.value) || 0; if (v !== r.planned) mut.mutate({ accountCode: r.code, plannedAmount: v }); }}
+                    />
+                  </td>
+                  <td style={{ textAlign: "right", fontWeight: 600 }}>{tl(r.actual)}</td>
+                  <td style={{ textAlign: "right", color: good ? "var(--strong)" : "var(--critical)" }}>{tl(variance)}</td>
+                  <td>
+                    <div style={{ height: 8, borderRadius: 4, background: "var(--surface-2)", overflow: "hidden" }}>
+                      <div style={{ width: `${pct}%`, height: "100%", background: good ? "var(--strong, #1f7d54)" : "var(--critical)" }} />
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr style={{ fontWeight: 800 }}>
+              <td>TOPLAM</td>
+              <td style={{ textAlign: "right" }}>{tl(sum(data, "planned"))}</td>
+              <td style={{ textAlign: "right" }}>{tl(sum(data, "actual"))}</td>
+              <td style={{ textAlign: "right" }}>{tl(round2b(sum(data, "planned") - sum(data, "actual")))}</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  );
+
+  const netPlanned = round2b(sum(revenue, "planned") - sum(expense, "planned"));
+  const netActual = round2b(sum(revenue, "actual") - sum(expense, "actual"));
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div className="field" style={{ maxWidth: 140 }}>
+        <label>Bütçe Yılı</label>
+        <select value={year} onChange={(e) => setYear(Number(e.target.value))}>
+          {[year + 1, year, year - 1, year - 2].filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => b - a).map((y) => <option key={y} value={y}>{y}</option>)}
+        </select>
+      </div>
+      {q.isLoading ? <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p> : (
+        <>
+          <Section title="Gelir Bütçesi" data={revenue} positive={true} />
+          <Section title="Gider Bütçesi" data={expense} positive={false} />
+          <div className="card card-pad" style={{ background: netActual >= 0 ? "var(--strong-bg, var(--surface-2))" : "var(--weak-bg, var(--surface-2))" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800 }}>
+              <span>NET (Bütçe / Gerçekleşen)</span>
+              <span>{tl(netPlanned)} · <span style={{ color: netActual >= 0 ? "var(--strong)" : "var(--critical)" }}>{tl(netActual)}</span></span>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function round2b(n: number) { return Math.round((n + Number.EPSILON) * 100) / 100; }

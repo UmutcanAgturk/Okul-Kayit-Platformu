@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
 import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
+import { ensureSupplierCari } from "@/lib/accounting/posting";
 
 /** Tedarikçiler (cari için). GET liste / POST ekle. RLS: tenant + rol. */
 const ROLES_ALLOWED: UserRole[] = [UserRole.BRANCH_ADMIN, UserRole.ACCOUNTING];
@@ -36,8 +37,8 @@ export async function POST(request: NextRequest) {
   const name = typeof body.name === "string" && body.name.trim() ? body.name.trim() : null;
   if (!name) return NextResponse.json({ message: "name zorunludur" }, { status: 400 });
 
-  const created = await withBranchTenantContext(actor!, (tx) =>
-    tx.supplier.create({
+  const created = await withBranchTenantContext(actor!, async (tx) => {
+    const supplier = await tx.supplier.create({
       data: {
         tenantId: effectiveTenantId(actor!),
         name,
@@ -46,7 +47,10 @@ export async function POST(request: NextRequest) {
         email: typeof body.email === "string" && body.email.trim() ? body.email.trim() : null,
         note: typeof body.note === "string" && body.note.trim() ? body.note.trim() : null,
       },
-    }),
-  );
+    });
+    // 320.x cari hesabını hemen aç — Yevmiye'de veresiye gider için seçilebilsin.
+    await ensureSupplierCari(tx, effectiveTenantId(actor!), supplier.id, supplier.name);
+    return supplier;
+  });
   return NextResponse.json({ id: created.id }, { status: 201 });
 }
