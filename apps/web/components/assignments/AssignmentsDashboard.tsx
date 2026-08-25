@@ -6,11 +6,69 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { authKeys, fetchMe } from "@/lib/api/auth";
 import type { MeResponse } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
-import { assignmentKeys, createAssignment, fetchAssignments } from "@/lib/api/assignments";
+import { assignmentKeys, createAssignment, fetchAssignments, fetchAssignmentSubmissions, fetchSubmissionFile, gradeSubmission, type SubmissionRow } from "@/lib/api/assignments";
 import { Icon } from "@/components/ui/icons";
 import { HqBranchSelector } from "@/components/hq/HqBranchSelector";
 
 const ALLOWED = ["BRANCH_ADMIN", "SUPERADMIN", "GUIDANCE_COORDINATOR", "TEACHER"];
+
+const STATUS_CHIP: Record<string, string> = { ASSIGNED: "chip", SUBMITTED: "chip weak", GRADED: "chip strong" };
+const STATUS_LABEL: Record<string, string> = { ASSIGNED: "Teslim edilmedi", SUBMITTED: "Teslim edildi", GRADED: "Değerlendirildi" };
+
+function GradeRow({ assignmentId, row }: { assignmentId: string; row: SubmissionRow }) {
+  const qc = useQueryClient();
+  const [grade, setGrade] = useState(row.grade ?? "");
+  const [feedback, setFeedback] = useState(row.feedback ?? "");
+  const [open, setOpen] = useState(false);
+  const gradeMut = useMutation({
+    mutationFn: () => gradeSubmission(assignmentId, row.submissionId!, { grade: grade.trim(), feedback: feedback.trim() || undefined }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: assignmentKeys.submissions(assignmentId) }),
+  });
+  async function viewFile() {
+    const f = await fetchSubmissionFile(assignmentId, row.submissionId!);
+    if (f.dataUrl) window.open(f.dataUrl, "_blank");
+  }
+  return (
+    <div style={{ borderBottom: "1px solid var(--border)", padding: "8px 0" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+        <span><b>{row.studentName}</b></span>
+        <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {row.grade && <span className="chip strong">Not: {row.grade}</span>}
+          <span className={STATUS_CHIP[row.status]} style={{ fontSize: "var(--text-xs)" }}>{STATUS_LABEL[row.status]}</span>
+          {row.submissionId && <button type="button" className="btn xs" onClick={() => setOpen((v) => !v)}>{open ? "Kapat" : "Değerlendir"}</button>}
+        </span>
+      </div>
+      {open && row.submissionId && (
+        <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
+          {row.note && <p style={{ margin: 0, fontSize: "var(--text-sm)", color: "var(--ink-muted)" }}>Öğrenci notu: {row.note}</p>}
+          {row.hasFile && <button type="button" className="btn xs" onClick={viewFile}>📎 {row.fileName ?? "Dosyayı Gör"}</button>}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
+            <div className="field" style={{ maxWidth: 120 }}><label>Not</label><input value={grade} onChange={(e) => setGrade(e.target.value)} placeholder="85 / AA" /></div>
+            <div className="field" style={{ flex: 1, minWidth: 180 }}><label>Geri Bildirim</label><input value={feedback} onChange={(e) => setFeedback(e.target.value)} placeholder="Opsiyonel" /></div>
+            <button type="button" className="btn primary sm" disabled={!grade.trim() || gradeMut.isPending} onClick={() => gradeMut.mutate()}>{gradeMut.isPending ? "Kaydediliyor…" : "Kaydet"}</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SubmissionsPanel({ assignmentId, onBack }: { assignmentId: string; onBack: () => void }) {
+  const q = useQuery({ queryKey: assignmentKeys.submissions(assignmentId), queryFn: () => fetchAssignmentSubmissions(assignmentId) });
+  if (q.isLoading) return <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>;
+  const d = q.data;
+  if (!d) return null;
+  return (
+    <div>
+      <button type="button" className="btn ghost sm" onClick={onBack} style={{ marginBottom: 10 }}>‹ Ödevler</button>
+      <h2 style={{ margin: "0 0 4px" }}>{d.assignment.title}</h2>
+      <p className="lede" style={{ marginTop: 0 }}>{d.submittedCount}/{d.total} teslim · {d.gradedCount} değerlendirildi</p>
+      <div className="card card-pad">
+        {d.rows.map((r) => <GradeRow key={r.studentId} assignmentId={assignmentId} row={r} />)}
+      </div>
+    </div>
+  );
+}
 
 function fmt(iso: string | null) {
   return iso ? new Date(iso).toLocaleDateString("tr-TR", { day: "2-digit", month: "short", year: "numeric" }) : "—";
@@ -19,6 +77,7 @@ function fmt(iso: string | null) {
 function AssignmentsView({ me }: { me: MeResponse }) {
   const queryClient = useQueryClient();
   const q = useQuery({ queryKey: assignmentKeys.branchList(), queryFn: fetchAssignments });
+  const [selected, setSelected] = useState<string | null>(null);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -43,9 +102,11 @@ function AssignmentsView({ me }: { me: MeResponse }) {
   return (
     <div className="screen">
       <h1>Ödevler</h1>
-      <p className="lede">Ödev verme ve tamamlanma takibi.</p>
+      <p className="lede">Ödev verme, teslim takibi ve değerlendirme.</p>
       <HqBranchSelector role={me.role} activeTenantId={me.actingTenantId} />
 
+      {selected ? <SubmissionsPanel assignmentId={selected} onBack={() => setSelected(null)} /> : (
+      <>
       <div className="card card-pad" style={{ marginBottom: 14 }}>
         <div className="card-head"><h3>Yeni Ödev</h3></div>
         <form onSubmit={handleSubmit} className="grid cols-2" style={{ rowGap: 12 }}>
@@ -69,9 +130,12 @@ function AssignmentsView({ me }: { me: MeResponse }) {
             </div>
             <p style={{ margin: "4px 0 0", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>Başlama: {fmt(a.startDate)} · Teslim: {fmt(a.dueDate)}</p>
             {a.description && <p style={{ margin: "6px 0 0", fontSize: "var(--text-sm)", color: "var(--ink-muted)" }}>{a.description}</p>}
+            <button type="button" className="btn sm" style={{ marginTop: 10 }} onClick={() => setSelected(a.id)}>Teslimler & Değerlendir</button>
           </div>
         ))}
       </div>
+      </>
+      )}
     </div>
   );
 }

@@ -1747,8 +1747,16 @@ model AssignmentSubmission {
   studentId    String
   status       AssignmentStatus @default(ASSIGNED)
   submittedAt  DateTime?
-  note         String?
-  grade        String?
+  note         String? // öğrenci teslim metni
+  // Öğrenci teslim dosyası (PaymentReceipt deseni — base64 @db.Text)
+  fileName     String?
+  mimeType     String?
+  dataUrl      String?          @db.Text
+  // Öğretmen puanlama + geri bildirim
+  grade          String? // "85" veya "AA" — serbest
+  feedback       String? // öğretmen geri bildirimi
+  gradedAt       DateTime?
+  gradedByUserId String?
   @@unique([assignmentId, studentId])
   @@index([assignmentId])
 }
