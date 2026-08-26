@@ -126,6 +126,7 @@ model Tenant {
   suppliers                 Supplier[]
   journalEntries            JournalEntry[]
   budgetLines               BudgetLine[]
+  conversations             Conversation[]
   staffAttendanceRecords    StaffAttendanceRecord[]
 
   mealItems        MealItem[]
@@ -2048,4 +2049,37 @@ model BudgetLine {
 
   @@unique([tenantId, year, accountCode])
   @@index([tenantId, year])
+}
+
+// Veli-Öğretmen Mesajlaşma — iki yönlü, konu bazlı (threaded) sohbet. Mevcut
+// Message (tek yönlü duyuru) modelinden ayrıdır. Bir veli + bir öğretmen, bir
+// öğrenci hakkında yazışır. Okunma, taraf-bazlı lastReadAt ile izlenir.
+model Conversation {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  parentUserId  String // veli (User.id)
+  teacherUserId String // öğretmen (User.id)
+  studentId     String? // hakkında (opsiyonel)
+  subject       String
+  parentLastReadAt  DateTime?
+  teacherLastReadAt DateTime?
+  lastMessageAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  messages ConversationMessage[]
+
+  @@index([tenantId, parentUserId, lastMessageAt])
+  @@index([tenantId, teacherUserId, lastMessageAt])
+}
+
+model ConversationMessage {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderUserId   String
+  body           String
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
 }
