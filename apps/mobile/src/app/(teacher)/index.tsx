@@ -7,23 +7,23 @@ import { useApiQuery } from '@/lib/use-api-query';
 import type { StudySession } from '@/lib/types';
 
 const MODULES: HubModule[] = [
-  { title: 'SÄ±nÄ±flarÄ±m', description: 'ÃÄrenci listeleri', icon: 'people', route: '/(teacher)/siniflarim' },
-  { title: 'EtÃ¼t OnayÄ±', description: 'AI Ã¶nerileri', icon: 'book', route: '/(teacher)/study-sessions' },
-  { title: 'AI SÄ±nÄ±f RÃ¶ntgeni', description: 'KazanÄ±m Ä±sÄ± haritasÄ±', icon: 'analytics', route: '/(teacher)/class-xray' },
-  { title: 'Ders ProgramÄ±', description: 'HaftalÄ±k program', icon: 'time', route: '/(teacher)/ders-programi' },
-  { title: 'Veli GÃ¶rÃ¼Åmeleri', description: 'Randevu onayÄ±', icon: 'chatbubbles', route: '/(teacher)/veli-gorusme' },
-  { title: 'MentÃ¶rlÃ¼k', description: 'DanÄ±Åan Ã¶Ärenciler', icon: 'person-add', route: '/(teacher)/mentorluk' },
-  { title: 'KulÃ¼plerim', description: 'DanÄ±Åman kulÃ¼pler', icon: 'star', route: '/(teacher)/kulupler' },
-  { title: 'Yoklama Al', description: 'SÄ±nÄ±f yoklamasÄ±', icon: 'checkbox', route: '/(teacher)/yoklama' },
-  { title: 'Ä°letiÅim', description: 'Gelen mesajlar', icon: 'mail', route: '/(teacher)/iletisim' },
-  { title: 'ÃlÃ§me-DeÄerlendirme', description: 'SÄ±navlar', icon: 'clipboard', route: '/(teacher)/olcme-degerlendirme' },
-  { title: 'Mobil Optik Okuyucu', description: 'FotoÄrafla AI optik okuma', icon: 'scan', route: '/(teacher)/optik-okuyucu' },
+  { title: 'Sınıflarım', description: 'Öğrenci listeleri', icon: 'people', route: '/(teacher)/siniflarim' },
+  { title: 'Etüt Onayı', description: 'AI önerileri', icon: 'book', route: '/(teacher)/study-sessions' },
+  { title: 'AI Sınıf Röntgeni', description: 'Kazanım ısı haritası', icon: 'analytics', route: '/(teacher)/class-xray' },
+  { title: 'Ders Programı', description: 'Haftalık program', icon: 'time', route: '/(teacher)/ders-programi' },
+  { title: 'Veli Görüşmeleri', description: 'Randevu onayı', icon: 'chatbubbles', route: '/(teacher)/veli-gorusme' },
+  { title: 'Mentörlük', description: 'Danışan öğrenciler', icon: 'person-add', route: '/(teacher)/mentorluk' },
+  { title: 'Kulüplerim', description: 'Danışman kulüpler', icon: 'star', route: '/(teacher)/kulupler' },
+  { title: 'Yoklama Al', description: 'Sınıf yoklaması', icon: 'checkbox', route: '/(teacher)/yoklama' },
+  { title: 'İletişim', description: 'Gelen mesajlar', icon: 'mail', route: '/(teacher)/iletisim' },
+  { title: 'Ölçme-Değerlendirme', description: 'Sınavlar', icon: 'clipboard', route: '/(teacher)/olcme-degerlendirme' },
+  { title: 'Mobil Optik Okuyucu', description: 'Fotoğrafla AI optik okuma', icon: 'scan', route: '/(teacher)/optik-okuyucu' },
   { title: 'Mesajlaşma', description: 'Velilerle bire bir', icon: 'chatbubbles', route: '/(teacher)/mesajlasma' },
-  { title: 'Disiplin', description: 'DavranÄ±Å kayÄ±tlarÄ±', icon: 'shield-checkmark', route: '/(teacher)/disiplin' },
-  { title: 'Karne', description: 'ÃÄrenci karnesi', icon: 'document-text', route: '/(teacher)/karne' },
-  { title: 'Lider Tablosu', description: 'SÄ±nÄ±f sÄ±ralamasÄ±', icon: 'trophy', route: '/(teacher)/lider-tablosu' },
-  { title: 'KazanÄ±m Ãzeti', description: 'KazanÄ±m bazlÄ± baÅarÄ±', icon: 'analytics', route: '/(teacher)/kazanim-ozeti' },
-  { title: 'GÃ¼venlik', description: '2FA kurulumu', icon: 'lock-closed', route: '/(teacher)/guvenlik' },
+  { title: 'Disiplin', description: 'Davranış kayıtları', icon: 'shield-checkmark', route: '/(teacher)/disiplin' },
+  { title: 'Karne', description: 'Öğrenci karnesi', icon: 'document-text', route: '/(teacher)/karne' },
+  { title: 'Lider Tablosu', description: 'Sınıf sıralaması', icon: 'trophy', route: '/(teacher)/lider-tablosu' },
+  { title: 'Kazanım Özeti', description: 'Kazanım bazlı başarı', icon: 'analytics', route: '/(teacher)/kazanim-ozeti' },
+  { title: 'Güvenlik', description: '2FA kurulumu', icon: 'lock-closed', route: '/(teacher)/guvenlik' },
 ];
 
 export default function TeacherHubScreen() {
@@ -35,11 +35,11 @@ export default function TeacherHubScreen() {
     <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
       <View>
         <Title>Merhaba, {user?.firstName}</Title>
-        <MutedText>ÃÄretmen PortalÄ±</MutedText>
+        <MutedText>Öğretmen Portalı</MutedText>
       </View>
 
       <Card style={{ gap: 8 }}>
-        <Label>YanÄ±t Bekleyen EtÃ¼t Talepleri</Label>
+        <Label>Yanıt Bekleyen Etüt Talepleri</Label>
         <Chip label={pending > 0 ? `${pending} talep bekliyor` : 'Bekleyen talep yok'} tone={pending > 0 ? 'warning' : 'success'} />
       </Card>
 
