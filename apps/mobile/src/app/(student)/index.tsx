@@ -7,6 +7,8 @@ import { useStudentSelection } from '@/lib/student-selection';
 
 const MODULES: HubModule[] = [
   { title: 'Karne', description: 'Sınav geçmişi ve başarı', icon: 'document-text', route: '/(student)/karne' },
+  { title: 'Ödevlerim', description: 'Teslim et, notunu gör', icon: 'book', route: '/(student)/odevlerim' },
+  { title: 'Mesajlaşma', description: 'Öğretmenlerle bire bir', icon: 'chatbubbles', route: '/(student)/mesajlasma' },
   { title: 'Sınav Sonuçlarım', description: 'Doğru/yanlış/net', icon: 'stats-chart', route: '/(student)/sinav-sonuclarim' },
   { title: 'Devamsızlığım', description: 'Yoklama geçmişi', icon: 'calendar', route: '/(student)/devamsizligim' },
   { title: 'Ders Programı', description: 'Haftalık program', icon: 'time', route: '/(student)/ders-programi' },

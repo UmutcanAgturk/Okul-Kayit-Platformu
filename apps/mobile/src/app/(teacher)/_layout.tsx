@@ -15,26 +15,27 @@ export default function TeacherPortalLayout() {
         tabBarInactiveTintColor: theme.textSecondary,
         tabBarStyle: { backgroundColor: theme.backgroundElement, borderTopColor: theme.border },
       }}>
-      <Tabs.Screen name="index" options={{ title: 'Modüller', tabBarIcon: ({ color, size }) => <Ionicons name="grid" size={size} color={color} /> }} />
-      <Tabs.Screen name="study-sessions" options={{ title: 'Etüt Onayı', tabBarIcon: ({ color, size }) => <Ionicons name="book" size={size} color={color} /> }} />
+      <Tabs.Screen name="index" options={{ title: 'ModÃ¼ller', tabBarIcon: ({ color, size }) => <Ionicons name="grid" size={size} color={color} /> }} />
+      <Tabs.Screen name="study-sessions" options={{ title: 'EtÃ¼t OnayÄ±', tabBarIcon: ({ color, size }) => <Ionicons name="book" size={size} color={color} /> }} />
       <Tabs.Screen name="profile" options={{ title: 'Profil', tabBarIcon: ({ color, size }) => <Ionicons name="person" size={size} color={color} /> }} />
 
-      {/* Modül ekranları — hub'dan açılır */}
-      <Tabs.Screen name="siniflarim" options={{ ...hidden, title: 'Sınıflarım' }} />
-      <Tabs.Screen name="class-xray" options={{ ...hidden, title: 'AI Sınıf Röntgeni' }} />
-      <Tabs.Screen name="ders-programi" options={{ ...hidden, title: 'Ders Programı' }} />
-      <Tabs.Screen name="veli-gorusme" options={{ ...hidden, title: 'Veli Görüşmeleri' }} />
-      <Tabs.Screen name="mentorluk" options={{ ...hidden, title: 'Mentörlük' }} />
-      <Tabs.Screen name="kulupler" options={{ ...hidden, title: 'Kulüplerim' }} />
+      {/* ModÃ¼l ekranlarÄ± â hub'dan aÃ§Ä±lÄ±r */}
+      <Tabs.Screen name="siniflarim" options={{ ...hidden, title: 'SÄ±nÄ±flarÄ±m' }} />
+      <Tabs.Screen name="class-xray" options={{ ...hidden, title: 'AI SÄ±nÄ±f RÃ¶ntgeni' }} />
+      <Tabs.Screen name="ders-programi" options={{ ...hidden, title: 'Ders ProgramÄ±' }} />
+      <Tabs.Screen name="veli-gorusme" options={{ ...hidden, title: 'Veli GÃ¶rÃ¼Åmeleri' }} />
+      <Tabs.Screen name="mentorluk" options={{ ...hidden, title: 'MentÃ¶rlÃ¼k' }} />
+      <Tabs.Screen name="kulupler" options={{ ...hidden, title: 'KulÃ¼plerim' }} />
       <Tabs.Screen name="yoklama" options={{ ...hidden, title: 'Yoklama Al' }} />
-      <Tabs.Screen name="iletisim" options={{ ...hidden, title: 'İletişim' }} />
-      <Tabs.Screen name="olcme-degerlendirme" options={{ ...hidden, title: 'Ölçme-Değerlendirme' }} />
+      <Tabs.Screen name="iletisim" options={{ ...hidden, title: 'Ä°letiÅim' }} />
+      <Tabs.Screen name="olcme-degerlendirme" options={{ ...hidden, title: 'ÃlÃ§me-DeÄerlendirme' }} />
       <Tabs.Screen name="optik-okuyucu" options={{ ...hidden, title: 'Mobil Optik Okuyucu' }} />
+      <Tabs.Screen name="mesajlasma" options={{ ...hidden, title: 'Mesajlaşma' }} />
       <Tabs.Screen name="disiplin" options={{ ...hidden, title: 'Disiplin' }} />
       <Tabs.Screen name="karne" options={{ ...hidden, title: 'Karne' }} />
       <Tabs.Screen name="lider-tablosu" options={{ ...hidden, title: 'Lider Tablosu' }} />
-      <Tabs.Screen name="kazanim-ozeti" options={{ ...hidden, title: 'Kazanım Özeti' }} />
-      <Tabs.Screen name="guvenlik" options={{ ...hidden, title: 'Güvenlik' }} />
+      <Tabs.Screen name="kazanim-ozeti" options={{ ...hidden, title: 'KazanÄ±m Ãzeti' }} />
+      <Tabs.Screen name="guvenlik" options={{ ...hidden, title: 'GÃ¼venlik' }} />
     </Tabs>
   );
 }
