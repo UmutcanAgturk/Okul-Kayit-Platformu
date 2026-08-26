@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { JournalSource, UserRole } from "@prisma/client";
 import { getSessionActor } from "@/lib/session";
 import { effectiveTenantId, withBranchTenantContext } from "@/lib/db-context";
-import { computePayroll } from "@/lib/payroll";
+import { computePayrollOfficial } from "@/lib/payroll-official";
 import { tryPostJournal } from "@/lib/accounting/posting";
 import { ACC } from "@/lib/accounting/chart";
 
@@ -119,7 +119,31 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const breakdown = computePayroll(grossSalary);
+    // Kümülatif dilim için: aynı yıl, aynı kişinin ÖNCEKİ aylara ait gelir
+    // vergisi matrahı toplamı (base = brüt − SGK − işsizlik).
+    const year = period.slice(0, 4);
+    const priorRecords = await tx.payrollRecord.findMany({
+      where: {
+        period: { startsWith: `${year}-`, lt: period },
+        ...(teacherId ? { teacherId } : { staffProfileId: staffProfileId! }),
+      },
+      select: { grossSalary: true, sgkEmployeeShare: true, unemploymentEmployeeShare: true },
+    });
+    const priorCumulativeBase = priorRecords.reduce(
+      (s, r) => s + (Number(r.grossSalary) - Number(r.sgkEmployeeShare) - Number(r.unemploymentEmployeeShare)),
+      0,
+    );
+    const off = computePayrollOfficial(grossSalary, priorCumulativeBase);
+    const breakdown = {
+      sgkEmployeeShare: off.sgkEmployeeShare,
+      unemploymentEmployeeShare: off.unemploymentEmployeeShare,
+      incomeTaxWithheld: off.incomeTaxWithheld,
+      stampDutyWithheld: off.stampDutyWithheld,
+      netSalary: off.netSalary,
+      sgkEmployerShare: off.sgkEmployerShare,
+      unemploymentEmployerShare: off.unemploymentEmployerShare,
+      employerCost: off.employerCost,
+    };
 
     const ledgerEntry = await tx.accountingLedgerEntry.create({
       data: {

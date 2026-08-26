@@ -7,7 +7,7 @@ import { fetchTeachers, teacherKeys, TeacherOption } from "@/lib/api/teachers";
 import { fetchStaff, staffKeys, StaffMember } from "@/lib/api/staff";
 import { ApiError } from "@/lib/api/client";
 import { Icon } from "@/components/ui/icons";
-import { computePayroll } from "@/lib/payroll";
+import { computePayrollOfficial } from "@/lib/payroll-official";
 
 function tl(n: number) {
   return "₺" + Math.round(n).toLocaleString("tr-TR");
@@ -288,7 +288,7 @@ function SalaryPaymentsCard({
                 }
                 const hasFixedSalary = row.kind === "STAFF" || row.salary !== null;
                 const gross = row.kind === "STAFF" ? row.salary : row.salary ?? Number(teacherAmounts[row.id] || 0);
-                const preview = gross > 0 ? computePayroll(gross) : null;
+                const preview = gross > 0 ? computePayrollOfficial(gross, 0) : null;
                 return (
                   <tr key={row.id} style={{ borderTop: "1px solid var(--border)" }}>
                     <td style={{ padding: "6px 8px 6px 0" }}>

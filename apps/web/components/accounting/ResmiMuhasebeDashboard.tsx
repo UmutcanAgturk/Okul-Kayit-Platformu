@@ -16,6 +16,7 @@ import {
   fetchBalanceSheet,
   fetchCari,
   fetchCashAccounts,
+  fetchBeyanname,
   fetchBudget,
   fetchChart,
   fetchGeneralLedger,
@@ -29,7 +30,7 @@ import {
 } from "@/lib/api/accounting-double";
 
 const ALLOWED = ["BRANCH_ADMIN", "ACCOUNTING", "SUPERADMIN"];
-const TABS = ["Yevmiye", "Cari Hesaplar", "Kasa/Banka", "Mizan", "Gelir Tablosu", "Bilanço", "Bütçe", "Defter-i Kebir", "Hesap Planı"] as const;
+const TABS = ["Yevmiye", "Cari Hesaplar", "Kasa/Banka", "Mizan", "Gelir Tablosu", "Bilanço", "Bütçe", "Beyanname", "Defter-i Kebir", "Hesap Planı"] as const;
 type Tab = (typeof TABS)[number];
 
 const TYPE_LABEL: Record<string, string> = {
@@ -83,6 +84,7 @@ export function ResmiMuhasebeDashboard() {
       {tab === "Gelir Tablosu" && <IncomeTab from={from} to={to} />}
       {tab === "Bilanço" && <BalanceTab from={from} to={to} />}
       {tab === "Bütçe" && <BudgetTab />}
+      {tab === "Beyanname" && <BeyannameTab />}
       {tab === "Defter-i Kebir" && <LedgerTab accounts={accounts} from={from} to={to} />}
       {tab === "Hesap Planı" && <ChartTab accounts={accounts} loading={chart.isLoading} />}
     </div>
@@ -611,3 +613,56 @@ function BudgetTab() {
 }
 
 function round2b(n: number) { return Math.round((n + Number.EPSILON) * 100) / 100; }
+
+/* ------------------------------ Beyanname ------------------------------ */
+const AY_ADLARI = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+function BeyannameTab() {
+  const now = new Date();
+  const [year, setYear] = useState(now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth() + 1);
+  const q = useQuery({ queryKey: doubleAccountingKeys.beyanname(year, month), queryFn: () => fetchBeyanname(year, month) });
+  const d = q.data;
+  const KV = ({ label, value, strong }: { label: string; value: number; strong?: boolean }) => (
+    <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: "1px solid var(--border)" }}>
+      <span>{label}</span><b style={{ color: strong ? "var(--critical)" : undefined }}>{tl(value)}</b>
+    </div>
+  );
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
+        <div className="field" style={{ maxWidth: 130 }}><label>Yıl</label>
+          <select value={year} onChange={(e) => setYear(Number(e.target.value))}>{[now.getFullYear(), now.getFullYear() - 1, now.getFullYear() - 2].map((y) => <option key={y} value={y}>{y}</option>)}</select>
+        </div>
+        <div className="field" style={{ maxWidth: 150 }}><label>Ay</label>
+          <select value={month} onChange={(e) => setMonth(Number(e.target.value))}>{AY_ADLARI.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}</select>
+        </div>
+        <button type="button" className="btn sm" onClick={() => window.print()}>🖨️ Yazdır</button>
+      </div>
+      {q.isLoading || !d ? <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p> : (
+        <div className="grid cols-2" style={{ gap: 14, alignItems: "start" }}>
+          <div className="card card-pad">
+            <div className="card-head"><h3>KDV Beyannamesi (KDV1)</h3><span className="hint">{d.period}</span></div>
+            <KV label="Hesaplanan KDV" value={d.kdv.hesaplananKDV} />
+            <KV label="İndirilecek KDV" value={d.kdv.indirilecekKDV} />
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0 0", fontWeight: 800 }}><span>Ödenecek KDV</span><span style={{ color: "var(--critical)" }}>{tl(d.kdv.odenecekKDV)}</span></div>
+            {d.kdv.devredenKDV > 0 && <div style={{ display: "flex", justifyContent: "space-between", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}><span>Sonraki döneme devreden</span><span>{tl(d.kdv.devredenKDV)}</span></div>}
+          </div>
+          <div className="card card-pad">
+            <div className="card-head"><h3>Muhtasar Beyanname</h3><span className="hint">{d.period}</span></div>
+            <KV label="Ücret Gelir Vergisi Stopajı" value={d.muhtasar.ucretStopaji} />
+            <KV label="Kira Stopajı (GVK 94)" value={d.muhtasar.kiraStopaji} />
+            <KV label="Damga Vergisi" value={d.muhtasar.damga} />
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0 0", fontWeight: 800 }}><span>Toplam Ödenecek</span><span style={{ color: "var(--critical)" }}>{tl(d.muhtasar.toplam)}</span></div>
+          </div>
+          <div className="card card-pad" style={{ gridColumn: "1 / -1" }}>
+            <div className="card-head"><h3>SGK Prim ve Hizmet Belgesi</h3><span className="hint">{d.sgk.personelSayisi} personel</span></div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800 }}><span>Toplam SGK Primi (işçi + işveren)</span><span>{tl(d.sgk.toplamPrim)}</span></div>
+          </div>
+          <p style={{ gridColumn: "1 / -1", margin: 0, fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
+            Bu özet hazırlık amaçlıdır; resmi beyan GİB/SGK sistemleri üzerinden yapılır. Değerler muhasebe defteri ve bordro kayıtlarından türetilir.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}

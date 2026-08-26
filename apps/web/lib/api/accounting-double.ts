@@ -110,6 +110,16 @@ export function runBackfill() {
   return apiFetch<{ accrued: number; collected: number; skipped: number; students: number }>(`${BASE}/backfill`, { method: "POST" });
 }
 
+export interface Beyanname {
+  period: string;
+  kdv: { hesaplananKDV: number; indirilecekKDV: number; odenecekKDV: number; devredenKDV: number };
+  muhtasar: { ucretStopaji: number; kiraStopaji: number; damga: number; toplam: number };
+  sgk: { toplamPrim: number; personelSayisi: number };
+}
+export function fetchBeyanname(year: number, month: number) {
+  return apiFetch<Beyanname>(`${BASE}/beyanname?year=${year}&month=${month}`, { cache: "no-store" });
+}
+
 export interface BudgetRow { code: string; name: string; type: AccountType; planned: number; actual: number }
 export function fetchBudget(year: number) {
   return apiFetch<{ year: number; rows: BudgetRow[] }>(`${BASE}/budget?year=${year}`, { cache: "no-store" });
@@ -123,6 +133,7 @@ export const doubleAccountingKeys = {
   cash: () => ["acc2", "cash"] as const,
   suppliers: () => ["acc2", "suppliers"] as const,
   budget: (year: number) => ["acc2", "budget", year] as const,
+  beyanname: (year: number, month: number) => ["acc2", "beyanname", year, month] as const,
   chart: () => ["acc2", "chart"] as const,
   journal: (from?: string, to?: string) => ["acc2", "journal", from ?? "", to ?? ""] as const,
   trial: (from?: string, to?: string) => ["acc2", "trial", from ?? "", to ?? ""] as const,
