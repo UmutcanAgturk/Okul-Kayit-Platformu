@@ -6,6 +6,7 @@ import { useApiQuery } from '@/lib/use-api-query';
 import type { BranchExam, ExamDetail, BranchStudentRow, MyClassRow } from '@/lib/types';
 
 type Mark = true | false | null;
+const KEY_OPTIONS = ['A', 'B', 'C', 'D', 'E'];
 
 function ResultEntry({ examId, source, onDone }: { examId: string; source: 'branch' | 'teacher'; onDone: () => void }) {
   const detail = useApiQuery<{ exam: ExamDetail }>(`/api/branch/exams/${examId}`);
@@ -13,7 +14,10 @@ function ResultEntry({ examId, source, onDone }: { examId: string; source: 'bran
   const teacher = useApiQuery<{ classrooms: MyClassRow[] }>(source === 'teacher' ? '/api/teacher/my-classes' : null);
   const [q, setQ] = useState('');
   const [student, setStudent] = useState<{ id: string; name: string } | null>(null);
-  const [marks, setMarks] = useState<Record<string, Mark>>({});
+  const [marks, setMarks] = useState<Record<string, Mark>>({}); // elle D/Y/B modu
+  const [marked, setMarked] = useState<Record<string, string>>({}); // şık modu (A–E veya '' = boş)
+  const [entryMode, setEntryMode] = useState<'sik' | 'dyb'>('sik');
+  const [bulkText, setBulkText] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [ok, setOk] = useState(false);
@@ -25,10 +29,47 @@ function ResultEntry({ examId, source, onDone }: { examId: string; source: 'bran
   const filtered = useMemo(() => q.trim() ? students.filter((s) => s.name.toLocaleLowerCase('tr').includes(q.toLocaleLowerCase('tr'))) : students.slice(0, 40), [students, q]);
 
   const questions = detail.data?.exam.questions ?? [];
+  const hasFullKey = questions.length > 0 && questions.every((qq) => !!qq.correctAnswer);
+  const effectiveMode: 'sik' | 'dyb' = hasFullKey ? entryMode : 'dyb';
+
+  function outcomeFor(qq: { id: string; correctAnswer: string | null }): Mark | undefined {
+    if (effectiveMode === 'dyb') return marks[qq.id];
+    const m = marked[qq.id];
+    if (m === undefined) return undefined;
+    if (m === '') return null;
+    if (!qq.correctAnswer) return null;
+    return m === qq.correctAnswer;
+  }
+
+  const live = questions.reduce((acc, qq) => {
+    const o = outcomeFor(qq);
+    if (o === true) acc.c++; else if (o === false) acc.w++; else if (o === null) acc.b++; else acc.u++;
+    return acc;
+  }, { c: 0, w: 0, b: 0, u: 0 });
+  const net = Math.round((live.c - live.w / 4) * 100) / 100;
+
+  function applyBulk() {
+    const seq: string[] = [];
+    for (const ch of bulkText.toLocaleUpperCase('tr')) {
+      if (/[A-E]/.test(ch)) seq.push(ch);
+      else if ('-._*0X'.includes(ch)) seq.push('');
+    }
+    const next: Record<string, string> = { ...marked };
+    questions.forEach((qq, i) => { if (i < seq.length) next[qq.id] = seq[i]; });
+    setMarked(next);
+  }
+
+  function reset() {
+    setStudent(null); setMarks({}); setMarked({}); setBulkText(''); setOk(false); setErr(null);
+  }
 
   async function submit() {
     if (!student) return;
-    const answers = questions.map((qq) => ({ questionId: qq.id, isCorrect: marks[qq.id] ?? null }));
+    if (questions.some((qq) => outcomeFor(qq) === undefined)) {
+      setErr(effectiveMode === 'sik' ? 'Her soru için bir şık (veya Boş) işaretleyin.' : 'Her soru için D/Y/B işaretleyin.');
+      return;
+    }
+    const answers = questions.map((qq) => ({ questionId: qq.id, isCorrect: outcomeFor(qq) ?? null }));
     setBusy(true); setErr(null);
     try { await api.post(`/api/branch/exams/${examId}/results`, { studentId: student.id, answers }); setOk(true); }
     catch (e) { setErr(e instanceof ApiError ? e.message : 'Kaydedilemedi'); }
@@ -39,8 +80,8 @@ function ResultEntry({ examId, source, onDone }: { examId: string; source: 'bran
     return (
       <View style={{ padding: 16, gap: 12 }}>
         <Subtitle>Sonuç kaydedildi ✓</Subtitle>
-        <MutedText>{student?.name} için {detail.data?.exam.name} sonucu işlendi.</MutedText>
-        <Button title="Başka Öğrenci" onPress={() => { setStudent(null); setMarks({}); setOk(false); }} />
+        <MutedText>{student?.name} için {detail.data?.exam.name} · {live.c} doğru, {live.w} yanlış, {live.b} boş → Net {net}</MutedText>
+        <Button title="Başka Öğrenci" onPress={reset} />
         <Button title="Sınav Listesine Dön" variant="secondary" onPress={onDone} />
       </View>
     );
@@ -70,22 +111,58 @@ function ResultEntry({ examId, source, onDone }: { examId: string; source: 'bran
     );
   }
 
-  const answered = Object.keys(marks).length;
   return (
     <ScrollView contentContainerStyle={{ padding: 16, gap: 10 }}>
-      <Pressable onPress={() => setStudent(null)}><Label>‹ {student.name}</Label></Pressable>
-      <MutedText>{answered}/{questions.length} işaretlendi (D=Doğru, Y=Yanlış, B=Boş)</MutedText>
-      {questions.map((qq) => (
-        <Card key={qq.id} style={{ gap: 6 }}>
-          <Label>{qq.orderIndex}. {qq.subject}</Label>
-          <MutedText>{qq.achievementLabel}</MutedText>
-          <View style={{ flexDirection: 'row', gap: 6 }}>
-            <Pressable onPress={() => setMarks((m) => ({ ...m, [qq.id]: true }))}><Chip label="D" tone="success" selected={marks[qq.id] === true} /></Pressable>
-            <Pressable onPress={() => setMarks((m) => ({ ...m, [qq.id]: false }))}><Chip label="Y" tone="critical" selected={marks[qq.id] === false} /></Pressable>
-            <Pressable onPress={() => setMarks((m) => ({ ...m, [qq.id]: null }))}><Chip label="B" tone="neutral" selected={marks[qq.id] === null && qq.id in marks} /></Pressable>
-          </View>
+      <Pressable onPress={() => { setStudent(null); setMarks({}); setMarked({}); setBulkText(''); }}><Label>‹ {student.name}</Label></Pressable>
+
+      {hasFullKey && (
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <Pressable onPress={() => setEntryMode('sik')}><Chip label="Şık Bazlı" tone="brand" selected={entryMode === 'sik'} /></Pressable>
+          <Pressable onPress={() => setEntryMode('dyb')}><Chip label="D/Y/B" tone="brand" selected={entryMode === 'dyb'} /></Pressable>
+        </View>
+      )}
+      {!hasFullKey && questions.length > 0 && <MutedText>Cevap anahtarı eksik — elle D/Y/B işaretleyin.</MutedText>}
+
+      {effectiveMode === 'sik' && (
+        <Card style={{ gap: 6 }}>
+          <Field label="Toplu Yapıştır (ör. ABCEDA…)" value={bulkText} onChangeText={setBulkText} autoCapitalize="characters" placeholder="Öğrencinin şıklarını sırayla" />
+          <Button title="Uygula" variant="secondary" onPress={applyBulk} disabled={!bulkText.trim()} />
         </Card>
-      ))}
+      )}
+
+      <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+        <Chip label={`D: ${live.c}`} tone="success" />
+        <Chip label={`Y: ${live.w}`} tone="critical" />
+        <Chip label={`B: ${live.b}`} tone="neutral" />
+        <Chip label={`Net: ${net}`} tone="brand" />
+        {live.u > 0 && <Chip label={`${live.u} eksik`} tone="warning" />}
+      </View>
+
+      {questions.map((qq) => {
+        const o = outcomeFor(qq);
+        return (
+          <Card key={qq.id} style={{ gap: 6 }}>
+            <Label>{qq.orderIndex}. {qq.subject} {o === true ? '✓' : o === false ? '✗' : ''}{qq.correctAnswer ? ` · Anahtar: ${qq.correctAnswer}` : ''}</Label>
+            <MutedText>{qq.achievementLabel}</MutedText>
+            {effectiveMode === 'sik' ? (
+              <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+                {KEY_OPTIONS.map((opt) => (
+                  <Pressable key={opt} onPress={() => setMarked((m) => ({ ...m, [qq.id]: opt }))}>
+                    <Chip label={opt} tone={marked[qq.id] === opt ? (qq.correctAnswer === opt ? 'success' : 'critical') : 'neutral'} selected={marked[qq.id] === opt} />
+                  </Pressable>
+                ))}
+                <Pressable onPress={() => setMarked((m) => ({ ...m, [qq.id]: '' }))}><Chip label="Boş" tone="neutral" selected={marked[qq.id] === ''} /></Pressable>
+              </View>
+            ) : (
+              <View style={{ flexDirection: 'row', gap: 6 }}>
+                <Pressable onPress={() => setMarks((m) => ({ ...m, [qq.id]: true }))}><Chip label="D" tone="success" selected={marks[qq.id] === true} /></Pressable>
+                <Pressable onPress={() => setMarks((m) => ({ ...m, [qq.id]: false }))}><Chip label="Y" tone="critical" selected={marks[qq.id] === false} /></Pressable>
+                <Pressable onPress={() => setMarks((m) => ({ ...m, [qq.id]: null }))}><Chip label="B" tone="neutral" selected={marks[qq.id] === null && qq.id in marks} /></Pressable>
+              </View>
+            )}
+          </Card>
+        );
+      })}
       {err && <ErrorBanner message={err} />}
       <Button title="Sonucu Kaydet" onPress={submit} loading={busy} />
     </ScrollView>
