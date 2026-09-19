@@ -900,12 +900,17 @@ function UygulamaTab() {
   const [questionMap, setQuestionMap] = useState<Record<string, DraftQuestion[]>>({});
   const [subjectSearch, setSubjectSearch] = useState<Record<string, string>>({});
   const [importStatus, setImportStatus] = useState<Record<string, string>>({});
+  const [bulkKeyText, setBulkKeyText] = useState<Record<string, string>>({});
+  const [bulkAchText, setBulkAchText] = useState<Record<string, string>>({});
   const [bookletCount, setBookletCount] = useState<2 | 4>(4);
   const [feePerStudent, setFeePerStudent] = useState("");
   const [eligibleGrades, setEligibleGrades] = useState<string[]>([]);
   const [configError, setConfigError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [inputMode, setInputMode] = useState<"wizard" | "bulk">("wizard");
+  const [bulkExamText, setBulkExamText] = useState("");
+  const [bulkExamMsg, setBulkExamMsg] = useState<string | null>(null);
 
   const createMutation = useMutation({
     mutationFn: createBranchExam,
@@ -934,6 +939,38 @@ function UygulamaTab() {
     });
   }
 
+  // Toplu Sınav Yükle: her satır "KazanımKodu[ayraç]DoğruCevap". Ders, kazanımın
+  // kendi dersinden türetilir. Tüm sınavı tek yapıştırmayla kurup eşleştirme
+  // ekranına (review) geçer.
+  function parseBulkExam() {
+    if (!name.trim() || !examDate) { setConfigError("Önce sınav adı ve tarih girin."); return; }
+    const byCode = new Map(achievements.map((a) => [a.code.trim().toLocaleUpperCase("tr-TR"), a]));
+    const bySubject: Record<string, DraftQuestion[]> = {};
+    let total = 0;
+    let notFound = 0;
+    for (const rawLine of bulkExamText.split(/\r?\n/)) {
+      const parts = rawLine.split(/[\t,;|]+/).map((s) => s.trim()).filter(Boolean);
+      if (parts.length === 0) continue;
+      const code = parts[0];
+      const ans = (parts[1] ?? "").toLocaleUpperCase("tr-TR");
+      const ach = byCode.get(code.toLocaleUpperCase("tr-TR"));
+      if (!ach) { notFound++; continue; }
+      (bySubject[ach.subject] ??= []).push({ achievementId: ach.id, correctAnswer: /^[A-E]$/.test(ans) ? ans : "" });
+      total++;
+    }
+    if (total === 0) {
+      setBulkExamMsg(notFound > 0 ? `Hiçbir kod bulunamadı (${notFound} satır eşleşmedi). Önce kazanımları yükleyin.` : "Geçerli satır bulunamadı.");
+      return;
+    }
+    const nextCounts: Record<string, number> = {};
+    for (const [subject, qs] of Object.entries(bySubject)) nextCounts[subject] = qs.length;
+    setSubjectCounts(nextCounts);
+    setQuestionMap(bySubject);
+    setBulkExamMsg(null);
+    setConfigError(null);
+    setStage("mapping");
+  }
+
   function continueToMapping() {
     const checkedSubjects = Object.keys(subjectCounts);
     if (!name.trim() || !examDate || checkedSubjects.length === 0) {
@@ -956,6 +993,40 @@ function UygulamaTab() {
   }
   function setQuestionAnswer(subject: string, index: number, correctAnswer: string) {
     setQuestionMap((prev) => ({ ...prev, [subject]: prev[subject].map((q, i) => (i === index ? { ...q, correctAnswer } : q)) }));
+  }
+
+  // Toplu cevap anahtarı: "ABCDA…" → her soruya sırayla A–E ata. "-", ".", "*"
+  // atlanan (boş) soru sayılır. Diğer karakterler yok sayılır.
+  function applyBulkAnswerKey(subject: string, text: string) {
+    const seq: string[] = [];
+    for (const ch of text.toLocaleUpperCase("tr-TR")) {
+      if (/[A-E]/.test(ch)) seq.push(ch);
+      else if ("-._*".includes(ch)) seq.push("");
+    }
+    setQuestionMap((prev) => ({ ...prev, [subject]: (prev[subject] ?? []).map((q, i) => (i < seq.length ? { ...q, correctAnswer: seq[i] } : q)) }));
+    const filled = seq.filter((s) => s).length;
+    setImportStatus((prev) => ({ ...prev, [subject]: `${filled} cevap anahtarı dolduruldu.` }));
+  }
+
+  // Toplu kazanım kodları (yapıştır): boşluk/virgül/satır ile ayrılmış kodları
+  // sırayla sorulara ata (CSV yüklemenin dosyasız hızlı sürümü).
+  function applyBulkAchievements(subject: string, text: string) {
+    const codes = text.split(/[\s,;]+/).map((c) => c.trim()).filter(Boolean);
+    const byCode = new Map(achievements.filter((a) => a.subject === subject).map((a) => [a.code.trim().toLocaleUpperCase("tr-TR"), a]));
+    let assigned = 0;
+    let notFound = 0;
+    setQuestionMap((prev) => ({
+      ...prev,
+      [subject]: (prev[subject] ?? []).map((q, i) => {
+        const code = codes[i];
+        if (!code) return q;
+        const ach = byCode.get(code.toLocaleUpperCase("tr-TR"));
+        if (!ach) { notFound++; return q; }
+        assigned++;
+        return { ...q, achievementId: ach.id };
+      }),
+    }));
+    setImportStatus((prev) => ({ ...prev, [subject]: notFound > 0 ? `${assigned} kazanım atandı, ${notFound} kod bulunamadı.` : `${assigned} kazanım atandı.` }));
   }
 
   // CSV'den Kazanım Ata — yalnızca ders içindeki MEVCUT kazanım kodlarıyla
@@ -1044,10 +1115,16 @@ function UygulamaTab() {
       <div className="card card-pad">
         <div className="card-head">
           <h3>Yeni Sınav Uygulaması</h3>
+          <span className="hint">Adım 1/2 · Temel bilgiler</span>
+        </div>
+        <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+          <button type="button" className={`btn sm ${inputMode === "wizard" ? "primary" : ""}`} onClick={() => setInputMode("wizard")}>Adım Adım</button>
+          <button type="button" className={`btn sm ${inputMode === "bulk" ? "primary" : ""}`} onClick={() => setInputMode("bulk")}>Toplu Yükle (yapıştır)</button>
         </div>
         <p style={{ margin: "0 0 14px", fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
-          Ders başına soru sayısı belirleyin — devam ettiğinizde her ders için, o dersin kazanım taksonomisinden
-          soru-kazanım eşleştirmesi yapacağınız bir ekrana geçilir.
+          {inputMode === "wizard"
+            ? "Ders başına soru sayısı belirleyin — devam ettiğinizde her ders için soru-kazanım eşleştirmesi yapacağınız ekrana geçilir."
+            : "Tüm sınavı tek seferde yapıştırın: her satır bir soru — Kazanım Kodu ve (varsa) Doğru Cevap. Ders, kazanımdan otomatik bulunur."}
         </p>
         {successMsg && <p style={{ margin: "0 0 12px", fontSize: "var(--text-xs)", color: "var(--strong)" }}>{successMsg}</p>}
         <div className="grid cols-2">
@@ -1070,41 +1147,64 @@ function UygulamaTab() {
           <label>Tarih</label>
           <input type="date" value={examDate} onChange={(e) => setExamDate(e.target.value)} />
         </div>
-        <div className="field" style={{ marginTop: 14 }}>
-          <label>Ders ve Soru Sayısı</label>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, border: "1px solid var(--border-strong)", borderRadius: 8, padding: 10 }}>
-            {subjects.map((subject) => (
-              <div key={subject} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "var(--text-xs)", flex: 1 }}>
+        {inputMode === "wizard" ? (
+          <div className="field" style={{ marginTop: 14 }}>
+            <label>Ders ve Soru Sayısı</label>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, border: "1px solid var(--border-strong)", borderRadius: 8, padding: 10 }}>
+              {subjects.map((subject) => (
+                <div key={subject} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "var(--text-xs)", flex: 1 }}>
+                    <input
+                      type="checkbox"
+                      checked={subjectCounts[subject] !== undefined}
+                      onChange={(e) => toggleSubject(subject, e.target.checked)}
+                    />
+                    {subject}
+                  </label>
                   <input
-                    type="checkbox"
-                    checked={subjectCounts[subject] !== undefined}
-                    onChange={(e) => toggleSubject(subject, e.target.checked)}
+                    type="number"
+                    min="1"
+                    value={subjectCounts[subject] ?? 10}
+                    disabled={subjectCounts[subject] === undefined}
+                    onChange={(e) => setSubjectCounts((prev) => ({ ...prev, [subject]: Math.max(1, Number(e.target.value) || 1) }))}
+                    style={{ width: 70 }}
                   />
-                  {subject}
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={subjectCounts[subject] ?? 10}
-                  disabled={subjectCounts[subject] === undefined}
-                  onChange={(e) => setSubjectCounts((prev) => ({ ...prev, [subject]: Math.max(1, Number(e.target.value) || 1) }))}
-                  style={{ width: 70 }}
-                />
-                <span style={{ fontSize: "var(--text-2xs)", color: "var(--ink-faint)" }}>soru</span>
-              </div>
-            ))}
-            {subjects.length === 0 && (
-              <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
-                Henüz kazanım taksonomisi yüklenmedi — önce Kazanım Yükleme sekmesinden ekleyin.
-              </p>
-            )}
+                  <span style={{ fontSize: "var(--text-2xs)", color: "var(--ink-faint)" }}>soru</span>
+                </div>
+              ))}
+              {subjects.length === 0 && (
+                <p style={{ margin: 0, fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
+                  Henüz kazanım taksonomisi yüklenmedi — önce Kazanım Yükleme sekmesinden ekleyin.
+                </p>
+              )}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="field" style={{ marginTop: 14 }}>
+            <label>Sınav İçeriği (her satır bir soru)</label>
+            <textarea
+              value={bulkExamText}
+              onChange={(e) => setBulkExamText(e.target.value)}
+              rows={10}
+              placeholder={"MAT.9.1.1  A\nMAT.9.1.2  C\nFIZ.9.2.1  B\n… (Kazanım Kodu ve Doğru Cevap — sekme/virgül/boşlukla ayırın)"}
+              style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "var(--text-xs)" }}
+            />
+            <p style={{ margin: "6px 0 0", fontSize: "var(--text-2xs)", color: "var(--ink-faint)" }}>
+              Excel/Sheets&apos;ten kopyalayıp yapıştırabilirsiniz. Cevap sütunu boş bırakılabilir (sonra eşleştirme ekranından girin).
+            </p>
+            {bulkExamMsg && <p style={{ margin: "6px 0 0", fontSize: "var(--text-xs)", color: "var(--critical)" }}>{bulkExamMsg}</p>}
+          </div>
+        )}
         {configError && <p style={{ margin: "10px 0 0", fontSize: "var(--text-xs)", color: "var(--critical)" }}>{configError}</p>}
-        <button type="button" className="btn primary" style={{ marginTop: 14 }} onClick={continueToMapping}>
-          Devam Et: Soru-Kazanım Eşleştirmesi
-        </button>
+        {inputMode === "wizard" ? (
+          <button type="button" className="btn primary" style={{ marginTop: 14 }} onClick={continueToMapping}>
+            Devam Et: Soru-Kazanım Eşleştirmesi
+          </button>
+        ) : (
+          <button type="button" className="btn primary" style={{ marginTop: 14 }} disabled={!bulkExamText.trim()} onClick={parseBulkExam}>
+            Yükle ve Eşleştirme Ekranına Geç
+          </button>
+        )}
       </div>
       <ExistingExamsPanel />
       </>
@@ -1112,25 +1212,55 @@ function UygulamaTab() {
   }
 
   const checkedSubjects = Object.keys(subjectCounts);
-  const totalQuestions = checkedSubjects.reduce((sum, s) => sum + (questionMap[s]?.length ?? 0), 0);
+  const allDraft = checkedSubjects.flatMap((s) => questionMap[s] ?? []);
+  const totalQuestions = allDraft.length;
+  const achDoneTotal = allDraft.filter((q) => q.achievementId).length;
+  const keyDoneTotal = allDraft.filter((q) => q.correctAnswer).length;
 
   return (
     <div className="card card-pad">
       <div className="card-head">
         <h3>{name}</h3>
-        <span className="hint">
-          {EXAM_TYPE_LABEL[examType]} · {examDate} · {totalQuestions} soru
-        </span>
+        <span className="hint">Adım 2/2 · {EXAM_TYPE_LABEL[examType]} · {examDate}</span>
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", margin: "0 0 14px", fontSize: "var(--text-xs)" }}>
+        <span className="chip">{totalQuestions} soru</span>
+        <span className={`chip ${achDoneTotal === totalQuestions ? "strong" : "weak"}`}>Kazanım {achDoneTotal}/{totalQuestions}</span>
+        <span className={`chip ${keyDoneTotal === totalQuestions ? "strong" : "neutral"}`}>Cevap Anahtarı {keyDoneTotal}/{totalQuestions}</span>
+        {keyDoneTotal < totalQuestions && <span style={{ color: "var(--ink-faint)" }}>· Cevap anahtarı tam girilirse mobil optik okuma ve otomatik puanlama çalışır.</span>}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
         {checkedSubjects.map((subject) => (
           <div key={subject}>
-            <p style={{ fontSize: "var(--text-xs)", fontWeight: 700, margin: "0 0 8px" }}>
-              {subject}{" "}
-              <span style={{ color: "var(--ink-faint)", fontWeight: 400 }}>
-                ({questionMap[subject]?.length ?? 0} soru — yalnızca {subject} kazanımları listelenir)
-              </span>
-            </p>
+            {(() => {
+              const qs = questionMap[subject] ?? [];
+              const achDone = qs.filter((q) => q.achievementId).length;
+              const keyDone = qs.filter((q) => q.correctAnswer).length;
+              return (
+                <p style={{ fontSize: "var(--text-xs)", fontWeight: 700, margin: "0 0 8px", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  {subject} <span style={{ color: "var(--ink-faint)", fontWeight: 400 }}>({qs.length} soru)</span>
+                  <span className={`chip ${achDone === qs.length ? "strong" : "weak"}`}>Kazanım {achDone}/{qs.length}</span>
+                  <span className={`chip ${keyDone === qs.length ? "strong" : "neutral"}`}>Cevap {keyDone}/{qs.length}</span>
+                </p>
+              );
+            })()}
+            {/* Toplu giriş: cevap anahtarı + kazanım kodları (yapıştır) */}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end", marginBottom: 8 }}>
+              <div className="field" style={{ flex: 1, minWidth: 200, marginBottom: 0 }}>
+                <label style={{ fontSize: "var(--text-2xs)" }}>Cevap Anahtarı (toplu, ör. ABCDE)</label>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <input value={bulkKeyText[subject] ?? ""} onChange={(e) => setBulkKeyText((p) => ({ ...p, [subject]: e.target.value }))} placeholder="ABCDABCE…" style={{ flex: 1, fontSize: "var(--text-xs)" }} />
+                  <button type="button" className="btn xs" disabled={!(bulkKeyText[subject] ?? "").trim()} onClick={() => applyBulkAnswerKey(subject, bulkKeyText[subject] ?? "")}>Uygula</button>
+                </div>
+              </div>
+              <div className="field" style={{ flex: 1, minWidth: 200, marginBottom: 0 }}>
+                <label style={{ fontSize: "var(--text-2xs)" }}>Kazanım Kodları (toplu, boşluk/virgülle)</label>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <input value={bulkAchText[subject] ?? ""} onChange={(e) => setBulkAchText((p) => ({ ...p, [subject]: e.target.value }))} placeholder="MAT.9.1.1 MAT.9.1.2 …" style={{ flex: 1, fontSize: "var(--text-xs)" }} />
+                  <button type="button" className="btn xs" disabled={!(bulkAchText[subject] ?? "").trim()} onClick={() => applyBulkAchievements(subject, bulkAchText[subject] ?? "")}>Uygula</button>
+                </div>
+              </div>
+            </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10 }}>
               <input
                 value={subjectSearch[subject] ?? ""}
@@ -1246,7 +1376,12 @@ function SonucTab({ isTeacher }: { isTeacher: boolean }) {
   const [examId, setExamId] = useState("");
   const [classroomId, setClassroomId] = useState("");
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  // Şık bazlı mod: öğrencinin işaretlediği şık (A–E veya "" = boş). Cevap
+  // anahtarıyla otomatik puanlanır. Elle modda ise doğrudan D/Y/B tutulur.
+  const [marked, setMarked] = useState<Record<string, string>>({});
   const [answers, setAnswers] = useState<AnswerState>({});
+  const [entryMode, setEntryMode] = useState<"sik" | "dyb">("sik");
+  const [bulkText, setBulkText] = useState("");
   const [bookletType, setBookletType] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<{ netScore: number; correctCount: number; wrongCount: number; emptyCount: number } | null>(null);
@@ -1278,23 +1413,68 @@ function SonucTab({ isTeacher }: { isTeacher: boolean }) {
   const questions = examDetailQuery.data?.exam.questions ?? [];
   const bookletTypes = examDetailQuery.data?.exam.bookletTypes ?? [];
 
+  // Sınavın cevap anahtarı tam mı? Şık-bazlı otomatik puanlama için tüm
+  // soruların doğru cevabı gerekir. Değilse elle D/Y/B moduna düşülür.
+  const hasFullKey = questions.length > 0 && questions.every((q) => !!q.correctAnswer);
+  const effectiveMode: "sik" | "dyb" = hasFullKey ? entryMode : "dyb";
+
+  // Bir sorunun D/Y/B değeri: şık modda işaretli şık ↔ cevap anahtarı; elle
+  // modda doğrudan answers state'i. undefined = henüz girilmedi.
+  function outcomeFor(q: { id: string; correctAnswer: string | null }): boolean | null | undefined {
+    if (effectiveMode === "dyb") return answers[q.id];
+    const m = marked[q.id];
+    if (m === undefined) return undefined;
+    if (m === "") return null; // boş
+    if (!q.correctAnswer) return null;
+    return m === q.correctAnswer;
+  }
+
+  const live = questions.reduce(
+    (acc, q) => {
+      const o = outcomeFor(q);
+      if (o === true) acc.correct++;
+      else if (o === false) acc.wrong++;
+      else if (o === null) acc.empty++;
+      else acc.unset++;
+      return acc;
+    },
+    { correct: 0, wrong: 0, empty: 0, unset: 0 },
+  );
+  const liveNet = Math.round((live.correct - live.wrong / 4) * 100) / 100;
+
   function selectStudent(studentId: string) {
     setSelectedStudentId(studentId);
     setLastResult(null);
     setSubmitError(null);
     setAnswers({});
+    setMarked({});
+    setBulkText("");
     setBookletType("");
+  }
+
+  // Öğrencinin tüm şıklarını tek seferde yapıştır (ör. "ABCEDA…"). A–E → o şık;
+  // "-", ".", "*", "0", "x" → boş. Diğer karakterler yok sayılır. Sıra, soru
+  // sırasına (orderIndex) göredir.
+  function applyBulk() {
+    const seq: string[] = [];
+    for (const ch of bulkText.toLocaleUpperCase("tr-TR")) {
+      if (/[A-E]/.test(ch)) seq.push(ch);
+      else if ("-._*0X".includes(ch)) seq.push("");
+    }
+    const next: Record<string, string> = { ...marked };
+    questions.forEach((q, i) => { if (i < seq.length) next[q.id] = seq[i]; });
+    setMarked(next);
   }
 
   function handleSubmit() {
     if (!selectedStudentId) return;
-    if (questions.some((q) => answers[q.id] === undefined)) {
-      setSubmitError("Her soru için Doğru/Yanlış/Boş işaretlemelisiniz.");
+    if (questions.some((q) => outcomeFor(q) === undefined)) {
+      setSubmitError(effectiveMode === "sik" ? "Her soru için bir şık (veya Boş) işaretlemelisiniz." : "Her soru için Doğru/Yanlış/Boş işaretlemelisiniz.");
       return;
     }
     submitMutation.mutate({
       studentId: selectedStudentId,
-      answers: questions.map((q) => ({ questionId: q.id, isCorrect: answers[q.id] ?? null })),
+      answers: questions.map((q) => ({ questionId: q.id, isCorrect: outcomeFor(q) ?? null })),
       bookletType: bookletType || null,
     });
   }
@@ -1333,6 +1513,7 @@ function SonucTab({ isTeacher }: { isTeacher: boolean }) {
           <div className="card card-pad">
             <div className="card-head">
               <h3>Öğrenciler</h3>
+              <span className="hint">{roster.filter((s) => s.hasResult).length}/{roster.length} girildi</span>
             </div>
             {rosterQuery.isLoading ? (
               <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>
@@ -1342,7 +1523,7 @@ function SonucTab({ isTeacher }: { isTeacher: boolean }) {
                 <p>Bu sınıfta öğrenci yok.</p>
               </div>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 520, overflowY: "auto" }}>
                 {roster.map((s) => (
                   <button
                     key={s.studentId}
@@ -1373,46 +1554,104 @@ function SonucTab({ isTeacher }: { isTeacher: boolean }) {
             ) : (
               <>
                 <div className="card-head">
-                  <h3>Soru Bazlı İşaretleme</h3>
+                  <h3>{effectiveMode === "sik" ? "Şık Bazlı Giriş" : "Doğru/Yanlış/Boş Girişi"}</h3>
+                  {hasFullKey && (
+                    <div style={{ display: "flex", gap: 4 }}>
+                      <button type="button" className={`btn xs ${entryMode === "sik" ? "primary" : ""}`} onClick={() => setEntryMode("sik")}>Şık</button>
+                      <button type="button" className={`btn xs ${entryMode === "dyb" ? "primary" : ""}`} onClick={() => setEntryMode("dyb")}>D/Y/B</button>
+                    </div>
+                  )}
                 </div>
+
+                {effectiveMode === "sik" && (
+                  <p style={{ margin: "0 0 10px", fontSize: "var(--text-2xs)", color: "var(--ink-faint)" }}>
+                    Öğrencinin işaretlediği şıkkı seçin; sistem cevap anahtarıyla otomatik puanlar.
+                  </p>
+                )}
+                {!hasFullKey && questions.length > 0 && (
+                  <p style={{ margin: "0 0 10px", fontSize: "var(--text-2xs)", color: "var(--weak)" }}>
+                    Bu sınavın cevap anahtarı eksik — şık bazlı otomatik puanlama yapılamıyor, elle D/Y/B işaretleyin.
+                  </p>
+                )}
+
                 {bookletTypes.length > 0 && (
                   <div className="field" style={{ marginBottom: 10 }}>
                     <label>Kitapçık Türü (opsiyonel)</label>
                     <select value={bookletType} onChange={(e) => setBookletType(e.target.value)}>
                       <option value="">— Seçilmedi —</option>
                       {bookletTypes.map((b) => (
-                        <option key={b} value={b}>
-                          {b} Kitapçığı
-                        </option>
+                        <option key={b} value={b}>{b} Kitapçığı</option>
                       ))}
                     </select>
                   </div>
                 )}
-                <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 360, overflowY: "auto", marginBottom: 12 }}>
-                  {questions.map((q) => (
-                    <div key={q.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, fontSize: "var(--text-xs)", borderBottom: "1px solid var(--border)", paddingBottom: 6 }}>
-                      <span>
-                        <b>Soru {q.orderIndex}</b> — {q.achievementCode}
-                        {q.correctAnswer && <span style={{ color: "var(--ink-faint)" }}> · Doğru: {q.correctAnswer}</span>}
-                      </span>
-                      <div style={{ display: "flex", gap: 4 }}>
-                        {([
-                          ["Doğru", true],
-                          ["Yanlış", false],
-                          ["Boş", null],
-                        ] as const).map(([label, value]) => (
-                          <button
-                            key={label}
-                            type="button"
-                            className={`btn xs ${answers[q.id] === value ? "primary" : ""}`}
-                            onClick={() => setAnswers((prev) => ({ ...prev, [q.id]: value }))}
-                          >
-                            {label}
-                          </button>
-                        ))}
-                      </div>
+
+                {effectiveMode === "sik" && (
+                  <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+                    <div className="field" style={{ flex: 1, minWidth: 200, marginBottom: 0 }}>
+                      <label>Toplu Yapıştır (ör. ABCEDA…)</label>
+                      <input value={bulkText} onChange={(e) => setBulkText(e.target.value)} placeholder="Öğrencinin şıklarını sırayla yazın/yapıştırın" />
                     </div>
-                  ))}
+                    <button type="button" className="btn sm" disabled={!bulkText.trim()} onClick={applyBulk}>Uygula</button>
+                  </div>
+                )}
+
+                {/* Canlı özet */}
+                <div style={{ display: "flex", gap: 8, marginBottom: 10, fontSize: "var(--text-2xs)", flexWrap: "wrap" }}>
+                  <span className="chip strong">D: {live.correct}</span>
+                  <span className="chip critical">Y: {live.wrong}</span>
+                  <span className="chip">B: {live.empty}</span>
+                  <span className="chip" style={{ fontWeight: 700 }}>Net: {liveNet}</span>
+                  {live.unset > 0 && <span className="chip weak">{live.unset} soru eksik</span>}
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 5, maxHeight: 340, overflowY: "auto", marginBottom: 12 }}>
+                  {questions.map((q) => {
+                    const o = outcomeFor(q);
+                    return (
+                      <div key={q.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, fontSize: "var(--text-xs)", borderBottom: "1px solid var(--border)", paddingBottom: 5 }}>
+                        <span style={{ minWidth: 0 }}>
+                          <b>Soru {q.orderIndex}</b>{" "}
+                          {o === true && <span style={{ color: "var(--strong)" }}>✓</span>}
+                          {o === false && <span style={{ color: "var(--critical)" }}>✗</span>}
+                          <span style={{ color: "var(--ink-faint)" }}> · {q.achievementCode}{q.correctAnswer ? ` · Anahtar: ${q.correctAnswer}` : ""}</span>
+                        </span>
+                        {effectiveMode === "sik" ? (
+                          <div style={{ display: "flex", gap: 3 }}>
+                            {EXAM_ANSWER_KEY_OPTIONS.map((opt) => {
+                              const sel = marked[q.id] === opt;
+                              const isKey = q.correctAnswer === opt;
+                              return (
+                                <button
+                                  key={opt}
+                                  type="button"
+                                  className={`btn xs ${sel ? (isKey ? "success solid" : "danger solid") : ""}`}
+                                  style={sel ? undefined : isKey ? { borderColor: "var(--strong)" } : undefined}
+                                  onClick={() => setMarked((prev) => ({ ...prev, [q.id]: opt }))}
+                                >
+                                  {opt}
+                                </button>
+                              );
+                            })}
+                            <button type="button" className={`btn xs ${marked[q.id] === "" ? "primary" : ""}`} onClick={() => setMarked((prev) => ({ ...prev, [q.id]: "" }))}>Boş</button>
+                          </div>
+                        ) : (
+                          <div style={{ display: "flex", gap: 4 }}>
+                            {([["Doğru", true], ["Yanlış", false], ["Boş", null]] as const).map(([label, value]) => (
+                              <button
+                                key={label}
+                                type="button"
+                                className={`btn xs ${answers[q.id] === value ? "primary" : ""}`}
+                                onClick={() => setAnswers((prev) => ({ ...prev, [q.id]: value }))}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
                 {submitError && <p style={{ margin: "0 0 10px", fontSize: "var(--text-xs)", color: "var(--critical)" }}>{submitError}</p>}
                 <button type="button" className="btn success solid" disabled={submitMutation.isPending} onClick={handleSubmit}>
