@@ -302,7 +302,7 @@ table.data tr:hover td { background: var(--surface-2); }
 .field input:hover, .field select:hover, .field textarea:hover { border-color: var(--ink-faint); }
 .field input:focus, .field select:focus, .field textarea:focus { outline: 2px solid var(--brand); outline-offset: 1px; border-color: var(--brand); }
 
-.hub-group-title { font-size: 12.5px; font-weight: 700; color: var(--ink-muted); text-transform: uppercase; letter-spacing: .05em; margin: 26px 0 12px; }
+.hub-group-title { font-size: 12.5px; font-weight: 700; color: var(--ink-muted); text-transform: uppercase; letter-spacing: .05em; margin: 38px 0 14px; }
 .hub-group-title:first-of-type { margin-top: 0; }
 .hub-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
 .hub-card {
