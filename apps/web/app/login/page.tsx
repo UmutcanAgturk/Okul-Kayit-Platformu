@@ -111,7 +111,9 @@ export default function LoginPage() {
       <div className="card card-pad" style={{ width: "100%", maxWidth: 380 }}>
         <div className="brand-block" style={{ padding: 0, marginBottom: 22 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/seviye360-logo.png" alt="Seviye 360" style={{ height: 60, width: "auto", display: "block" }} />
+          <span style={{ display: "inline-flex", background: "#ffffff", borderRadius: 12, padding: "10px 14px", boxShadow: "0 1px 4px rgba(16,21,31,.10)" }}>
+            <img src="/seviye360-logo.png" alt="Seviye 360" style={{ height: 60, width: "auto", display: "block" }} />
+          </span>
           <p style={{ margin: "6px 0 0", fontSize: "var(--text-sm)", color: "var(--ink-muted)" }}>
             {changeToken ? "İlk giriş — yeni şifre belirleyin" : mfaToken ? "İki faktörlü doğrulama" : "Kurum yönetim paneline giriş yapın."}
           </p>
