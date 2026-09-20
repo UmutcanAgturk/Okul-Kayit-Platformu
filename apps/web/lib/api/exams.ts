@@ -274,6 +274,22 @@ export function fetchStudentExamResults(studentId: string) {
   );
 }
 
+export interface ExamReportCardSubject { subject: string; correct: number; wrong: number; empty: number; total: number; net: number }
+export interface ExamReportCard {
+  studentId: string; studentNo: string; name: string;
+  classroomId: string | null; classroomName: string | null; gradeLevel: string;
+  correctCount: number; wrongCount: number; emptyCount: number; netScore: number;
+  branchRank: number; branchSize: number; classRank: number; classSize: number; classAvgNet: number;
+  subjects: ExamReportCardSubject[];
+}
+export interface ExamReportCardsData {
+  exam: { id: string; name: string; type: string; examDate: string; totalQuestions: number };
+  branchAvgNet: number; branchCount: number; subjects: string[]; cards: ExamReportCard[];
+}
+export function fetchExamReportCards(examId: string) {
+  return apiFetch<ExamReportCardsData>(`/api/branch/exams/${examId}/report-cards`, { cache: "no-store" });
+}
+
 export const examKeys = {
   list: () => ["branch-exams", "list"] as const,
   detail: (examId: string) => ["branch-exams", "detail", examId] as const,
@@ -281,4 +297,5 @@ export const examKeys = {
   achievementSummary: () => ["branch-exams", "achievement-summary"] as const,
   curriculum: () => ["curriculum", "achievements"] as const,
   atRiskStudents: (achievementId?: string) => ["branch-exams", "at-risk-students", achievementId ?? "ALL"] as const,
+  reportCards: (examId: string) => ["branch-exams", "report-cards", examId] as const,
 };

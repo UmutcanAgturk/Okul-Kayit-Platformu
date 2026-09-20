@@ -21,12 +21,15 @@ import {
   fetchCurriculumAchievements,
   fetchExamBranchComparison,
   fetchExamQuestionStats,
+  fetchExamReportCards,
   fetchExamResultRoster,
   submitExamResult,
   updateBranchExam,
   type BranchExam,
   type CurriculumAchievement,
+  type ExamReportCard,
 } from "@/lib/api/exams";
+import { downloadElementAsPdf, downloadElementsAsPdf } from "@/lib/pdf";
 import { parseCsv } from "@/lib/csv";
 import { GRADE_LEVEL_LABEL } from "@/lib/api/enrollments";
 import { Icon } from "@/components/ui/icons";
@@ -59,6 +62,7 @@ const TABS = [
   { id: "kazanim", label: "Kazanım Analizi" },
   { id: "uygulama", label: "Sınav Uygulaması" },
   { id: "sonuc", label: "Sonuç Girişi" },
+  { id: "karne", label: "Sınav Karnesi" },
   { id: "kazanimYukle", label: "Kazanım Yükleme" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
@@ -133,6 +137,7 @@ export function OlcmeDegerlendirmeView() {
       {tab === "kazanim" && <KazanimTab />}
       {tab === "uygulama" && canCreate && <UygulamaTab />}
       {tab === "sonuc" && canEnterResults && <SonucTab isTeacher={me.role === "TEACHER"} />}
+      {tab === "karne" && <SinavKarnesiTab />}
       {tab === "kazanimYukle" && canManageCurriculum && <KazanimYuklemeTab />}
     </div>
   );
@@ -1666,6 +1671,210 @@ function SonucTab({ isTeacher }: { isTeacher: boolean }) {
             )}
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+/* ============================ Sınav Karnesi ============================ */
+
+// Tek öğrencinin yazdırmaya hazır sınav karnesi. Sabit genişlik (PDF için) +
+// tema-bağımsız açık renkler (beyaz zemin, koyu metin).
+function ExamReportCardView({
+  card, examName, examDate, branchAvgNet, totalQuestions,
+}: {
+  card: ExamReportCard; examName: string; examDate: string; branchAvgNet: number; totalQuestions: number;
+}) {
+  return (
+    <div style={{ width: 720, background: "#ffffff", color: "#111827", padding: 26, fontFamily: "system-ui, sans-serif", boxSizing: "border-box" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "2px solid #0071CE", paddingBottom: 10, marginBottom: 14 }}>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: "#0071CE" }}>SINAV KARNESİ</div>
+          <div style={{ fontSize: 13, color: "#374151", marginTop: 2 }}>{examName}</div>
+          <div style={{ fontSize: 11, color: "#6b7280" }}>Tarih: {new Date(examDate).toLocaleDateString("tr-TR")} · {totalQuestions} soru</div>
+        </div>
+        <div style={{ textAlign: "right", fontSize: 12, color: "#374151" }}>
+          <div style={{ fontWeight: 700 }}>{card.name}</div>
+          <div>No: {card.studentNo}</div>
+          <div>Sınıf: {card.classroomName ?? "—"}</div>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+        <div style={{ flex: 1, textAlign: "center", border: "1px solid #e5e7eb", borderRadius: 10, padding: "12px 8px", background: "#f0f7ff" }}>
+          <div style={{ fontSize: 11, color: "#6b7280" }}>TOPLAM NET</div>
+          <div style={{ fontSize: 30, fontWeight: 800, color: "#0071CE" }}>{card.netScore}</div>
+        </div>
+        <div style={{ flex: 1, textAlign: "center", border: "1px solid #e5e7eb", borderRadius: 10, padding: "12px 8px" }}>
+          <div style={{ fontSize: 11, color: "#6b7280" }}>ŞUBE SIRASI</div>
+          <div style={{ fontSize: 24, fontWeight: 800 }}>{card.branchRank}<span style={{ fontSize: 14, color: "#9ca3af" }}> / {card.branchSize}</span></div>
+        </div>
+        <div style={{ flex: 1, textAlign: "center", border: "1px solid #e5e7eb", borderRadius: 10, padding: "12px 8px" }}>
+          <div style={{ fontSize: 11, color: "#6b7280" }}>SINIF SIRASI</div>
+          <div style={{ fontSize: 24, fontWeight: 800 }}>{card.classRank}<span style={{ fontSize: 14, color: "#9ca3af" }}> / {card.classSize}</span></div>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", gap: 10, marginBottom: 16, fontSize: 12 }}>
+        <span style={{ flex: 1, textAlign: "center", padding: "6px 0", border: "1px solid #e5e7eb", borderRadius: 8 }}>Doğru: <b style={{ color: "#1a9e5c" }}>{card.correctCount}</b></span>
+        <span style={{ flex: 1, textAlign: "center", padding: "6px 0", border: "1px solid #e5e7eb", borderRadius: 8 }}>Yanlış: <b style={{ color: "#e30613" }}>{card.wrongCount}</b></span>
+        <span style={{ flex: 1, textAlign: "center", padding: "6px 0", border: "1px solid #e5e7eb", borderRadius: 8 }}>Boş: <b>{card.emptyCount}</b></span>
+      </div>
+
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+        <thead>
+          <tr style={{ background: "#0071CE", color: "#fff" }}>
+            <th style={{ textAlign: "left", padding: "7px 10px" }}>Ders</th>
+            <th style={{ padding: "7px 6px" }}>Doğru</th>
+            <th style={{ padding: "7px 6px" }}>Yanlış</th>
+            <th style={{ padding: "7px 6px" }}>Boş</th>
+            <th style={{ padding: "7px 6px" }}>Net</th>
+          </tr>
+        </thead>
+        <tbody>
+          {card.subjects.map((s) => (
+            <tr key={s.subject} style={{ borderBottom: "1px solid #e5e7eb" }}>
+              <td style={{ padding: "6px 10px", fontWeight: 600 }}>{s.subject}</td>
+              <td style={{ padding: "6px 6px", textAlign: "center" }}>{s.correct}</td>
+              <td style={{ padding: "6px 6px", textAlign: "center" }}>{s.wrong}</td>
+              <td style={{ padding: "6px 6px", textAlign: "center" }}>{s.empty}</td>
+              <td style={{ padding: "6px 6px", textAlign: "center", fontWeight: 700 }}>{s.net}</td>
+            </tr>
+          ))}
+          <tr style={{ background: "#f3f4f6", fontWeight: 800 }}>
+            <td style={{ padding: "7px 10px" }}>TOPLAM</td>
+            <td style={{ padding: "7px 6px", textAlign: "center" }}>{card.correctCount}</td>
+            <td style={{ padding: "7px 6px", textAlign: "center" }}>{card.wrongCount}</td>
+            <td style={{ padding: "7px 6px", textAlign: "center" }}>{card.emptyCount}</td>
+            <td style={{ padding: "7px 6px", textAlign: "center" }}>{card.netScore}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 14, fontSize: 11, color: "#6b7280" }}>
+        <span>Sınıf Ort. Net: <b style={{ color: "#111827" }}>{card.classAvgNet}</b></span>
+        <span>Şube Ort. Net: <b style={{ color: "#111827" }}>{branchAvgNet}</b></span>
+        <span>Seviye 360</span>
+      </div>
+    </div>
+  );
+}
+
+function SinavKarnesiTab() {
+  const examsQuery = useQuery({ queryKey: examKeys.list(), queryFn: fetchBranchExams });
+  const [examId, setExamId] = useState("");
+  const [classFilter, setClassFilter] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+  const cardRefs = useMemo(() => ({ map: {} as Record<string, HTMLDivElement | null> }), []);
+
+  const cardsQuery = useQuery({ queryKey: examKeys.reportCards(examId), queryFn: () => fetchExamReportCards(examId), enabled: !!examId });
+  const data = cardsQuery.data;
+  const exams = examsQuery.data?.exams ?? [];
+
+  const classes = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of data?.cards ?? []) if (c.classroomId) m.set(c.classroomId, c.classroomName ?? c.classroomId);
+    return Array.from(m.entries());
+  }, [data]);
+  const filtered = (data?.cards ?? []).filter((c) => !classFilter || c.classroomId === classFilter);
+
+  async function downloadOne(card: ExamReportCard) {
+    const el = cardRefs.map[card.studentId];
+    if (!el || !data) return;
+    setBusy(card.studentId);
+    try { await downloadElementAsPdf(el, `${card.name} — ${data.exam.name} Karne`); }
+    finally { setBusy(null); }
+  }
+  async function downloadBulk() {
+    if (!data || filtered.length === 0) return;
+    setBusy("__bulk__");
+    try {
+      const els = filtered.map((c) => cardRefs.map[c.studentId]).filter((e): e is HTMLDivElement => !!e);
+      await downloadElementsAsPdf(els, `${data.exam.name} — Toplu Karne${classFilter ? " (" + (classes.find((c) => c[0] === classFilter)?.[1] ?? "") + ")" : ""}`);
+    } finally { setBusy(null); }
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div className="card card-pad">
+        <div className="grid cols-2">
+          <div className="field">
+            <label>Sınav</label>
+            <select value={examId} onChange={(e) => { setExamId(e.target.value); setClassFilter(""); }}>
+              <option value="">— Seçin —</option>
+              {exams.map((e) => <option key={e.id} value={e.id}>{e.name} ({e.resultCount} sonuç)</option>)}
+            </select>
+          </div>
+          {classes.length > 0 && (
+            <div className="field">
+              <label>Sınıf (filtre)</label>
+              <select value={classFilter} onChange={(e) => setClassFilter(e.target.value)}>
+                <option value="">Tüm Sınıflar</option>
+                {classes.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+              </select>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {!examId ? (
+        <div className="empty-state"><Icon name="ledger" /><p>Karne ve sıralama için bir sınav seçin.</p></div>
+      ) : cardsQuery.isLoading ? (
+        <p style={{ color: "var(--ink-muted)", fontSize: "var(--text-sm)" }}>Yükleniyor…</p>
+      ) : filtered.length === 0 ? (
+        <div className="empty-state"><Icon name="ledger" /><p>Bu sınav için henüz sonuç girilmemiş.</p></div>
+      ) : (
+        <>
+          <div className="card card-pad">
+            <div className="card-head">
+              <h3>Sıralama — {data!.exam.name}</h3>
+              <button type="button" className="btn primary sm" disabled={busy !== null} onClick={downloadBulk}>
+                {busy === "__bulk__" ? "PDF hazırlanıyor…" : `Toplu Karne PDF (${filtered.length})`}
+              </button>
+            </div>
+            <div style={{ overflowX: "auto" }}>
+              <table className="table" style={{ minWidth: 640 }}>
+                <thead>
+                  <tr>
+                    <th style={{ width: 60 }}>Şube Sıra</th>
+                    <th>Öğrenci</th>
+                    <th>Sınıf</th>
+                    <th style={{ textAlign: "center" }}>Sınıf Sıra</th>
+                    <th style={{ textAlign: "center" }}>D</th>
+                    <th style={{ textAlign: "center" }}>Y</th>
+                    <th style={{ textAlign: "center" }}>B</th>
+                    <th style={{ textAlign: "center" }}>Net</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((c) => (
+                    <tr key={c.studentId}>
+                      <td style={{ fontWeight: 700 }}>{c.branchRank}</td>
+                      <td><b>{c.name}</b> <span style={{ color: "var(--ink-faint)", fontSize: "var(--text-xs)" }}>{c.studentNo}</span></td>
+                      <td>{c.classroomName ?? "—"}</td>
+                      <td style={{ textAlign: "center" }}>{c.classRank}/{c.classSize}</td>
+                      <td style={{ textAlign: "center", color: "var(--strong)" }}>{c.correctCount}</td>
+                      <td style={{ textAlign: "center", color: "var(--critical)" }}>{c.wrongCount}</td>
+                      <td style={{ textAlign: "center" }}>{c.emptyCount}</td>
+                      <td style={{ textAlign: "center", fontWeight: 800 }}>{c.netScore}</td>
+                      <td><button type="button" className="btn xs" disabled={busy !== null} onClick={() => downloadOne(c)}>{busy === c.studentId ? "…" : "Karne PDF"}</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Ekran dışı yazdırma alanı — PDF kaynağı */}
+          <div style={{ position: "fixed", left: -100000, top: 0, width: 720 }} aria-hidden>
+            {(data?.cards ?? []).map((c) => (
+              <div key={c.studentId} ref={(el) => { cardRefs.map[c.studentId] = el; }}>
+                <ExamReportCardView card={c} examName={data!.exam.name} examDate={data!.exam.examDate} branchAvgNet={data!.branchAvgNet} totalQuestions={data!.exam.totalQuestions} />
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

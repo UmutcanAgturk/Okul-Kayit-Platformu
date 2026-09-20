@@ -84,3 +84,47 @@ export async function downloadElementAsPdf(source: HTMLElement, fileNameBase: st
     document.body.removeChild(wrapper);
   }
 }
+
+/**
+ * Birden çok DOM düğümünü tek bir PDF'e — her düğüm KENDİ A4 sayfasına — basar.
+ * Toplu sınav karnesi için: her öğrenci bir sayfa. İçerik sayfaya sığacak
+ * şekilde ölçeklenir (genişliğe göre; taşarsa yüksekliğe göre), üstten hizalı.
+ */
+export async function downloadElementsAsPdf(elements: HTMLElement[], fileNameBase: string): Promise<void> {
+  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const contentWmm = A4_WIDTH_MM - MARGIN_MM * 2;
+  const contentHmm = A4_HEIGHT_MM - MARGIN_MM * 2;
+  let first = true;
+
+  for (const source of elements) {
+    const wrapper = document.createElement("div");
+    wrapper.style.position = "fixed";
+    wrapper.style.left = "-100000px";
+    wrapper.style.top = "0";
+    wrapper.style.width = `${source.offsetWidth || 720}px`;
+    wrapper.style.background = "#ffffff";
+    wrapper.style.zIndex = "-1";
+    const clone = source.cloneNode(true) as HTMLElement;
+    clone.style.maxHeight = "none";
+    clone.style.height = "auto";
+    clone.style.overflow = "visible";
+    wrapper.appendChild(clone);
+    document.body.appendChild(wrapper);
+    try {
+      const canvas = await html2canvas(wrapper, { scale: 2, backgroundColor: "#ffffff", useCORS: true, logging: false });
+      // Genişliğe göre ölçekle; yükseklik sayfayı aşarsa yüksekliğe göre.
+      let wmm = contentWmm;
+      let hmm = (canvas.height * contentWmm) / canvas.width;
+      if (hmm > contentHmm) {
+        hmm = contentHmm;
+        wmm = (canvas.width * contentHmm) / canvas.height;
+      }
+      if (!first) pdf.addPage();
+      first = false;
+      pdf.addImage(canvas.toDataURL("image/jpeg", 0.95), "JPEG", MARGIN_MM, MARGIN_MM, wmm, hmm);
+    } finally {
+      document.body.removeChild(wrapper);
+    }
+  }
+  pdf.save(pdfFileName(fileNameBase));
+}
