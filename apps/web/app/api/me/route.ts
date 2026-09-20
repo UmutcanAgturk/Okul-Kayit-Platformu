@@ -23,6 +23,14 @@ export async function GET(request: NextRequest) {
     actingTenantName = actingTenant?.name ?? null;
   }
 
+  // Kurum modül profili — SUPERADMIN dışındaki roller için kendi kurumlarının
+  // profili (nav modül süzmesi için). SUPERADMIN tümünü gördüğünden null.
+  let moduleProfile: string | null = null;
+  if (actor.role !== UserRole.SUPERADMIN && actor.tenantId) {
+    const tenant = await withTenantContext(actor, (tx) => tx.tenant.findUnique({ where: { id: actor.tenantId! }, select: { moduleProfile: true } }));
+    moduleProfile = tenant?.moduleProfile ?? null;
+  }
+
   const base = {
     id: actor.id,
     email: actor.email,
@@ -32,6 +40,7 @@ export async function GET(request: NextRequest) {
     tenantId: actor.tenantId,
     actingTenantId: actor.actingTenantId,
     actingTenantName,
+    moduleProfile,
     twoFactorEnabled: actor.totpEnabled,
   };
 

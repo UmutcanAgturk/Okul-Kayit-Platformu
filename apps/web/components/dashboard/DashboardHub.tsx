@@ -47,7 +47,7 @@ export function DashboardHub() {
     }
   }, [isError, error, router]);
 
-  const modules = useMemo(() => (me ? modulesForActor(me.role, me.actingTenantId) : []), [me]);
+  const modules = useMemo(() => (me ? modulesForActor(me.role, me.actingTenantId, me.moduleProfile) : []), [me]);
 
   const q = query.trim().toLocaleLowerCase("tr-TR");
   const filtered = useMemo(

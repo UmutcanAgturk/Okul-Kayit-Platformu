@@ -27,11 +27,13 @@ interface ResultItem extends ModuleCard {
 export function CommandPalette({
   role,
   actingTenantId,
+  moduleProfile,
   open,
   onOpenChange,
 }: {
   role: UserRole;
   actingTenantId?: string | null;
+  moduleProfile?: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -42,7 +44,7 @@ export function CommandPalette({
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const modules = modulesForActor(role, actingTenantId);
+  const modules = modulesForActor(role, actingTenantId, moduleProfile);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQuery(query.trim()), 180);

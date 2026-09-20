@@ -82,6 +82,10 @@ model Tenant {
   // KURUM_TURU_OPTIONS) ve "Açılış Tarihi" — sadece bilgi amaçlı, herhangi bir
   // iş kuralını etkilemez, bu yüzden serbest metin/tarih olarak tutulur.
   kurumTuru   String?
+  // Modul profili: OKUL | OZEL_OGRETIM_KURSU | SEGEM. Sube muduru yalnizca
+  // turune uygun modulleri gorur (bkz. lib/nav-config modulesForActor).
+  // Bos = OKUL (tum moduller). Genel Merkez her zaman tum modulleri gorur.
+  moduleProfile String?
   openingDate DateTime?
 
   parentId String?

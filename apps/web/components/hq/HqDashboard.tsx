@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { authKeys, fetchMe } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
+import { MODULE_PROFILES } from "@/lib/nav-config";
 import {
   BOOKLET_DISPATCH_STATUSES,
   BOOKLET_DISPATCH_STATUS_LABEL,
@@ -62,6 +63,7 @@ function TenantEditForm({ tenant, onDone }: { tenant: HqTenant; onDone: () => vo
   const queryClient = useQueryClient();
   const [name, setName] = useState(tenant.name);
   const [kurumTuru, setKurumTuru] = useState(tenant.kurumTuru ?? "");
+  const [moduleProfile, setModuleProfile] = useState(tenant.moduleProfile ?? "");
   const [city, setCity] = useState(tenant.city ?? "");
   const [district, setDistrict] = useState(tenant.district ?? "");
   const [address, setAddress] = useState(tenant.address ?? "");
@@ -80,6 +82,7 @@ function TenantEditForm({ tenant, onDone }: { tenant: HqTenant; onDone: () => vo
       updateTenant(tenant.id, {
         name: name.trim(),
         kurumTuru: kurumTuru || null,
+        moduleProfile: moduleProfile || null,
         city: city.trim(),
         district: district.trim(),
         address: address.trim() || null,
@@ -117,6 +120,15 @@ function TenantEditForm({ tenant, onDone }: { tenant: HqTenant; onDone: () => vo
               <option key={k} value={k}>
                 {k}
               </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label>Modül Profili (müdürün göreceği modüller)</label>
+          <select value={moduleProfile} onChange={(e) => setModuleProfile(e.target.value)}>
+            <option value="">Okul (tüm modüller)</option>
+            {MODULE_PROFILES.map((p) => (
+              <option key={p.value} value={p.value}>{p.label}</option>
             ))}
           </select>
         </div>
@@ -380,6 +392,7 @@ function CreateTenantForm() {
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [kurumTuru, setKurumTuru] = useState("");
+  const [moduleProfile, setModuleProfile] = useState("");
   const [city, setCity] = useState("");
   const [district, setDistrict] = useState("");
   const [address, setAddress] = useState("");
@@ -400,6 +413,7 @@ function CreateTenantForm() {
       queryClient.invalidateQueries({ queryKey: hqKeys.tenants() });
       setName("");
       setKurumTuru("");
+      setModuleProfile("");
       setCity("");
       setDistrict("");
       setAddress("");
@@ -435,6 +449,7 @@ function CreateTenantForm() {
       capacity: capacity ? Number(capacity) : undefined,
       taxNo: taxNo.trim() || undefined,
       kurumTuru: kurumTuru || undefined,
+      moduleProfile: moduleProfile || undefined,
       openingDate: openingDate || undefined,
       managerPhone: managerPhone.trim() || undefined,
     });
@@ -466,6 +481,15 @@ function CreateTenantForm() {
             <label>Açılış Tarihi (opsiyonel)</label>
             <input value={openingDate} onChange={(e) => setOpeningDate(e.target.value)} type="date" />
           </div>
+        </div>
+        <div className="field">
+          <label>Modül Profili (müdürün göreceği modüller)</label>
+          <select value={moduleProfile} onChange={(e) => setModuleProfile(e.target.value)}>
+            <option value="">Okul (tüm modüller)</option>
+            {MODULE_PROFILES.map((p) => (
+              <option key={p.value} value={p.value}>{p.label}</option>
+            ))}
+          </select>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <div className="field">

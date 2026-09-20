@@ -21,6 +21,9 @@ export interface MeResponse {
   actingTenantId?: string | null;
   actingTenantName?: string | null;
   twoFactorEnabled?: boolean;
+  // Kurum modül profili (OKUL | OZEL_OGRETIM_KURSU | SEGEM). Şube müdürü yalnızca
+  // türüne uygun modülleri görür; SUPERADMIN tümünü görür (bkz. modulesForActor).
+  moduleProfile?: string | null;
 }
 
 // identifier: personel için e-posta/kullanıcı adı, Öğrenci/Veli için T.C.

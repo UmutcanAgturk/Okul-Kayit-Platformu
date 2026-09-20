@@ -72,6 +72,7 @@ export async function GET(request: NextRequest) {
       capacity: t.capacity,
       taxNo: t.taxNo,
       kurumTuru: t.kurumTuru,
+      moduleProfile: t.moduleProfile,
       openingDate: t.openingDate,
       isActive: t.isActive,
       studentCount: studentCounts.get(t.id) ?? 0,
@@ -112,6 +113,7 @@ export async function POST(request: NextRequest) {
   const capacity = typeof body.capacity === "number" && body.capacity > 0 ? Math.round(body.capacity) : null;
   const taxNo = typeof body.taxNo === "string" && body.taxNo.trim() ? body.taxNo.trim() : null;
   const kurumTuru = typeof body.kurumTuru === "string" && body.kurumTuru.trim() ? body.kurumTuru.trim() : null;
+  const moduleProfile = typeof body.moduleProfile === "string" && body.moduleProfile.trim() ? body.moduleProfile.trim() : null;
   const openingDate = typeof body.openingDate === "string" && body.openingDate.trim() ? new Date(body.openingDate) : null;
   const managerPhone = typeof body.managerPhone === "string" && body.managerPhone.trim() ? body.managerPhone.trim() : null;
 
@@ -130,7 +132,7 @@ export async function POST(request: NextRequest) {
     }
 
     const tenant = await tx.tenant.create({
-      data: { name, code, type: TenantType.SUBE, city, district, address, phone, email, capacity, taxNo, kurumTuru, openingDate },
+      data: { name, code, type: TenantType.SUBE, city, district, address, phone, email, capacity, taxNo, kurumTuru, moduleProfile, openingDate },
     });
 
     const managerFullName = `${managerFirstName} ${managerLastName}`;

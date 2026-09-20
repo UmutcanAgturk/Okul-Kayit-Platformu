@@ -36,6 +36,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { tenant
   const email = strOrNull(body.email);
   const taxNo = strOrNull(body.taxNo);
   const kurumTuru = strOrNull(body.kurumTuru);
+  const moduleProfile = strOrNull(body.moduleProfile);
   const capacity = typeof body.capacity === "number" && body.capacity > 0 ? Math.round(body.capacity) : body.capacity === null ? null : undefined;
   const openingDate = body.openingDate === null ? null : typeof body.openingDate === "string" && body.openingDate.trim() ? new Date(body.openingDate) : undefined;
   const managerFirstName = str(body.managerFirstName);
@@ -48,7 +49,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { tenant
 
     const updated = await tx.tenant.update({
       where: { id: tenant.id },
-      data: { name, city, district, address, phone, email, taxNo, kurumTuru, capacity, openingDate },
+      data: { name, city, district, address, phone, email, taxNo, kurumTuru, moduleProfile, capacity, openingDate },
     });
 
     let branchAdmin: { firstName: string; lastName: string; phone: string | null } | null = null;

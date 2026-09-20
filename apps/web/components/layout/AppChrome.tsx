@@ -52,7 +52,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
 
-  const modules = modulesForActor(me.role, me.actingTenantId);
+  const modules = modulesForActor(me.role, me.actingTenantId, me.moduleProfile);
   const groups = groupModules(modules);
   const currentModule = modules.find((m) => pathname.startsWith(m.href));
   const isActingAsBranch = me.role === "SUPERADMIN" && !!me.actingTenantId;
@@ -66,7 +66,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   return (
     <div className="app">
       <MessageToastWatcher />
-      <CommandPalette role={me.role} actingTenantId={me.actingTenantId} open={cmdOpen} onOpenChange={setCmdOpen} />
+      <CommandPalette role={me.role} actingTenantId={me.actingTenantId} moduleProfile={me.moduleProfile} open={cmdOpen} onOpenChange={setCmdOpen} />
       <GuidedTour modules={modules} />
       <a href="#content" className="skip-link">İçeriğe atla</a>
       <div className={`sidebar-scrim ${sidebarOpen ? "open" : ""}`} onClick={() => setSidebarOpen(false)} />

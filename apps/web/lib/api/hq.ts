@@ -13,6 +13,7 @@ export interface HqTenant {
   capacity: number | null;
   taxNo: string | null;
   kurumTuru: string | null;
+  moduleProfile: string | null;
   openingDate: string | null;
   isActive: boolean;
   studentCount: number;
@@ -43,6 +44,7 @@ export function createTenant(input: {
   capacity?: number;
   taxNo?: string;
   kurumTuru?: string;
+  moduleProfile?: string;
   openingDate?: string;
   managerPhone?: string;
 }) {
@@ -64,6 +66,7 @@ export function updateTenant(
     capacity: number | null;
     taxNo: string | null;
     kurumTuru: string | null;
+    moduleProfile: string | null;
     openingDate: string | null;
     managerFirstName: string;
     managerLastName: string;

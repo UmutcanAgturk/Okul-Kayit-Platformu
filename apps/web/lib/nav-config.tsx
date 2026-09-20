@@ -131,7 +131,37 @@ const SUPERADMIN_SELF_SERVICE_CARDS: ModuleCard[] = [
   SINAV_SONUCLARIM_CARD,
 ];
 
-export function modulesForActor(role: UserRole, _actingTenantId?: string | null): ModuleCard[] {
+// Kurum modül profilleri — Kurum Yönetimi formunda seçilir (Tenant.moduleProfile).
+export const MODULE_PROFILES: { value: string; label: string }[] = [
+  { value: "OKUL", label: "Okul (tüm modüller)" },
+  { value: "OZEL_OGRETIM_KURSU", label: "Özel Öğretim Kursu" },
+  { value: "SEGEM", label: "SEGEM Kursu" },
+];
+
+// Profile göre GİZLENECEK modül href'leri. OKUL/boş = tümü açık. Genel Merkez
+// (SUPERADMIN) her zaman tüm modülleri görür — bu filtre ona uygulanmaz.
+const KURS_HIDDEN_HREFS = new Set<string>([
+  "/yemekhane", "/saglik", "/mezunlar", "/ziyaretci", "/donem-gecisleri",
+  "/rehberlik-olay", "/disiplin", "/etkinlikler",
+]);
+const SEGEM_HIDDEN_HREFS = new Set<string>([
+  ...KURS_HIDDEN_HREFS,
+  "/kulupler", "/mentor", "/etut", "/etut-onayi", "/etut-randevularim",
+  "/basari", "/anketler", "/veli-gorusme", "/servis",
+]);
+const PROFILE_HIDDEN: Record<string, Set<string>> = {
+  OZEL_OGRETIM_KURSU: KURS_HIDDEN_HREFS,
+  SEGEM: SEGEM_HIDDEN_HREFS,
+};
+
+/** Kurum profiline göre modülleri süz (SUPERADMIN hariç). */
+function applyProfile(modules: ModuleCard[], moduleProfile?: string | null): ModuleCard[] {
+  const hidden = moduleProfile ? PROFILE_HIDDEN[moduleProfile] : undefined;
+  if (!hidden) return modules;
+  return modules.filter((m) => !hidden.has(m.href));
+}
+
+export function modulesForActor(role: UserRole, _actingTenantId?: string | null, moduleProfile?: string | null): ModuleCard[] {
   if (role === "SUPERADMIN") {
     const seen = new Set<string>();
     const all = [
@@ -151,7 +181,7 @@ export function modulesForActor(role: UserRole, _actingTenantId?: string | null)
       return true;
     });
   }
-  return MODULES_BY_ROLE[role] ?? [];
+  return applyProfile(MODULES_BY_ROLE[role] ?? [], moduleProfile);
 }
 
 // Grup görüntüleme sırası — demo'daki sidebar grup sıralamasıyla aynı mantık.
