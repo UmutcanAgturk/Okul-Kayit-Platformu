@@ -390,3 +390,113 @@ table.data tr:hover td { background: var(--surface-2); }
 }
 .landing-footer p { margin: 0; font-size: var(--text-sm); color: var(--ink-faint); }
 @media (max-width: 640px) { .landing-nav { padding: 14px 18px; } }
+
+/* ============================================================
+ * LIQUID GLASS KATMANI — genel UX için buzlu-cam (translucent)
+ * yüzeyler, arka plan mesh'i ve yumuşak derinlik. Token tabanlı;
+ * light + dark korunur. Bileşen yapısı değişmez, yalnızca sunum.
+ * ============================================================ */
+:root {
+  --glass-bg: rgba(255,255,255,0.58);
+  --glass-bg-strong: rgba(255,255,255,0.78);
+  --glass-border: rgba(255,255,255,0.70);
+  --glass-highlight: rgba(255,255,255,0.90);
+  --glass-blur: 16px;
+  --glass-shadow: 0 1px 2px rgba(16,21,31,.04), 0 10px 26px -14px rgba(16,21,31,.18), 0 34px 60px -34px rgba(16,21,31,.22);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --glass-bg: rgba(21,26,34,0.55);
+    --glass-bg-strong: rgba(21,26,34,0.74);
+    --glass-border: rgba(255,255,255,0.10);
+    --glass-highlight: rgba(255,255,255,0.14);
+    --glass-shadow: 0 1px 2px rgba(0,0,0,.20), 0 12px 30px -14px rgba(0,0,0,.55), 0 40px 70px -34px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"] {
+  --glass-bg: rgba(21,26,34,0.55);
+  --glass-bg-strong: rgba(21,26,34,0.74);
+  --glass-border: rgba(255,255,255,0.10);
+  --glass-highlight: rgba(255,255,255,0.14);
+  --glass-shadow: 0 1px 2px rgba(0,0,0,.20), 0 12px 30px -14px rgba(0,0,0,.55), 0 40px 70px -34px rgba(0,0,0,.6);
+}
+
+/* Arka plan mesh — cam yüzeylerin bulanıklaştıracağı renkli, yumuşak katman */
+body { position: relative; }
+body::before {
+  content: ""; position: fixed; inset: -25%; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(38% 38% at 14% 8%,  color-mix(in srgb, var(--brand) 26%, transparent), transparent 70%),
+    radial-gradient(42% 42% at 88% 12%, color-mix(in srgb, var(--strong) 18%, transparent), transparent 70%),
+    radial-gradient(48% 48% at 78% 92%, color-mix(in srgb, var(--brand) 20%, transparent), transparent 70%),
+    radial-gradient(40% 40% at 8% 88%,  color-mix(in srgb, var(--accent) 12%, transparent), transparent 70%);
+  filter: blur(34px) saturate(118%);
+}
+
+@supports (backdrop-filter: blur(1px)) {
+  /* Kartlar */
+  .card, .hub-card, .landing-feature-card {
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+    backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+    border: 1px solid var(--glass-border);
+    box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-shadow);
+  }
+  .card:hover, .hub-card:hover, .landing-feature-card:hover {
+    box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-shadow);
+    border-color: color-mix(in srgb, var(--brand) 45%, var(--glass-border));
+  }
+
+  /* Sidebar + topbar */
+  .sidebar {
+    background: color-mix(in srgb, var(--surface) 55%, transparent);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    backdrop-filter: blur(18px) saturate(160%);
+    border-right: 1px solid var(--glass-border);
+  }
+  .topbar {
+    background: color-mix(in srgb, var(--surface) 60%, transparent);
+    -webkit-backdrop-filter: saturate(180%) blur(16px);
+    backdrop-filter: saturate(180%) blur(16px);
+    border-bottom: 1px solid var(--glass-border);
+    box-shadow: inset 0 1px 0 var(--glass-highlight);
+  }
+
+  /* Sekmeler + chip + input — daha okunur, hafif cam */
+  .screen-tab {
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: blur(10px) saturate(150%);
+    backdrop-filter: blur(10px) saturate(150%);
+    border: 1px solid var(--glass-border);
+  }
+  .chip.neutral {
+    background: color-mix(in srgb, var(--surface-sunken) 60%, transparent);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+  .field input, .field select, .field textarea {
+    background: var(--glass-bg-strong);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--glass-border);
+  }
+
+  /* Non-primary butonlar — cam yüzey + üst parlaklık */
+  .btn {
+    background-color: var(--glass-bg);
+    -webkit-backdrop-filter: blur(10px) saturate(150%);
+    backdrop-filter: blur(10px) saturate(150%);
+    border: 1px solid var(--glass-border);
+    box-shadow: inset 0 1px 0 var(--glass-highlight);
+  }
+  .btn.primary, .btn.danger.solid, .btn.success.solid {
+    -webkit-backdrop-filter: none; backdrop-filter: none;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.28), 0 2px 4px rgba(16,21,31,.08), 0 10px 22px -10px color-mix(in srgb, var(--brand) 70%, transparent);
+  }
+
+  /* Sidebar/komut paleti scrim + genel modal örtüleri daha buzlu */
+  .sidebar-scrim { background: rgba(10,14,20,.35); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+}
+
+/* Cam üstünde iç parlaklık için köşeleri biraz yumuşat */
+.card { border-radius: var(--radius); }
