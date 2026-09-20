@@ -500,3 +500,11 @@ body::before {
 
 /* Cam üstünde iç parlaklık için köşeleri biraz yumuşat */
 .card { border-radius: var(--radius); }
+
+/* Liquid Glass — ince ayarlar (okunabilirlik/tutarlılık) */
+@supports (backdrop-filter: blur(1px)) {
+  /* İç içe kartlar: içteki kart biraz daha opak → net katman ayrımı */
+  .card .card { background: var(--glass-bg-strong); }
+  /* Renkli chip'ler de cam diliyle uyumlu görünsün (üst parlaklık) */
+  .chip.strong, .chip.weak, .chip.critical { box-shadow: inset 0 1px 0 var(--glass-highlight); }
+}
