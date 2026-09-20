@@ -73,7 +73,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
       <nav className={`sidebar ${sidebarOpen ? "open" : ""}`} aria-label="Ana gezinme">
         <div className="brand-block" data-tour="brand">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <span style={{ display: "inline-flex", background: "#ffffff", borderRadius: 10, padding: "6px 9px", boxShadow: "0 1px 3px rgba(16,21,31,.10)" }}>
+          <span style={{ display: "inline-flex", background: "#ffffff", borderRadius: 18, padding: "6px 9px", boxShadow: "0 1px 3px rgba(16,21,31,.10)" }}>
             <img src="/seviye360-logo.png" alt="Seviye 360" style={{ height: 34, width: "auto", display: "block" }} />
           </span>
           <div className="tag">{ROLE_LABEL[me.role] ?? me.role}</div>
